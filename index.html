@@ -752,6 +752,15 @@ input{font-family:inherit;outline:none}
     </div>
   </div>
 </div>
+<script>
+  // 이전 로그인 흔적 있으면 게이트 즉시 숨김 (FOUC 방지)
+  // Firebase 초기화 완료 후 진짜 로그인 안 됐으면 다시 표시됨
+  try {
+    if(localStorage.getItem('frontier_logged_in') === '1'){
+      document.getElementById('loginGate').classList.add('hide');
+    }
+  } catch(_){}
+</script>
 <div class="wrap">
   <div class="head">
     <div class="brand">
@@ -1795,6 +1804,7 @@ window.startTutorial = function(){
     if(!_fbAuth) return;
     if(!confirm('로그아웃하시겠습니까?\n다시 로그인 화면으로 돌아갑니다.')) return;
     try {
+      try { localStorage.removeItem('frontier_logged_in'); } catch(_){}
       await _fbAuth.signOut();
       // onAuthStateChanged → 게이트 표시
       location.reload();
@@ -2758,6 +2768,8 @@ window.startTutorial = function(){
     if(gate) gate.classList.add('hide');
   }
   function showLoginGate(){
+    // localStorage 플래그 제거 — 다음 새로고침 시 깜빡임 안 보이는 게 잘못된 상태이므로
+    try { localStorage.removeItem('frontier_logged_in'); } catch(_){}
     const gate = document.getElementById('loginGate');
     if(gate) gate.classList.remove('hide');
     showLoginStep('loginStep');
@@ -2865,6 +2877,8 @@ window.startTutorial = function(){
     window.MY_NICK = MY_NICK;
     window.MY_TAG = MY_TAG;
     window.MY_ELO = MY_ELO;
+    // 다음 새로고침 때 게이트 깜빡임 방지
+    try { localStorage.setItem('frontier_logged_in', '1'); } catch(_){}
     renderProfile();
     renderFriends();
     renderBlocked();
