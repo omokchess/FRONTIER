@@ -564,6 +564,23 @@ input{font-family:inherit;outline:none}
   filter:drop-shadow(0 0 4px currentColor)
 }
 
+/* 🧪 물약 모드 ELO 카드 */
+.potion-elo-card{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 14px;
+  background:linear-gradient(135deg,rgba(191,90,242,.12),rgba(191,90,242,.04));
+  border:1px solid rgba(191,90,242,.35);
+  border-radius:10px;
+  margin:0 0 12px;
+}
+.pe-icon{flex:0 0 auto;filter:drop-shadow(0 2px 6px rgba(191,90,242,.4))}
+.pe-info{flex:1;min-width:0}
+.pe-label{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:4px}
+.pe-stats{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pe-elo{font-size:18px;font-weight:800;color:#d68fff}
+.pe-tier{font-size:10px;font-weight:700;color:#000;padding:2px 8px;border-radius:8px}
+.pe-record{font-size:11px;color:var(--muted)}
+
 /* 칭호 카드 */
 .title-item{
   display:flex;align-items:center;gap:12px;
@@ -884,6 +901,8 @@ input{font-family:inherit;outline:none}
              style="display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 14px;background:linear-gradient(135deg,rgba(255,149,0,.15),rgba(255,69,58,.1));border:1px solid rgba(255,149,0,.3);border-radius:8px;margin:0 0 12px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s">
           🔥 <span id="streakCount">0</span>일 연속 접속
         </div>
+        <!-- 🧪 물약 모드 ELO 카드 -->
+        <div class="potion-elo-card" id="potionEloCard"></div>
         <!-- 계정 섹션 (익명 / Google) -->
         <div class="account-section" id="accountSection">
           <!-- 동적으로 채워짐 -->
@@ -1086,8 +1105,9 @@ input{font-family:inherit;outline:none}
           <span>온라인 친구한테 비공개 방 초대</span>
         </div>
       </div>
-      <div class="actions" style="justify-content:center">
+      <div class="actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
         <button class="btn btn-ghost" onclick="closePotionStartModal()">취소</button>
+        <button class="btn btn-tutorial" onclick="location.href='tutorial.html?mode=potion'" style="background:linear-gradient(135deg,rgba(191,90,242,.2),rgba(191,90,242,.08));border:1px solid rgba(191,90,242,.5);color:#d68fff">📖 튜토리얼</button>
       </div>
     </div>
   </div>
@@ -1193,8 +1213,9 @@ input{font-family:inherit;outline:none}
         </div>
       </label>
       <div class="local-summary" id="aiSummary"></div>
-      <div class="actions">
+      <div class="actions" style="flex-wrap:wrap;gap:8px">
         <button class="btn btn-ghost" onclick="closeAi()">취소</button>
+        <button class="btn btn-tutorial" onclick="location.href='tutorial.html'" style="background:linear-gradient(135deg,rgba(10,132,255,.2),rgba(10,132,255,.08));border:1px solid rgba(10,132,255,.5);color:#5ac8fa">📖 튜토리얼</button>
         <button class="btn btn-gold" onclick="startAiGame()">AI 대전 시작</button>
       </div>
     </div>
@@ -1562,7 +1583,7 @@ window.startPotionMode = function(mode){
   } else if(mode === 'online'){
     // 온라인 방 만들기 페이지로 + potion 자동 활성 플래그
     if(!MY_UID){ alert('로그인이 완료되지 않았습니다. 잠시 후 다시 시도하세요.'); return; }
-    const params = new URLSearchParams({uid:MY_UID, nick:MY_NICK, tag:MY_TAG||'', elo:MY_ELO, potion:'1'});
+    const params = new URLSearchParams({uid:MY_UID, nick:MY_NICK, tag:MY_TAG||'', elo: getEloForMode(true), potion:'1'});
     if(typeof appendTitleParams === 'function') appendTitleParams(params);
     location.href = 'create-room.html?' + params.toString();
   }
@@ -2706,6 +2727,12 @@ window.startTutorial = function(){
   }
   window.appendTitleParams = appendTitleParams;
   
+  // 모드별 ELO — params에 적절한 ELO 설정
+  function getEloForMode(isPotion){
+    return isPotion ? (window.MY_POTION_ELO || 1200) : (window.MY_ELO || 1200);
+  }
+  window.getEloForMode = getEloForMode;
+  
   function generateTag(){
     let tag = '';
     for(let i = 0; i < 6; i++){
@@ -2968,7 +2995,11 @@ window.startTutorial = function(){
       } else {
         MY_NICK = u.nick || '익명';
         MY_ELO = u.elo || 1200;
+        window.MY_POTION_ELO = u.potionElo || 1200;
         MY_W = u.w || 0; MY_L = u.l || 0; MY_D = u.d || 0;
+        window.MY_POTION_W = u.potionW || 0;
+        window.MY_POTION_L = u.potionL || 0;
+        window.MY_POTION_D = u.potionD || 0;
         if(!u.tag){
           MY_TAG = await assignUniqueTag(MY_UID);
           try {
@@ -3022,6 +3053,33 @@ window.startTutorial = function(){
     if(bigRc) bigRc.textContent = `${MY_W}승 ${MY_L}패${MY_D?` ${MY_D}무`:''}`;
     if(bigTr){ bigTr.textContent = t.name; bigTr.style.background = t.color; }
     if(bigTg) bigTg.textContent = '#' + MY_TAG;
+    
+    // 물약 모드 ELO 표시 (별도 카드)
+    let potionEloCard = document.getElementById('potionEloCard');
+    const potionElo = window.MY_POTION_ELO || 1200;
+    const pW = window.MY_POTION_W || 0;
+    const pL = window.MY_POTION_L || 0;
+    const pD = window.MY_POTION_D || 0;
+    if(potionEloCard){
+      const potionT = tierOf(potionElo);
+      potionEloCard.innerHTML = `
+        <div class="pe-icon">
+          <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+            <path d="M11 4 L11 12 L6 24 Q5 28 9 28 L23 28 Q27 28 26 24 L21 12 L21 4 Z" fill="rgba(191,90,242,.3)" stroke="#bf5af2" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M8.5 18 L23.5 18 L26 24 Q27 28 23 28 L9 28 Q5 28 6 24 Z" fill="#bf5af2" opacity="0.7"/>
+            <rect x="10" y="2" width="12" height="3" rx="1" fill="#bf5af2"/>
+          </svg>
+        </div>
+        <div class="pe-info">
+          <div class="pe-label">🧪 물약 모드 ELO</div>
+          <div class="pe-stats">
+            <span class="pe-elo">${potionElo}</span>
+            <span class="pe-tier" style="background:${potionT.color}">${potionT.name}</span>
+            <span class="pe-record">${pW}승 ${pL}패${pD?` ${pD}무`:''}</span>
+          </div>
+        </div>
+      `;
+    }
 
     // 계정 섹션 렌더링
     const acctEl = document.getElementById('accountSection');
@@ -3315,12 +3373,12 @@ window.startTutorial = function(){
     if(r.guestUid && r.guestUid !== MY_UID){ alert('이미 게스트가 입장했습니다.'); return; }
     try {
       await _fbDb.ref('rooms/'+code).update({
-        guestUid: MY_UID, guestNick: MY_NICK, guestTag: MY_TAG||'', guestElo: MY_ELO
+        guestUid: MY_UID, guestNick: MY_NICK, guestTag: MY_TAG||'', guestElo: getEloForMode(!!r.potion)
       });
     } catch(e){ alert('입장 처리 실패: '+(e.message||e)); return; }
     const params = new URLSearchParams({
       role:'guest', room:code, time:r.timeLimit||'unlimited', inc:r.timeInc||'0',
-      uid:MY_UID, nick:MY_NICK, tag:MY_TAG||'', elo:MY_ELO,
+      uid:MY_UID, nick:MY_NICK, tag:MY_TAG||'', elo: getEloForMode(!!r.potion),
       hand:r.hand||'K1Q1R2B2N2P8SH0SN0JP0'
     });
     if(r.potion) params.set('potion','1');
@@ -3333,7 +3391,7 @@ window.startTutorial = function(){
     const params = new URLSearchParams({
       role:'spectator', room:code, time:r.timeLimit||'unlimited', inc:r.timeInc||'0',
       uid:MY_UID||'spec-'+Math.random().toString(36).slice(2,8),
-      nick:MY_NICK||'관전자', tag:MY_TAG||'', elo:MY_ELO||1200,
+      nick:MY_NICK||'관전자', tag:MY_TAG||'', elo: getEloForMode(!!r.potion)||1200,
       hand:r.hand||'K1Q1R2B2N2P8SH0SN0JP0'
     });
     if(r.potion) params.set('potion','1');

@@ -90,6 +90,19 @@ button{font-family:inherit;cursor:pointer;border:none;outline:none;color:inherit
 .tut-callout.warn{background:rgba(255,69,58,.08);border-color:rgba(255,69,58,.4)}
 .tut-callout.info{background:rgba(10,132,255,.08);border-color:rgba(10,132,255,.4)}
 
+/* 물약 튜토리얼 — 5종 물약 row */
+.potion-list{display:flex;flex-direction:column;gap:10px;margin:14px 0}
+.potion-row{
+  padding:12px 14px;
+  background:var(--panel2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  font-size:13px;
+  line-height:1.6
+}
+.potion-row b{font-size:14px}
+.potion-row small{color:var(--muted);font-size:11px}
+
 /* 모바일 */
 @media (max-width:600px){
   .tut-app{padding:12px;gap:10px}
@@ -371,24 +384,172 @@ const STEPS = [
   }
 ];
 
+// ===== 물약 모드 튜토리얼 =====
+const POTION_STEPS = [
+  {
+    title:'🧪 물약 모드에 오신 것을 환영합니다',
+    sub:'FRONTIER의 변형 모드 — 5종 물약 시스템',
+    body:`
+      <p>물약 모드는 기본 FRONTIER 게임에 <b>5가지 특수 물약</b>을 추가한 변형 모드입니다.</p>
+      <p>일반 게임의 모든 규칙은 그대로이고, 매 턴 무작위 물약을 받아 전략적으로 사용할 수 있습니다.</p>
+      <ul>
+        <li>5종 물약과 효과</li>
+        <li>인벤토리 + 포인트 시스템</li>
+        <li>합성 + 강화 효과 (★)</li>
+        <li>상점 (구매 / 판매 / 뽑기)</li>
+      </ul>
+      <div class="tut-callout">📌 기본 FRONTIER 규칙을 모르면 먼저 <b>일반 튜토리얼</b>을 먼저 보세요.</div>`
+  },
+  {
+    title:'🎒 인벤토리와 포인트',
+    sub:'매 턴 1개 자동 획득',
+    body:`
+      <p>물약 모드 시작 시:</p>
+      <ul>
+        <li>양쪽 인벤에 <b>물약 1개씩</b> 시작 지급</li>
+        <li>시작 <b>5P</b>씩 보유</li>
+        <li>매 턴 시작 시 <b>무작위 물약 1개 자동 획득</b></li>
+        <li>인벤 최대 <b>8개</b></li>
+      </ul>
+      <p><b>포인트(P)는 어떻게 얻나요?</b></p>
+      <ul>
+        <li>시작 보유분 (5P)</li>
+        <li>상점에서 물약 판매</li>
+      </ul>
+      <div class="tut-callout">💡 기물을 잡아도 P는 늘지 않습니다. 신중히 사용하세요.</div>`
+  },
+  {
+    title:'🧪 5종 물약',
+    sub:'각 물약의 효과',
+    body:`
+      <div class="potion-list">
+        <div class="potion-row" style="border-left:4px solid #5ac8fa">
+          <b style="color:#5ac8fa">🟦 부활 물약</b><br>
+          <small>비용: 기물점수/2 (올림) — 예: 폰 1P, 퀸 5P</small><br>
+          죽은 기물 1개를 자기 진영 빈 칸에 부활시킵니다.
+        </div>
+        <div class="potion-row" style="border-left:4px solid #ff453a">
+          <b style="color:#ff453a">🟥 차단 물약 — 2P</b><br>
+          빈 칸 1개를 <b>3턴</b>간 차단합니다. 이동·배치 불가, 통과는 가능.
+        </div>
+        <div class="potion-row" style="border-left:4px solid #bf5af2">
+          <b style="color:#bf5af2">🟪 조커 포션 — 3P</b><br>
+          양쪽 진영 색을 <b>교환</b>하고 보드를 회전합니다.<br>
+          <small>⚠ AI 대전에선 사용 불가</small>
+        </div>
+        <div class="potion-row" style="border-left:4px solid #30d158">
+          <b style="color:#30d158">🟩 시간 물약 — 1P</b><br>
+          본인 시간 <b>+3분</b> (시간 제한 게임만)
+        </div>
+        <div class="potion-row" style="border-left:4px solid #f5c842">
+          <b style="color:#f5c842">🟨 엿보기 물약 — 1P</b><br>
+          상대 인벤토리를 <b>12초</b>간 공개합니다.
+        </div>
+      </div>`
+  },
+  {
+    title:'✨ 합성 (강화)',
+    sub:'같은 종류 2개 → 강화 효과',
+    body:`
+      <p>같은 종류 물약 <b>2개</b>를 합치면 <b>★ 강화 물약</b>이 됩니다. 강화 효과:</p>
+      <ul>
+        <li><b style="color:#5ac8fa">부활★</b> — 비용 50% 할인</li>
+        <li><b style="color:#ff453a">차단★</b> — 차단 칸 2개 동시 선택</li>
+        <li><b style="color:#bf5af2">조커★</b> — 색 교환 후 본인이 한 번 더 두기</li>
+        <li><b style="color:#30d158">시간★</b> — 본인 +3분 + 상대 -2분</li>
+        <li><b style="color:#f5c842">엿보기★</b> — 상대 물약 1개 훔치기</li>
+      </ul>
+      <p><b>합성 방법:</b></p>
+      <ol style="padding-left:20px">
+        <li>인벤에서 물약 클릭</li>
+        <li>"합성" 버튼 클릭</li>
+        <li>같은 종류 물약 (골드 펄스) 선택</li>
+        <li>합성 완료!</li>
+      </ol>
+      <div class="tut-callout">⚠ 이미 강화된 ★ 물약은 합성 불가</div>`
+  },
+  {
+    title:'🏪 상점',
+    sub:'구매 / 판매 / 뽑기',
+    body:`
+      <p>인벤 모달 안 <b>🏪 상점</b> 버튼으로 진입.</p>
+      <p><b>📥 구매</b> — P로 원하는 물약 구매</p>
+      <ul>
+        <li>부활 5P / 차단 4P / 조커 8P / 시간 3P / 엿보기 2P</li>
+      </ul>
+      <p><b>📤 판매</b> — 보유 물약을 P로 환금</p>
+      <ul>
+        <li>일반 1~3P / ★ 강화는 2배</li>
+      </ul>
+      <p><b>🎰 뽑기 — 3P</b></p>
+      <ul>
+        <li>5종 중 무작위 1개 획득</li>
+        <li>장기적으로 가장 효율적</li>
+      </ul>
+      <div class="tut-callout">💡 자기 차례에만 상점 이용 가능</div>`
+  },
+  {
+    title:'🎯 전략 팁',
+    sub:'실전 활용',
+    body:`
+      <ul>
+        <li><b>부활 물약</b>은 강한 기물(퀸/룩) 잃었을 때 결정적</li>
+        <li><b>차단</b>으로 상대 기물 동선을 좁히세요 — 특히 적 킹 도주로</li>
+        <li><b>엿보기</b>로 상대 보유 물약을 알면 대비 가능</li>
+        <li><b>시간 물약</b>은 시간 압박 받을 때만</li>
+        <li><b>조커</b>는 진영이 매우 불리할 때 (P2P만)</li>
+        <li><b>★ 강화</b>는 더 강력하지만 같은 종류 2개 필요</li>
+      </ul>
+      <div class="tut-callout">⚡ ELO는 일반 모드와 <b>별도</b>로 관리됩니다.</div>`
+  },
+  {
+    title:'🚀 시작!',
+    sub:'모드 선택',
+    body:`
+      <p>물약 모드 튜토리얼이 끝났습니다.</p>
+      <p>아래에서 원하는 모드로 시작하세요:</p>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+        <button onclick="location.href='FRONTIER.html?mode=ai&difficulty=easy&hand=K1Q1R2B2N2P8SH1SN1JP1&time=unlimited&potion=1'" 
+                style="padding:14px;background:linear-gradient(135deg,rgba(191,90,242,.2),rgba(191,90,242,.08));border:2px solid #bf5af2;color:#d68fff;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer">
+          🤖 AI(쉬움)와 연습 대국
+        </button>
+        <button onclick="location.href='index.html'" 
+                style="padding:14px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:10px;font-size:14px;cursor:pointer">
+          🏠 로비로 (다른 모드 선택)
+        </button>
+      </div>`
+  }
+];
+
+// URL ?mode=potion이면 물약 튜토리얼, 그 외는 일반 튜토리얼
+const TUT_MODE = new URLSearchParams(location.search).get('mode');
+const CURRENT_STEPS = (TUT_MODE === 'potion') ? POTION_STEPS : STEPS;
+
 let cur = 0;
 
 function render(){
-  const s = STEPS[cur];
+  const s = CURRENT_STEPS[cur];
   document.getElementById('tutTitle').textContent = s.title;
   document.getElementById('tutSubtitle').textContent = s.sub || '';
   document.getElementById('tutContent').innerHTML = s.body;
-  document.getElementById('stepLabel').textContent = `${cur+1} / ${STEPS.length}`;
-  document.getElementById('progFill').style.width = `${(cur+1)/STEPS.length*100}%`;
+  document.getElementById('stepLabel').textContent = `${cur+1} / ${CURRENT_STEPS.length}`;
+  document.getElementById('progFill').style.width = `${(cur+1)/CURRENT_STEPS.length*100}%`;
   document.getElementById('prevBtn').disabled = (cur===0);
-  document.getElementById('nextBtn').textContent = (cur===STEPS.length-1) ? '🎮 AI와 연습하기 →' : '다음 →';
-  // 스크롤 위로
+  const isLast = (cur===CURRENT_STEPS.length-1);
+  document.getElementById('nextBtn').textContent = isLast 
+    ? (TUT_MODE === 'potion' ? '✓ 완료' : '🎮 AI와 연습하기 →') 
+    : '다음 →';
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
 function nextStep(){
-  if(cur === STEPS.length-1){
-    // 모든 기물 포함 hand로 AI(쉬움) 시작
+  if(cur === CURRENT_STEPS.length-1){
+    if(TUT_MODE === 'potion'){
+      // 물약 튜토리얼 마지막 단계 — 페이지 안 버튼이 있어 클릭 X 시 로비
+      // (위 마지막 단계 안에 시작 버튼들이 이미 있음)
+      return;
+    }
+    // 일반 튜토리얼: AI(쉬움) 시작
     location.href = 'FRONTIER.html?mode=ai&difficulty=easy&hand=K1Q1R2B2N2P8SH1SN1JP1&time=unlimited';
     return;
   }
