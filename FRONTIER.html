@@ -969,6 +969,15 @@ body.board-flipped .cell{transform:rotate(180deg)}
 
 <!-- 프로모션 모달 -->
 <div class="modal" id="promoModal">
+  <div class="modal-card">
+    <h2>폰 프로모션</h2>
+    <p>승급할 기물을 선택하세요</p>
+    <div class="promo-opts" id="promoOpts"></div>
+    <div class="actions" style="justify-content:center;margin-top:14px">
+      <button class="btn btn-ghost" onclick="hidePromoForLook()">👁 보드 보기</button>
+    </div>
+  </div>
+</div>
 
 <!-- 물약 인벤토리 모달 -->
 <div class="modal" id="potionInvModal" onclick="if(event.target.id==='potionInvModal') closePotionInventoryModal()">
@@ -1036,15 +1045,7 @@ body.board-flipped .cell{transform:rotate(180deg)}
     </div>
   </div>
 </div>
-  <div class="modal-card">
-    <h2>폰 프로모션</h2>
-    <p>승급할 기물을 선택하세요</p>
-    <div class="promo-opts" id="promoOpts"></div>
-    <div class="actions" style="justify-content:center;margin-top:14px">
-      <button class="btn btn-ghost" onclick="hidePromoForLook()">👁 보드 보기</button>
-    </div>
-  </div>
-</div>
+
 <!-- 프로모션 임시 숨김 시 복귀 버튼 -->
 <button class="end-restore" id="promoRestore" onclick="showPromoModal()" style="display:none">⬆ 프로모션 선택</button>
 
