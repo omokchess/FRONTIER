@@ -731,6 +731,95 @@ body.replay-mode #chatBtn,body.replay-mode #chatPanel,body.replay-mode #forfeitB
 .revive-name{font-weight:700;font-size:15px;margin-bottom:2px}
 .revive-meta{font-size:12px;color:var(--muted)}
 
+/* 상점 */
+.shop-tabs{
+  display:flex;gap:6px;
+  border-bottom:1px solid var(--border);
+  margin-bottom:14px;padding-bottom:0
+}
+.shop-tab-btn{
+  flex:1;padding:10px;
+  background:transparent;border:none;
+  color:var(--muted);font-size:13px;font-weight:700;
+  cursor:pointer;
+  border-bottom:2px solid transparent;
+  transition:all .15s;
+  font-family:inherit
+}
+.shop-tab-btn:hover{color:var(--text)}
+.shop-tab-btn.active{
+  color:var(--gold);
+  border-bottom-color:var(--gold)
+}
+.shop-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+  gap:10px
+}
+.shop-empty{
+  text-align:center;padding:30px;
+  color:var(--muted);font-size:13px
+}
+.shop-card{
+  background:var(--panel2);
+  border:2px solid var(--border);
+  border-radius:12px;
+  padding:14px 10px;
+  text-align:center;
+  --pot-color:#888
+}
+.shop-card.disabled{opacity:.5}
+.shop-card-img{margin-bottom:8px}
+.shop-card-name{font-weight:800;font-size:13px;margin-bottom:4px;color:var(--pot-color)}
+.shop-card-desc{font-size:10px;color:var(--muted);line-height:1.4;min-height:30px;margin-bottom:10px}
+.shop-card-btn{
+  width:100%;padding:8px;
+  border:1px solid var(--border);border-radius:6px;
+  background:var(--panel);color:var(--text);
+  font-size:12px;font-weight:700;cursor:pointer;
+  font-family:inherit;
+  transition:all .15s
+}
+.shop-card-btn.buy:hover:not(:disabled){
+  background:var(--gold);color:#000;border-color:var(--gold)
+}
+.shop-card-btn.sell:hover:not(:disabled){
+  background:var(--green);color:#fff;border-color:var(--green)
+}
+.shop-card-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* 뽑기 */
+.shop-gacha{
+  text-align:center;
+  padding:20px
+}
+.shop-gacha-icon{
+  margin-bottom:12px;
+  filter:drop-shadow(0 4px 16px rgba(191,90,242,.4));
+  animation:shopGachaFloat 2s ease-in-out infinite
+}
+@keyframes shopGachaFloat{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-6px)}
+}
+.shop-gacha-btn{
+  margin-top:14px;
+  padding:14px 36px;
+  background:linear-gradient(135deg,#bf5af2,#7c2bce);
+  color:#fff;
+  border:2px solid #bf5af2;
+  border-radius:10px;
+  font-size:16px;font-weight:800;
+  cursor:pointer;
+  font-family:inherit;
+  transition:all .15s
+}
+.shop-gacha-btn:hover:not(:disabled){
+  transform:translateY(-2px);
+  box-shadow:0 6px 20px rgba(191,90,242,.5)
+}
+.shop-gacha-btn:disabled{opacity:.4;cursor:not-allowed}
+
 /* 보드 회전 (조커 포션) */
 body.board-flipped .board{transform:rotate(180deg)}
 body.board-flipped .cell{transform:rotate(180deg)}
@@ -896,8 +985,28 @@ body.board-flipped .cell{transform:rotate(180deg)}
     </div>
     <div class="pot-grid" id="potionInvGrid"></div>
     <div id="potionInvOppList"></div>
-    <div class="actions" style="justify-content:center">
+    <div class="actions" style="justify-content:space-between;gap:8px">
+      <button class="btn btn-gold" onclick="openPotionShop()" style="background:linear-gradient(135deg,#ffd60a,#ff9500);border-color:#ff9500;color:#000">🏪 상점</button>
       <button class="btn btn-ghost" onclick="closePotionInventoryModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 물약 상점 모달 -->
+<div class="modal" id="potionShopModal" onclick="if(event.target.id==='potionShopModal') closePotionShop()">
+  <div class="modal-card pot-inv-card">
+    <div class="pot-inv-header">
+      <h3 style="margin:0;display:flex;align-items:center;gap:8px">🏪 물약 상점</h3>
+      <div style="font-size:13px">💰 <b style="color:var(--gold)" id="shopPoints">0P</b></div>
+    </div>
+    <div class="shop-tabs">
+      <button class="shop-tab-btn active" data-shop-tab="buy" onclick="switchShopTab('buy')">구매</button>
+      <button class="shop-tab-btn" data-shop-tab="sell" onclick="switchShopTab('sell')">판매</button>
+      <button class="shop-tab-btn" data-shop-tab="gacha" onclick="switchShopTab('gacha')">🎰 뽑기</button>
+    </div>
+    <div id="shopContent" style="overflow-y:auto;max-height:60vh"></div>
+    <div class="actions" style="justify-content:center">
+      <button class="btn btn-ghost" onclick="closePotionShop()">닫기</button>
     </div>
   </div>
 </div>
@@ -1901,6 +2010,153 @@ function mergePotions(srcId, tgtId){
   renderPotionUI();
   if(IS_NET) sendToPeer({ t:'POTION_MERGE', srcId, tgtId });
 }
+
+// ===== 상점 =====
+const SHOP_PRICES = {
+  revive: { buy: 15, sell: 5 },
+  block:  { buy: 12, sell: 4 },
+  joker:  { buy: 25, sell: 10 },
+  time:   { buy: 10, sell: 3 },
+  peek:   { buy:  8, sell: 3 }
+};
+const GACHA_COST = 7;
+let _shopTab = 'buy';
+
+window.openPotionShop = function(){
+  if(!IS_POTION) return;
+  if(!isMyTurnForPotion()){
+    showFlash('자기 턴에만 상점 이용 가능');
+    return;
+  }
+  closePotionInventoryModal();
+  document.getElementById('potionShopModal').classList.add('show');
+  _shopTab = 'buy';
+  renderShop();
+};
+window.closePotionShop = function(){
+  document.getElementById('potionShopModal').classList.remove('show');
+};
+window.switchShopTab = function(tab){
+  _shopTab = tab;
+  document.querySelectorAll('.shop-tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.shopTab === tab);
+  });
+  renderShop();
+};
+
+function renderShop(){
+  document.getElementById('shopPoints').textContent = myPoints + 'P';
+  const content = document.getElementById('shopContent');
+  if(_shopTab === 'buy'){
+    content.innerHTML = `
+      <div class="shop-grid">
+        ${POTION_KEYS.map(type => {
+          const t = POTION_TYPES[type];
+          const price = SHOP_PRICES[type].buy;
+          const canBuy = myPoints >= price && myInventory.length < MAX_INVENTORY_SIZE;
+          return `
+            <div class="shop-card ${canBuy?'':'disabled'}" style="--pot-color:${t.color}">
+              <div class="shop-card-img">${potionSvg(type, 48)}</div>
+              <div class="shop-card-name">${t.name}</div>
+              <div class="shop-card-desc">${t.desc}</div>
+              <button class="shop-card-btn buy" ${canBuy?'':'disabled'} onclick="shopBuy('${type}')">
+                💰 ${price}P 구매
+              </button>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } else if(_shopTab === 'sell'){
+    if(myInventory.length === 0){
+      content.innerHTML = '<div class="shop-empty">판매할 물약이 없습니다</div>';
+      return;
+    }
+    content.innerHTML = `
+      <div class="shop-grid">
+        ${myInventory.map(p => {
+          const t = POTION_TYPES[p.type];
+          const price = SHOP_PRICES[p.type].sell * (p.level === 2 ? 2 : 1);
+          return `
+            <div class="shop-card" style="--pot-color:${t.color}">
+              <div class="shop-card-img">${potionSvg(p.type, 48)}</div>
+              <div class="shop-card-name">${t.name}${p.level > 1 ? ' ★' : ''}</div>
+              <div class="shop-card-desc">레벨 ${p.level}</div>
+              <button class="shop-card-btn sell" onclick="shopSell('${p.id}')">
+                💰 ${price}P 판매
+              </button>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } else if(_shopTab === 'gacha'){
+    const canPull = myPoints >= GACHA_COST && myInventory.length < MAX_INVENTORY_SIZE;
+    content.innerHTML = `
+      <div class="shop-gacha">
+        <div class="shop-gacha-icon">
+          <svg width="120" height="120" viewBox="0 0 32 32" fill="none">
+            <path d="M11 4 L11 12 L6 24 Q5 28 9 28 L23 28 Q27 28 26 24 L21 12 L21 4 Z"
+                  fill="url(#gachaGrad)" stroke="#bf5af2" stroke-width="2" stroke-linejoin="round"/>
+            <rect x="10" y="2" width="12" height="3" rx="1" fill="#bf5af2"/>
+            <defs>
+              <linearGradient id="gachaGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#5ac8fa" stop-opacity=".6"/>
+                <stop offset="33%" stop-color="#bf5af2" stop-opacity=".6"/>
+                <stop offset="66%" stop-color="#ff453a" stop-opacity=".6"/>
+                <stop offset="100%" stop-color="#f5c842" stop-opacity=".6"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <h3>랜덤 뽑기</h3>
+        <p style="color:var(--muted);font-size:13px;margin:8px 0 14px">
+          5종 물약 중 하나를 무작위로 획득합니다.
+        </p>
+        <button class="shop-gacha-btn ${canPull?'':'disabled'}" ${canPull?'':'disabled'} onclick="shopGacha()">
+          💰 ${GACHA_COST}P — 뽑기!
+        </button>
+        ${myInventory.length >= MAX_INVENTORY_SIZE ? '<div style="color:var(--red);font-size:11px;margin-top:8px">인벤토리 가득참</div>' : ''}
+      </div>
+    `;
+  }
+}
+
+window.shopBuy = function(type){
+  const price = SHOP_PRICES[type].buy;
+  if(myPoints < price){ showFlash('포인트 부족'); return; }
+  if(myInventory.length >= MAX_INVENTORY_SIZE){ showFlash('인벤토리 가득참'); return; }
+  myPoints -= price;
+  myInventory.push({ id: genPotionId(), type, level: 1, color: MY_COLOR });
+  showFlash(`✓ ${POTION_TYPES[type].name} 구매!`);
+  renderShop();
+  renderPotionUI();
+  if(IS_NET) sendToPeer({ t:'POTION_SHOP_BUY' }); // 상대 측 카운트 +1
+};
+
+window.shopSell = function(potionId){
+  const p = myInventory.find(x => x.id === potionId);
+  if(!p) return;
+  const price = SHOP_PRICES[p.type].sell * (p.level === 2 ? 2 : 1);
+  myInventory = myInventory.filter(x => x.id !== potionId);
+  myPoints += price;
+  showFlash(`✓ +${price}P (${POTION_TYPES[p.type].name} 판매)`);
+  renderShop();
+  renderPotionUI();
+  if(IS_NET) sendToPeer({ t:'POTION_SHOP_SELL' }); // 상대 측 카운트 -1
+};
+
+window.shopGacha = function(){
+  if(myPoints < GACHA_COST){ showFlash('포인트 부족'); return; }
+  if(myInventory.length >= MAX_INVENTORY_SIZE){ showFlash('인벤토리 가득참'); return; }
+  myPoints -= GACHA_COST;
+  const type = POTION_KEYS[Math.floor(Math.random() * POTION_KEYS.length)];
+  myInventory.push({ id: genPotionId(), type, level: 1, color: MY_COLOR });
+  showFlash(`🎰 ${POTION_TYPES[type].name} 획득!`, 2000);
+  renderShop();
+  renderPotionUI();
+  if(IS_NET) sendToPeer({ t:'POTION_SHOP_BUY' });
+};
 
 // ===== 물약 사용 =====
 function usePotion(potionId){
@@ -4454,6 +4710,14 @@ function onPeerMessage(data){
     // 상대 합체 — 카운트 -1 (2개 → 1개 level 2)
     if(oppInventoryCount > 0) oppInventoryCount--;
     renderPotionUI();
+  } else if(data.t === 'POTION_SHOP_BUY'){
+    // 상대가 상점에서 구매 — 카운트 +1
+    oppInventoryCount = Math.min(oppInventoryCount + 1, MAX_INVENTORY_SIZE);
+    renderPotionUI();
+  } else if(data.t === 'POTION_SHOP_SELL'){
+    // 상대가 상점에서 판매 — 카운트 -1
+    if(oppInventoryCount > 0) oppInventoryCount--;
+    renderPotionUI();
   } else if(data.t === 'POTION_REVIVE'){
     // 상대가 부활 사용 — 보드에 추가
     board[data.r][data.c] = (data.kind === 'SN') ? { color: data.color, kind: data.kind, attacks: 0 } : { color: data.color, kind: data.kind };
@@ -5459,8 +5723,12 @@ function init(){
     if(TIME_LIMIT > 0) startTimerIfNeeded();
   }
 
-  // 물약 모드 초기화
-  if(IS_POTION) initPotionMode();
+  // 물약 모드 초기화 + 진단
+  console.log('[POTION] IS_POTION:', IS_POTION, 'URL params:', location.search);
+  if(IS_POTION){
+    initPotionMode();
+    setTimeout(() => showFlash('🧪 물약 모드 ON', 2000), 600);
+  }
 
   netInit();
   renderAll();
