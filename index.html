@@ -2808,9 +2808,9 @@ window.startTutorial = function(){
       } else {
         const lastAct = r.lastActivity || r.createdAt;
         const idle = now - lastAct;
-        if(idle > 30*60*1000) return false;          // 30분 이상 비활성
-        if(!r.hostNick) return false;                  // 호스트 닉 유실 = 유령
-        if(r.gameActive === false) return false;       // 종료된 게임 잔재
+        if(idle > 60*60*1000) return false;             // 1시간 이상 비활성만 제외
+        if(!r.hostNick) return false;                    // 호스트 닉 유실 = 유령
+        // gameActive 체크 제거 — 게스트 입장 시점에 false일 수 있어서
         return true;
       }
     });

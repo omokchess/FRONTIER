@@ -1301,19 +1301,19 @@ const IS_POTION = (Q.get('potion') === '1');
 
 // ===== 물약 모드 =====
 const POTION_TYPES = {
-  revive: { name:'부활 물약', icon:'🧪', color:'#5ac8fa',
+  revive: { name:'부활 물약', icon:'🧪', color:'#5ac8fa', cost: 0,
             desc:'죽은 기물 1개 부활. 비용 = 기물가치/2 (반올림 올림)',
             mergeDesc:'(합체) 부활 비용 50% 할인' },
-  block:  { name:'차단 물약', icon:'🚫', color:'#ff453a',
+  block:  { name:'차단 물약', icon:'🚫', color:'#ff453a', cost: 3,
             desc:'빈 칸 1개를 3턴간 차단. 이동·배치 불가, 통과는 가능',
             mergeDesc:'(합체) 차단 칸 2개 동시 선택' },
-  joker:  { name:'조커 포션', icon:'🃏', color:'#bf5af2',
+  joker:  { name:'조커 포션', icon:'🃏', color:'#bf5af2', cost: 5,
             desc:'양쪽 진영 색 교환 + 시점 회전',
             mergeDesc:'(합체) 색 교환 후 본인 한 번 더 둘 수 있음' },
-  time:   { name:'시간 물약', icon:'⏰', color:'#30d158',
+  time:   { name:'시간 물약', icon:'⏰', color:'#30d158', cost: 2,
             desc:'본인 시간 +3분',
             mergeDesc:'(합체) 상대 시간 -2분' },
-  peek:   { name:'엿보기 물약', icon:'👁', color:'#f5c842',
+  peek:   { name:'엿보기 물약', icon:'👁', color:'#f5c842', cost: 1,
             desc:'상대 물약 인벤토리 한 번 공개',
             mergeDesc:'(합체) 상대 물약 하나 훔치기' }
 };
@@ -2284,8 +2284,11 @@ function usePotion(potionId){
 }
 
 function consumePotion(potionId, cost){
+  // NaN/undefined 가드
+  if(typeof cost !== 'number' || isNaN(cost)) cost = 0;
+  if(typeof myPoints !== 'number' || isNaN(myPoints)) myPoints = 0;
   myInventory = myInventory.filter(p => p.id !== potionId);
-  myPoints -= cost;
+  myPoints = Math.max(0, myPoints - cost);
   if(IS_LOCAL){
     window._localInv[turn] = myInventory;
     window._localPts[turn] = myPoints;

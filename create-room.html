@@ -395,7 +395,7 @@ async function createRoom(){
     if(!r) return;
     if(r.guestUid && !r.started){
       // 게스트 입장 완료 → started로 마크하고 게임 시작
-      _fbDb.ref('rooms/'+MY_CODE).update({started:true}).then(()=>{
+      _fbDb.ref('rooms/'+MY_CODE).update({started:true, gameActive:true}).then(()=>{
         // 페이지 떠나기 전 myRoomCode 보호 (이건 게임 페이지 이슈, 여기선 단순 이동)
         const params = new URLSearchParams({
           role:'host', room:MY_CODE, time:SEL_TIME, inc:SEL_INC,
