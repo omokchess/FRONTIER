@@ -1476,7 +1476,7 @@ function pieceMoves(r, c, piece){
       if(t && t.color !== col) attacks.push([nr,nc]);
     }
   } else if(k === 'SH'){
-    // 방패: 앞/뒤 1칸만, 공격 불가, 이동 방향 기물 밀기
+    // 방패: 앞/뒤 1칸만 이동. 인접 적은 밀기 = 공격으로 처리 (킹 체크 가능)
     const dy = (col === 'w') ? -1 : 1;
     for(const ddy of [dy, -dy]){
       const nr = r+ddy;
@@ -1485,11 +1485,11 @@ function pieceMoves(r, c, piece){
       if(!t){
         moves.push([nr,c]);
       } else {
-        // 밀기 가능 여부 검사: 그 다음 칸이 비어있고 보드 안이면 밀기 가능
-        const pr = nr + ddy;
-        // 밀기는 항상 가능 (밀린 기물이 사망할 수도 있음, 판 끝 또는 다른 기물)
-        // 밀기는 '이동'으로 처리 → moves에 마킹 (특수)
-        moves.push([nr,c]); // 처리는 applyMove에서
+        // 적 기물 — 밀기로 공격 가능
+        if(t.color !== col){
+          attacks.push([nr,c]);
+        }
+        moves.push([nr,c]); // 이동 처리는 trySHMove
       }
     }
   } else if(k === 'SN'){
@@ -3450,6 +3450,10 @@ function submitAction(action){
   if(IS_NET){
     sendToPeer({ t:'MOVE', action });
     if(NET_ROLE === 'host') publishGameState();
+    // 게스트도 매 수마다 lastActivity 갱신 (관전 필터 통과용)
+    if(NET_ROLE === 'guest' && _fbDb && ROOM_CODE){
+      _fbDb.ref('rooms/'+ROOM_CODE+'/lastActivity').set(Date.now()).catch(()=>{});
+    }
   }
 
   // AI 차례
@@ -5185,6 +5189,28 @@ let _timerInterval = null;
 let _wTimeLeft = 0;               // 백의 남은 총 시간 (초)
 let _bTimeLeft = 0;               // 흑의 남은 총 시간 (초)
 
+// 모바일: 백그라운드 진입 시 타이머 일시정지 (시간 누락 + 강제 종료 방지)
+document.addEventListener('visibilitychange', () => {
+  if(typeof TIME_LIMIT === 'undefined' || TIME_LIMIT <= 0) return;
+  if(gameOver) return;
+  if(document.hidden){
+    // 백그라운드: 현재 차례 시간 정산 + 타이머 정지
+    if(_timerInterval && _turnStartTime){
+      const elapsed = (Date.now() - _turnStartTime) / 1000;
+      if(turn === 'w') _wTimeLeft = Math.max(0, _wTimeLeft - elapsed);
+      else _bTimeLeft = Math.max(0, _bTimeLeft - elapsed);
+      clearInterval(_timerInterval);
+      _timerInterval = null;
+    }
+  } else {
+    // 포그라운드 복귀: 시각 리셋 + 타이머 재시작
+    if(!_timerInterval){
+      _turnStartTime = Date.now();
+      _timerInterval = setInterval(updateTimer, 100);
+    }
+  }
+});
+
 function startTimerIfNeeded(){
   if(TIME_LIMIT <= 0) return;
   document.getElementById('myTimer').style.display = '';
@@ -5490,6 +5516,12 @@ function cleanupRoom(){
   if(_peer) try{_peer.destroy();}catch(e){}
 }
 window.addEventListener('beforeunload', () => {
+  if(myRoomCode){
+    if(_fbDb) _fbDb.ref('rooms/'+myRoomCode).remove().catch(()=>{});
+  }
+});
+// 모바일 Safari는 beforeunload보다 pagehide가 더 reliable
+window.addEventListener('pagehide', () => {
   if(myRoomCode){
     if(_fbDb) _fbDb.ref('rooms/'+myRoomCode).remove().catch(()=>{});
   }

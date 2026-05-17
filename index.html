@@ -1576,7 +1576,7 @@ window.startTutorial = function(){
 
 <!-- ================== Block 2: Firebase / 로비 (실패해도 위 핸들러는 정상) ================== -->
 <script>
-(function(){
+(async function(){
   // 페이지 어딘가에서 사용 가능한 헬퍼
   function escapeHtml(s){return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
   function formatTime(s){
@@ -1656,16 +1656,12 @@ window.startTutorial = function(){
     _fbApp = firebase.apps && firebase.apps.length ? firebase.app() : firebase.initializeApp(FB_CONFIG);
     _fbDb = firebase.database();
     _fbAuth = firebase.auth();
-    // 세션 영속화 — 모바일 Redirect 후 세션 유지 필수
-    _fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-      .catch(e => console.warn('[Auth] persistence 설정 실패:', e));
   } catch(e){
     setOfflineMode('Firebase 초기화 실패: ' + (e && e.message ? e.message : e));
     return;
   }
 
-  // 디버그 로그 (모바일에서 F12 못 봄 → 화면에 표시)
-  // ?debug=1 파라미터로만 활성화
+  // 디버그 로그
   const DEBUG_AUTH = new URLSearchParams(location.search).get('debug') === '1';
   function authDebug(msg){
     console.log('[AuthDebug]', msg);
@@ -1682,6 +1678,12 @@ window.startTutorial = function(){
     el.scrollTop = el.scrollHeight;
   }
   window.authDebug = authDebug;
+
+  // 세션 영속화 — onAuthStateChanged 등록 전에 반드시 await
+  // (이게 비동기로 끝나기 전 onAuthStateChanged가 발화되면 SESSION 모드로 시작될 수 있음)
+  await _fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+    .then(() => authDebug('persistence LOCAL 설정 완료'))
+    .catch(e => { authDebug('persistence 실패: ' + e.message); console.warn('[Auth] persistence:', e); });
 
   // ===== 사용자 정보 =====
   let MY_UID = null, MY_NICK = '', MY_TAG = '', MY_ELO = 1200, MY_W=0, MY_L=0, MY_D=0;
@@ -3200,19 +3202,20 @@ window.startTutorial = function(){
     //  - 진행 중: 1) 진행 중인데 마지막 활동(또는 생성)이 30분 이상 지난 방 제외
     //              2) 호스트 닉이 없는 방 (정상 생성된 방엔 닉이 있음) — 유실/유령 신호
     const fresh = arr.filter(r => {
-      if(!r.createdAt) return false; // 생성시각 없으면 의심스러운 유령
+      if(!r.createdAt) return false; // 생성시각 없으면 유령
       const age = now - r.createdAt;
       if(!r.started){
         return age < 24*3600*1000;
       } else {
         const lastAct = r.lastActivity || r.createdAt;
         const idle = now - lastAct;
-        if(idle > 60*60*1000) return false;             // 1시간 이상 비활성만 제외
-        if(!r.hostNick) return false;                    // 호스트 닉 유실 = 유령
-        // gameActive 체크 제거 — 게스트 입장 시점에 false일 수 있어서
+        if(idle > 2*3600*1000) return false;             // 2시간 이상 비활성만 제외
+        // hostNick 없어도 hostUid 있으면 통과 (구버전 데이터 호환)
+        if(!r.hostNick && !r.hostUid) return false;
         return true;
       }
     });
+    console.log('[Lobby] rooms total=', arr.length, 'fresh=', fresh.length, 'started=', fresh.filter(r=>r.started).length);
     const filtered = fresh.filter(r => TAB==='wait' ? !r.started : !!r.started);
     filtered.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
     document.getElementById('rcount').textContent = filtered.length;
