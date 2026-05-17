@@ -1693,8 +1693,19 @@ function applyAction(action, opts={}){
 function genPotionId(){ return 'p_' + (++_potionIdCounter) + '_' + Math.random().toString(36).slice(2,5); }
 
 function awardRandomPotion(forColor){
-  // 인벤토리 가득 차면 지급 안 함
-  const target = (forColor === MY_COLOR) ? myInventory : null;
+  // 로컬: 양쪽 인벤 별도 관리 (window._localInv)
+  if(IS_LOCAL){
+    if(!window._localInv) window._localInv = { w:[], b:[] };
+    if(window._localInv[forColor].length >= MAX_INVENTORY_SIZE) return null;
+    const type = POTION_KEYS[Math.floor(Math.random() * POTION_KEYS.length)];
+    const newPotion = { id: genPotionId(), type, level: 1, color: forColor };
+    window._localInv[forColor].push(newPotion);
+    // turn 색의 인벤을 myInventory에 동기
+    syncLocalInventory();
+    renderPotionUI();
+    return newPotion;
+  }
+  // 일반 모드
   if(forColor === MY_COLOR){
     if(myInventory.length >= MAX_INVENTORY_SIZE) return null;
   }
@@ -1703,11 +1714,11 @@ function awardRandomPotion(forColor){
   if(forColor === MY_COLOR){
     myInventory.push(newPotion);
     renderPotionUI();
-  } else if(!IS_LOCAL && !IS_AI){
+  } else if(!IS_AI){
     oppInventoryCount = Math.min(oppInventoryCount + 1, MAX_INVENTORY_SIZE);
     renderPotionUI();
   } else {
-    // 로컬/AI: 상대도 내가 관리. 별도 변수 사용
+    // AI: 별도 변수
     if(!window._localOppInv) window._localOppInv = [];
     if(window._localOppInv.length < MAX_INVENTORY_SIZE){
       window._localOppInv.push(newPotion);
@@ -1717,12 +1728,24 @@ function awardRandomPotion(forColor){
   return newPotion;
 }
 
+// 로컬 모드: turn 색의 인벤을 myInventory로 동기 (현재 둘 사람의 인벤 표시)
+function syncLocalInventory(){
+  if(!IS_LOCAL) return;
+  if(!window._localInv) window._localInv = { w:[], b:[] };
+  if(!window._localPts) window._localPts = { w:20, b:20 };
+  myInventory = window._localInv[turn];
+  myPoints = window._localPts[turn];
+  oppInventoryCount = window._localInv[opp(turn)].length;
+}
+
 function handlePotionTurnStart(newTurnColor){
   // 차단 칸 카운트다운 (새 턴 시작 시)
   if(blockedCells.length){
     blockedCells = blockedCells.map(c => ({...c, turnsLeft: c.turnsLeft - 1})).filter(c => c.turnsLeft > 0);
     drawBlockedOverlay();
   }
+  // 로컬: turn 색 인벤 동기 (자기 인벤만 보이게)
+  if(IS_LOCAL) syncLocalInventory();
   // 첫 턴은 게임 시작 시점에 이미 양쪽 손에 1개씩 줬으므로 여기서 추가만
   if(_potionAwardedThisTurn[newTurnColor]) return;
   _potionAwardedThisTurn[newTurnColor] = true;
@@ -1737,9 +1760,14 @@ function awardCapturePoints(capturedKind, captorColor){
   if(!IS_POTION) return;
   const v = PIECE_VALUES[capturedKind] || 10;
   const earn = Math.ceil(v / 2); // 폰 잡으면 +5P, 퀸 +45P
-  if(captorColor === MY_COLOR){
+  if(IS_LOCAL){
+    if(!window._localPts) window._localPts = { w:20, b:20 };
+    window._localPts[captorColor] += earn;
+    // turn 색이라면 myPoints도 갱신
+    if(captorColor === turn) myPoints = window._localPts[captorColor];
+  } else if(captorColor === MY_COLOR){
     myPoints += earn;
-  } else if(IS_LOCAL || IS_AI){
+  } else if(IS_AI){
     oppPoints += earn;
   }
   updatePointsUI();
@@ -1754,11 +1782,18 @@ function initPotionMode(){
   oppPoints = 20;
   blockedCells = [];
   _potionAwardedThisTurn = { w:false, b:false };
+  // 로컬: 양쪽 인벤/포인트 별도 변수
+  if(IS_LOCAL){
+    window._localInv = { w:[], b:[] };
+    window._localPts = { w:20, b:20 };
+  }
   // 게임 시작 시 양쪽 손에 첫 물약 1개씩
   awardRandomPotion('w');
   awardRandomPotion('b');
   // 시작 시 자기 턴 (white)이라면 미리 1개 더 (자기 턴 첫 시작도 자동 획득)
-  _potionAwardedThisTurn.w = false; // 첫 턴 시작에서 awardRandomPotion이 한 번 더 호출되도록
+  _potionAwardedThisTurn.w = false;
+  // 로컬: turn 색 인벤 동기
+  if(IS_LOCAL) syncLocalInventory();
   renderPotionUI();
   updatePointsUI();
 }
@@ -1804,7 +1839,7 @@ function renderPotionUI(){
   const container = document.getElementById('potionInvContainer');
   if(!container) return;
   if(IS_POTION){
-    container.style.display = '';
+    container.style.display = 'block';
   } else {
     container.style.display = 'none';
     return;
@@ -2127,11 +2162,17 @@ window.shopBuy = function(type){
   if(myPoints < price){ showFlash('포인트 부족'); return; }
   if(myInventory.length >= MAX_INVENTORY_SIZE){ showFlash('인벤토리 가득참'); return; }
   myPoints -= price;
-  myInventory.push({ id: genPotionId(), type, level: 1, color: MY_COLOR });
+  const newP = { id: genPotionId(), type, level: 1, color: IS_LOCAL ? turn : MY_COLOR };
+  myInventory.push(newP);
+  // 로컬: _localInv/_localPts도 갱신
+  if(IS_LOCAL){
+    window._localInv[turn] = myInventory;
+    window._localPts[turn] = myPoints;
+  }
   showFlash(`✓ ${POTION_TYPES[type].name} 구매!`);
   renderShop();
   renderPotionUI();
-  if(IS_NET) sendToPeer({ t:'POTION_SHOP_BUY' }); // 상대 측 카운트 +1
+  if(IS_NET) sendToPeer({ t:'POTION_SHOP_BUY' });
 };
 
 window.shopSell = function(potionId){
@@ -2140,10 +2181,14 @@ window.shopSell = function(potionId){
   const price = SHOP_PRICES[p.type].sell * (p.level === 2 ? 2 : 1);
   myInventory = myInventory.filter(x => x.id !== potionId);
   myPoints += price;
+  if(IS_LOCAL){
+    window._localInv[turn] = myInventory;
+    window._localPts[turn] = myPoints;
+  }
   showFlash(`✓ +${price}P (${POTION_TYPES[p.type].name} 판매)`);
   renderShop();
   renderPotionUI();
-  if(IS_NET) sendToPeer({ t:'POTION_SHOP_SELL' }); // 상대 측 카운트 -1
+  if(IS_NET) sendToPeer({ t:'POTION_SHOP_SELL' });
 };
 
 window.shopGacha = function(){
@@ -2151,7 +2196,11 @@ window.shopGacha = function(){
   if(myInventory.length >= MAX_INVENTORY_SIZE){ showFlash('인벤토리 가득참'); return; }
   myPoints -= GACHA_COST;
   const type = POTION_KEYS[Math.floor(Math.random() * POTION_KEYS.length)];
-  myInventory.push({ id: genPotionId(), type, level: 1, color: MY_COLOR });
+  myInventory.push({ id: genPotionId(), type, level: 1, color: IS_LOCAL ? turn : MY_COLOR });
+  if(IS_LOCAL){
+    window._localInv[turn] = myInventory;
+    window._localPts[turn] = myPoints;
+  }
   showFlash(`🎰 ${POTION_TYPES[type].name} 획득!`, 2000);
   renderShop();
   renderPotionUI();
@@ -2181,9 +2230,12 @@ function usePotion(potionId){
 function consumePotion(potionId, cost){
   myInventory = myInventory.filter(p => p.id !== potionId);
   myPoints -= cost;
+  if(IS_LOCAL){
+    window._localInv[turn] = myInventory;
+    window._localPts[turn] = myPoints;
+  }
   renderPotionUI();
   if(IS_NET){
-    // 네트워크에는 결과만 전송, 인벤 동기는 그쪽에서 카운트로 처리
     sendToPeer({ t:'POTION_USED', potionId });
   }
 }
