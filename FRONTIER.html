@@ -1266,6 +1266,8 @@ const MY_UID    = Q.get('uid') || ('local-' + Math.random().toString(36).slice(2
 const MY_NICK_P = Q.get('nick') || (MODE==='ai' ? '플레이어' : '나');
 const MY_TAG_P  = Q.get('tag') || '';
 const MY_ELO_P  = parseInt(Q.get('elo') || '1200');
+const MY_TITLE_NAME = Q.get('title') || '';
+const MY_TITLE_COLOR = Q.get('titleColor') || '#f5c842';
 
 // INIT_HAND must be declared BEFORE parsing _handParam to avoid ReferenceError
 const DEFAULT_HAND = {K:1, Q:1, R:2, B:2, N:2, P:8, SH:0, SN:0, JP:0};
@@ -4761,12 +4763,14 @@ function setupConn(conn){
     sendToPeer({
       t:'HELLO',
       hostNick: MY_NICK_P, hostElo: MY_ELO_P, hostUid: MY_UID,
+      hostTitle: MY_TITLE_NAME || '', hostTitleColor: MY_TITLE_COLOR || '',
       hand: INIT_HAND
     });
   } else {
     sendToPeer({
       t:'HELLO',
-      guestNick: MY_NICK_P, guestElo: MY_ELO_P, guestUid: MY_UID
+      guestNick: MY_NICK_P, guestElo: MY_ELO_P, guestUid: MY_UID,
+      guestTitle: MY_TITLE_NAME || '', guestTitleColor: MY_TITLE_COLOR || ''
     });
   }
 
@@ -4797,8 +4801,13 @@ function onPeerMessage(data){
       };
       _opponentUid = data.guestUid;
       const gTag = data.guestTag ? `<span class="ingame-tag">#${escapeHtml(data.guestTag)}</span>` : '';
-      document.getElementById('oppName').innerHTML = escapeHtml(data.guestNick) + gTag + ` (${data.guestElo})`;
+      const gTitle = data.guestTitle 
+        ? `<span class="nick-title" style="color:${data.guestTitleColor||'#f5c842'};font-weight:800;margin-right:4px;font-size:.85em;text-shadow:0 0 4px currentColor">${escapeHtml(data.guestTitle)}</span>`
+        : '';
+      document.getElementById('oppName').innerHTML = gTitle + escapeHtml(data.guestNick) + gTag + ` (${data.guestElo})`;
       document.getElementById('oppMeta').textContent = '흑 ELO ' + data.guestElo;
+      // 상대 칭호 prefix 보호
+      if(data.guestTitle) setupTitleObserver('oppName', data.guestTitle, data.guestTitleColor||'#f5c842');
     } else {
       _gameRatingInfo = {
         whiteUid: data.hostUid, whiteElo: data.hostElo, whiteNick: data.hostNick, whiteTag: data.hostTag||'',
@@ -4806,13 +4815,18 @@ function onPeerMessage(data){
       };
       _opponentUid = data.hostUid;
       const hTag = data.hostTag ? `<span class="ingame-tag">#${escapeHtml(data.hostTag)}</span>` : '';
-      document.getElementById('oppName').innerHTML = escapeHtml(data.hostNick) + hTag + ` (${data.hostElo})`;
+      const hTitle = data.hostTitle 
+        ? `<span class="nick-title" style="color:${data.hostTitleColor||'#f5c842'};font-weight:800;margin-right:4px;font-size:.85em;text-shadow:0 0 4px currentColor">${escapeHtml(data.hostTitle)}</span>`
+        : '';
+      document.getElementById('oppName').innerHTML = hTitle + escapeHtml(data.hostNick) + hTag + ` (${data.hostElo})`;
       document.getElementById('oppMeta').textContent = '백 ELO ' + data.hostElo;
       if(data.hand){
         hands.w = {...DEFAULT_HAND, ...data.hand};
         hands.b = {...DEFAULT_HAND, ...data.hand};
         renderAll();
       }
+      // 상대 칭호 prefix 보호
+      if(data.hostTitle) setupTitleObserver('oppName', data.hostTitle, data.hostTitleColor||'#f5c842');
     }
     // 차단 검사 — 내가 이미 차단한 상대인지 확인
     checkOpponentBlocked();
@@ -5856,6 +5870,22 @@ function updateReplayUI(){
   });
 }
 
+// 칭호 prefix가 textContent 갱신으로 사라지지 않도록 감시
+function setupTitleObserver(elementId, titleName, titleColor){
+  const el = document.getElementById(elementId);
+  if(!el) return;
+  const ensureTitle = () => {
+    if(el.querySelector('.nick-title')) return;
+    const span = document.createElement('span');
+    span.className = 'nick-title';
+    span.style.cssText = `color:${titleColor};font-weight:800;margin-right:4px;font-size:.85em;text-shadow:0 0 4px currentColor`;
+    span.textContent = titleName;
+    el.insertBefore(span, el.firstChild);
+  };
+  const observer = new MutationObserver(ensureTitle);
+  observer.observe(el, { childList:true, subtree:false });
+}
+
 function init(){
   // 리플레이 모드: 별도 init
   if(IS_REPLAY){
@@ -5870,10 +5900,18 @@ function init(){
   // UI 초기 정보
   const myTagHtml = MY_TAG_P ? `<span class="ingame-tag">#${MY_TAG_P}</span>` : '';
   const myEloTxt = IS_NET ? ` (${MY_ELO_P})` : '';
-  document.getElementById('myName').innerHTML = escapeHtml(MY_NICK_P) + myTagHtml + myEloTxt;
+  const myTitleHtml = (MY_TITLE_NAME && !IS_LOCAL) 
+    ? `<span class="nick-title" style="color:${MY_TITLE_COLOR};font-weight:800;margin-right:4px;font-size:.85em;text-shadow:0 0 4px currentColor">${escapeHtml(MY_TITLE_NAME)}</span>`
+    : '';
+  document.getElementById('myName').innerHTML = myTitleHtml + escapeHtml(MY_NICK_P) + myTagHtml + myEloTxt;
   document.getElementById('myAv').textContent = (MY_COLOR === 'w' ? 'W' : 'B');
   document.getElementById('myAv').className = 'av' + (MY_COLOR==='b'?' b':'');
   document.getElementById('myMeta').textContent = MY_COLOR === 'w' ? '백' : '흑';
+  
+  // 칭호 prefix가 textContent 갱신으로 사라지는 것 방지 (MutationObserver)
+  if(MY_TITLE_NAME && !IS_LOCAL){
+    setupTitleObserver('myName', MY_TITLE_NAME, MY_TITLE_COLOR);
+  }
 
   if(IS_AI){
     const gMarker = AI_GENOME ? ' 🧬' : '';

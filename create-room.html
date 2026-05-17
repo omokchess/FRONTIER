@@ -207,6 +207,8 @@ const MY_UID = Q.get('uid');
 const MY_NICK = Q.get('nick') || '익명';
 const MY_TAG = Q.get('tag') || '';
 const MY_ELO = parseInt(Q.get('elo')||'1200');
+const MY_TITLE_NAME = Q.get('title') || '';
+const MY_TITLE_COLOR = Q.get('titleColor') || '';
 
 // =============== 방 코드 ===============
 function genCode(){
@@ -403,6 +405,8 @@ async function createRoom(){
           hand:data.hand
         });
         if(data.potion) params.set('potion','1');
+        if(MY_TITLE_NAME) params.set('title', MY_TITLE_NAME);
+        if(MY_TITLE_COLOR) params.set('titleColor', MY_TITLE_COLOR);
         // 즉시 이동
         location.href = 'FRONTIER.html?'+params.toString();
       });

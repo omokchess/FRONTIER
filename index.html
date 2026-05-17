@@ -557,6 +557,48 @@ input{font-family:inherit;outline:none}
 }
 @keyframes loginSpin{to{transform:rotate(360deg)}}
 
+/* 칭호 — 닉네임 앞 prefix */
+.nick-title{
+  font-size:.85em;font-weight:800;
+  margin-right:4px;
+  filter:drop-shadow(0 0 4px currentColor)
+}
+
+/* 칭호 카드 */
+.title-item{
+  display:flex;align-items:center;gap:12px;
+  background:var(--panel2);
+  border:2px solid var(--border);
+  border-radius:10px;
+  padding:12px 14px;
+  margin-bottom:8px;
+  transition:all .15s
+}
+.title-item.locked{opacity:.5}
+.title-item.active{
+  background:linear-gradient(135deg,var(--panel2),rgba(245,200,66,.08))
+}
+.title-info-row{flex:1;min-width:0}
+.title-name{font-weight:800;font-size:14px;margin-bottom:2px}
+.title-desc{font-size:11px;color:var(--muted)}
+.title-equip-btn{
+  flex:0 0 auto;
+  padding:8px 16px;
+  background:linear-gradient(135deg,var(--gold),#ff9500);
+  color:#000;
+  border:none;border-radius:8px;
+  font-size:13px;font-weight:800;
+  cursor:pointer;
+  font-family:inherit;
+  transition:all .15s
+}
+.title-equip-btn:hover{transform:translateY(-1px)}
+.title-equip-btn.unequip{
+  background:var(--panel);color:var(--text);
+  border:1px solid var(--border)
+}
+.title-locked-badge{font-size:18px;flex:0 0 auto}
+
 /* 일일 퀘스트 아이템 */
 .quest-item{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px}
 .quest-item.completed{background:linear-gradient(135deg,var(--panel2),rgba(48,209,88,.08));border-color:rgba(48,209,88,.4)}
@@ -1278,6 +1320,7 @@ window.startLocalGame = function(){
   });
   const potionEl = document.getElementById('localPotion');
   if(potionEl && potionEl.checked) params.set('potion','1');
+  if(typeof appendTitleParams === 'function') appendTitleParams(params);
   location.href = 'FRONTIER.html?' + params.toString();
 };
 
@@ -1379,6 +1422,7 @@ window.startAiGame = function(){
   if(genomeId) params.set('gid', genomeId);
   const potionEl = document.getElementById('aiPotion');
   if(potionEl && potionEl.checked) params.set('potion','1');
+  if(typeof appendTitleParams === 'function') appendTitleParams(params);
   location.href = 'FRONTIER.html?' + params.toString();
 };
 
@@ -1510,6 +1554,7 @@ window.startPotionMode = function(mode){
     // 온라인 방 만들기 페이지로 + potion 자동 활성 플래그
     if(!MY_UID){ alert('로그인이 완료되지 않았습니다. 잠시 후 다시 시도하세요.'); return; }
     const params = new URLSearchParams({uid:MY_UID, nick:MY_NICK, tag:MY_TAG||'', elo:MY_ELO, potion:'1'});
+    if(typeof appendTitleParams === 'function') appendTitleParams(params);
     location.href = 'create-room.html?' + params.toString();
   }
 };
@@ -2550,11 +2595,18 @@ window.startTutorial = function(){
     const tier = getMyTierTitle(MY_ELO);
     _myRanking = await loadMyRanking();
     
+    // 현재 끼운 칭호 조회
+    let activeTitle = null;
+    try {
+      const snap = await _fbDb.ref('users/'+MY_UID+'/activeTitle').once('value');
+      activeTitle = snap.val();
+    } catch(_){}
+    
     const titles = [];
     // 티어 칭호 (현재 ELO 기준 자동)
     titles.push({
       id: tier.id, name: tier.name, color: tier.color,
-      desc: '현재 티어 칭호 (자동)', earned: true
+      desc: '현재 티어 칭호', earned: true
     });
     // 순위 칭호
     if(_myRanking === 1){
@@ -2570,20 +2622,78 @@ window.startTutorial = function(){
       titles.push({ id:'rank_top3', name:'TOP 3', color:'#888', desc:'랭킹 1~3위 도달 시 자동 부여', earned:false });
     }
     
-    list.innerHTML = titles.map(t => `
-      <div class="title-item ${t.earned?'earned':'locked'}">
-        <div class="title-name" style="${t.earned?`color:${t.color}`:''}">${t.name}</div>
-        <div class="title-desc">${t.desc}</div>
-        ${t.earned ? '<div class="ach-badge">✓</div>' : '<div class="ach-icon">🔒</div>'}
+    list.innerHTML = titles.map(t => {
+      const isActive = (activeTitle === t.id);
+      return `
+      <div class="title-item ${t.earned?'earned':'locked'} ${isActive?'active':''}" style="${isActive?`border-color:${t.color}`:''}">
+        <div class="title-info-row">
+          <div class="title-name" style="${t.earned?`color:${t.color}`:''}">${t.name}</div>
+          <div class="title-desc">${t.desc}</div>
+        </div>
+        ${t.earned ? `
+          <button class="title-equip-btn ${isActive?'unequip':''}" onclick="${isActive?`unequipTitle()`:`equipTitle('${t.id}','${t.name.replace(/'/g,"\\'")}','${t.color}')`}">
+            ${isActive ? '해제' : '끼우기'}
+          </button>
+        ` : '<div class="title-locked-badge">🔒</div>'}
       </div>
-    `).join('');
+    `;
+    }).join('');
   };
+  
+  window.equipTitle = async function(id, name, color){
+    if(!MY_UID || !_fbDb) return;
+    try {
+      await _fbDb.ref('users/'+MY_UID+'/activeTitle').set(id);
+      await _fbDb.ref('users/'+MY_UID+'/activeTitleName').set(name);
+      await _fbDb.ref('users/'+MY_UID+'/activeTitleColor').set(color);
+      // leaderboard에도 반영
+      await _fbDb.ref('leaderboard/'+MY_UID+'/activeTitle').set(id);
+      await _fbDb.ref('leaderboard/'+MY_UID+'/activeTitleName').set(name);
+      await _fbDb.ref('leaderboard/'+MY_UID+'/activeTitleColor').set(color);
+      window.MY_TITLE = id;
+      window.MY_TITLE_NAME = name;
+      window.MY_TITLE_COLOR = color;
+      renderProfile();
+      openTitlesModal();
+    } catch(e){
+      alert('칭호 끼우기 실패: ' + e.message);
+    }
+  };
+  
+  window.unequipTitle = async function(){
+    if(!MY_UID || !_fbDb) return;
+    try {
+      await _fbDb.ref('users/'+MY_UID+'/activeTitle').remove();
+      await _fbDb.ref('users/'+MY_UID+'/activeTitleName').remove();
+      await _fbDb.ref('users/'+MY_UID+'/activeTitleColor').remove();
+      await _fbDb.ref('leaderboard/'+MY_UID+'/activeTitle').remove();
+      await _fbDb.ref('leaderboard/'+MY_UID+'/activeTitleName').remove();
+      await _fbDb.ref('leaderboard/'+MY_UID+'/activeTitleColor').remove();
+      window.MY_TITLE = null;
+      window.MY_TITLE_NAME = null;
+      window.MY_TITLE_COLOR = null;
+      renderProfile();
+      openTitlesModal();
+    } catch(e){
+      alert('칭호 해제 실패: ' + e.message);
+    }
+  };
+  
   window.closeTitlesModal = function(){
     document.getElementById('titlesModal').classList.remove('show');
   };
 
   // ===== 사용자 태그 생성 =====
   const TAG_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  
+  // URL에 칭호 정보 추가 (게임 페이지로 전달)
+  function appendTitleParams(params){
+    if(window.MY_TITLE_NAME) params.set('title', window.MY_TITLE_NAME);
+    if(window.MY_TITLE_COLOR) params.set('titleColor', window.MY_TITLE_COLOR);
+    return params;
+  }
+  window.appendTitleParams = appendTitleParams;
+  
   function generateTag(){
     let tag = '';
     for(let i = 0; i < 6; i++){
@@ -2854,6 +2964,10 @@ window.startTutorial = function(){
         } else {
           MY_TAG = u.tag;
         }
+        // 끼운 칭호 로드
+        window.MY_TITLE = u.activeTitle || null;
+        window.MY_TITLE_NAME = u.activeTitleName || null;
+        window.MY_TITLE_COLOR = u.activeTitleColor || null;
         authDebug('finishLogin 호출');
         await finishLogin();
       }
@@ -2867,8 +2981,11 @@ window.startTutorial = function(){
   });
 
   function renderProfile(){
+    const titlePrefix = window.MY_TITLE_NAME 
+      ? `<span class="nick-title" style="color:${window.MY_TITLE_COLOR||'var(--gold)'}">${window.MY_TITLE_NAME}</span> ` 
+      : '';
     document.getElementById('avatar').textContent = MY_NICK.charAt(0).toUpperCase();
-    document.getElementById('nick').textContent = MY_NICK;
+    document.getElementById('nick').innerHTML = titlePrefix + escapeHtml(MY_NICK);
     document.getElementById('elo').textContent = MY_ELO + ' ELO';
     document.getElementById('record').textContent = `${MY_W}승 ${MY_L}패${MY_D?` ${MY_D}무`:''}`;
     const t = tierOf(MY_ELO);
@@ -2884,7 +3001,7 @@ window.startTutorial = function(){
     const bigTr = document.getElementById('bigTier');
     const bigTg = document.getElementById('bigTagFull');
     if(bigAv) bigAv.textContent = MY_NICK.charAt(0).toUpperCase();
-    if(bigNm) bigNm.textContent = MY_NICK;
+    if(bigNm) bigNm.innerHTML = titlePrefix + escapeHtml(MY_NICK);
     if(bigEl) bigEl.textContent = MY_ELO;
     if(bigRc) bigRc.textContent = `${MY_W}승 ${MY_L}패${MY_D?` ${MY_D}무`:''}`;
     if(bigTr){ bigTr.textContent = t.name; bigTr.style.background = t.color; }
@@ -3190,6 +3307,7 @@ window.startTutorial = function(){
       hand:r.hand||'K1Q1R2B2N2P8SH0SN0JP0'
     });
     if(r.potion) params.set('potion','1');
+    appendTitleParams(params);
     location.href = 'FRONTIER.html?'+params.toString();
   };
 
@@ -3202,6 +3320,7 @@ window.startTutorial = function(){
       hand:r.hand||'K1Q1R2B2N2P8SH0SN0JP0'
     });
     if(r.potion) params.set('potion','1');
+    appendTitleParams(params);
     location.href = 'FRONTIER.html?'+params.toString();
   };
 
@@ -3209,6 +3328,7 @@ window.startTutorial = function(){
   window.goCreate = function(){
     if(!MY_UID){ alert('로그인이 완료되지 않았습니다. 잠시 후 다시 시도하세요.'); return; }
     const params = new URLSearchParams({uid:MY_UID, nick:MY_NICK, tag:MY_TAG||'', elo:MY_ELO});
+    appendTitleParams(params);
     location.href = 'create-room.html?'+params.toString();
   };
 
