@@ -467,6 +467,96 @@ input{font-family:inherit;outline:none}
 .title-name{flex:1}
 .title-desc{font-size:11px;color:var(--muted);flex:0 0 auto;max-width:50%;text-align:right}
 
+/* 로그인 게이트 (전체 화면) */
+.login-gate{
+  position:fixed;inset:0;
+  z-index:9999;
+  background:radial-gradient(circle at 50% 30%, rgba(245,200,66,.08), var(--bg) 60%);
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;
+  font-family:inherit
+}
+.login-gate.hide{display:none}
+.login-card{
+  width:100%;max-width:380px;
+  background:linear-gradient(180deg, var(--panel), var(--bg));
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:36px 24px;
+  text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.5)
+}
+.login-logo{
+  font-family:'EB Garamond',serif;
+  font-size:42px;font-weight:700;
+  letter-spacing:6px;
+  background:linear-gradient(135deg,var(--gold),#ff9500);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  margin-bottom:6px
+}
+.login-sub{
+  color:var(--muted);font-size:12px;
+  margin-bottom:30px;letter-spacing:1px
+}
+.login-step{
+  display:flex;flex-direction:column;align-items:center;gap:14px
+}
+.login-desc{
+  color:var(--text);font-size:14px;font-weight:600;margin-bottom:4px
+}
+.login-google-btn{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:14px;
+  background:#fff;color:#1f1f1f;
+  border:none;border-radius:10px;
+  font-size:15px;font-weight:700;cursor:pointer;
+  font-family:inherit;
+  transition:all .15s;
+  box-shadow:0 2px 8px rgba(0,0,0,.3)
+}
+.login-google-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.login-google-btn:active{transform:translateY(0)}
+.login-google-btn:disabled{opacity:.5;cursor:not-allowed}
+.login-tos{
+  color:var(--muted);font-size:10px;margin-top:8px;line-height:1.5
+}
+.login-nick-input{
+  width:100%;padding:12px 14px;
+  background:var(--panel2);
+  border:2px solid var(--border);
+  border-radius:8px;
+  color:var(--text);
+  font-size:15px;font-weight:600;
+  font-family:inherit;
+  text-align:center
+}
+.login-nick-input:focus{
+  outline:none;border-color:var(--gold)
+}
+.login-err{
+  color:var(--red);font-size:12px;min-height:16px
+}
+.login-submit-btn{
+  width:100%;padding:12px;
+  background:linear-gradient(135deg,var(--gold),#ff9500);
+  color:#000;border:none;border-radius:10px;
+  font-size:15px;font-weight:800;cursor:pointer;
+  font-family:inherit;
+  transition:all .15s
+}
+.login-submit-btn:hover{transform:translateY(-1px)}
+.login-submit-btn:disabled{opacity:.5;cursor:not-allowed}
+.login-spinner{
+  width:44px;height:44px;
+  border:4px solid var(--border);
+  border-top-color:var(--gold);
+  border-radius:50%;
+  animation:loginSpin .8s linear infinite
+}
+@keyframes loginSpin{to{transform:rotate(360deg)}}
+
 /* 일일 퀘스트 아이템 */
 .quest-item{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px}
 .quest-item.completed{background:linear-gradient(135deg,var(--panel2),rgba(48,209,88,.08));border-color:rgba(48,209,88,.4)}
@@ -586,6 +676,40 @@ input{font-family:inherit;outline:none}
 </style>
 </head>
 <body>
+
+<!-- 로그인 게이트 (전체 화면) -->
+<div id="loginGate" class="login-gate">
+  <div class="login-card">
+    <div class="login-logo">FRONTIER</div>
+    <div class="login-sub">체스 × 오목 하이브리드</div>
+    
+    <div id="loginStep" class="login-step">
+      <div class="login-desc">계정으로 시작하세요</div>
+      <button id="googleSignInBtn" class="login-google-btn" onclick="doGoogleLogin()">
+        <svg width="20" height="20" viewBox="0 0 48 48" style="flex:0 0 auto">
+          <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
+          <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
+          <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
+          <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
+        </svg>
+        <span>Google로 시작</span>
+      </button>
+      <div class="login-tos">계속하면 데이터 저장에 동의합니다.</div>
+    </div>
+    
+    <div id="loginNickStep" class="login-step" style="display:none">
+      <div class="login-desc">사용할 닉네임을 입력하세요</div>
+      <input type="text" id="loginNickInput" maxlength="12" placeholder="닉네임 (최대 12자)" class="login-nick-input" onkeydown="if(event.key==='Enter') submitLoginNick()">
+      <div id="loginNickErr" class="login-err"></div>
+      <button class="login-submit-btn" onclick="submitLoginNick()">가입 완료</button>
+    </div>
+    
+    <div id="loginLoading" class="login-step" style="display:none">
+      <div class="login-spinner"></div>
+      <div class="login-desc">로그인 중...</div>
+    </div>
+  </div>
+</div>
 <div class="wrap">
   <div class="head">
     <div class="brand">
@@ -1427,6 +1551,9 @@ window.startTutorial = function(){
 
   function setOfflineMode(reason){
     console.warn('[Lobby] 오프라인 모드:', reason);
+    // 게이트 풀어 오프라인 상태 표시
+    const gate = document.getElementById('loginGate');
+    if(gate) gate.classList.add('hide');
     const av = document.getElementById('avatar');
     const nk = document.getElementById('nick');
     const el = document.getElementById('elo');
@@ -1597,10 +1724,10 @@ window.startTutorial = function(){
 
   window.signOutAndReset = async function(){
     if(!_fbAuth) return;
-    if(!confirm('로그아웃하시겠습니까?\n다시 익명 사용자로 돌아갑니다.')) return;
+    if(!confirm('로그아웃하시겠습니까?\n다시 로그인 화면으로 돌아갑니다.')) return;
     try {
       await _fbAuth.signOut();
-      // onAuthStateChanged → signInAnonymously 자동 호출됨
+      // onAuthStateChanged → 게이트 표시
       location.reload();
     } catch(e){
       alert('로그아웃 실패: ' + e.message);
@@ -2466,24 +2593,18 @@ window.startTutorial = function(){
     return generateTag();
   }
 
-  // ===== 인증 흐름 =====
-  // race condition 방지: 첫 onAuthStateChanged 호출 시 반드시 getRedirectResult 먼저 await
+  // ===== 인증 흐름 (Google 강제) =====
   let _checkedRedirect = false;
+  let _pendingNewUser = null; // {uid, suggestedNick}
 
   async function handleCredentialAlreadyInUse(e){
     const ok = confirm(
       '이 Google 계정은 이미 다른 기기에서 사용 중입니다.\n\n' +
-      '그 계정으로 로그인하시겠습니까?\n' +
-      '(현재 기기의 임시 데이터는 사라집니다)'
+      '그 계정으로 로그인하시겠습니까?'
     );
     if(!ok) return;
     const cred = e.credential;
-    const anonUid = _fbAuth.currentUser?.uid;
     try {
-      if(anonUid){
-        try { await _fbDb.ref('users/'+anonUid).remove(); } catch(_){}
-        try { await _fbDb.ref('leaderboard/'+anonUid).remove(); } catch(_){}
-      }
       await _fbAuth.signOut();
       await _fbAuth.signInWithCredential(cred);
     } catch(e2){
@@ -2491,96 +2612,203 @@ window.startTutorial = function(){
     }
   }
 
+  // 로그인 게이트 단계 전환
+  function showLoginStep(stepId){
+    ['loginStep','loginNickStep','loginLoading'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.style.display = (id === stepId ? '' : 'none');
+    });
+  }
+  function hideLoginGate(){
+    const gate = document.getElementById('loginGate');
+    if(gate) gate.classList.add('hide');
+  }
+  function showLoginGate(){
+    const gate = document.getElementById('loginGate');
+    if(gate) gate.classList.remove('hide');
+    showLoginStep('loginStep');
+  }
+
+  // Google 로그인 시작
+  window.doGoogleLogin = async function(){
+    showLoginStep('loginLoading');
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({prompt:'select_account'});
+    try {
+      // 인앱 브라우저 차단
+      if(isInAppBrowser()){
+        alert('인앱 브라우저에서는 Google 로그인이 차단됩니다.\n외부 브라우저(Chrome/Safari)에서 열어주세요.');
+        showLoginStep('loginStep');
+        return;
+      }
+      // 모바일 = redirect, 데스크탑 = popup
+      if(isMobile()){
+        await _fbAuth.signInWithRedirect(provider);
+        // redirect 후 페이지 다시 로드됨 → onAuthStateChanged에서 처리
+      } else {
+        await _fbAuth.signInWithPopup(provider);
+        // onAuthStateChanged 자동 트리거
+      }
+    } catch(e){
+      console.error('[Auth] Google 로그인 실패:', e);
+      if(e.code === 'auth/credential-already-in-use'){
+        await handleCredentialAlreadyInUse(e);
+      } else if(e.code === 'auth/popup-blocked'){
+        alert('팝업이 차단되었습니다. 팝업을 허용한 후 다시 시도하거나, 새로고침 후 시도하세요.');
+      } else if(e.code === 'auth/cancelled-popup-request' || e.code === 'auth/popup-closed-by-user'){
+        // 사용자가 팝업 취소 — 조용히 게이트 복귀
+      } else {
+        alert('로그인 실패: ' + (e.message || e));
+      }
+      showLoginStep('loginStep');
+    }
+  };
+
+  function isMobile(){
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  }
+  function isInAppBrowser(){
+    const ua = navigator.userAgent || '';
+    return /KAKAOTALK|FBAN|FBAV|Instagram|Line|NAVER|wv/i.test(ua);
+  }
+
+  // 닉네임 입력 완료
+  window.submitLoginNick = async function(){
+    const inp = document.getElementById('loginNickInput');
+    const err = document.getElementById('loginNickErr');
+    let nick = (inp.value || '').trim();
+    err.textContent = '';
+    if(!nick){
+      err.textContent = '닉네임을 입력하세요';
+      return;
+    }
+    if(nick.length > 12){
+      err.textContent = '12자 이내로 입력하세요';
+      return;
+    }
+    if(!_pendingNewUser){
+      err.textContent = '세션 오류 - 새로고침';
+      return;
+    }
+    nick = nick.slice(0, 12);
+    showLoginStep('loginLoading');
+    try {
+      const uid = _pendingNewUser.uid;
+      const tag = await assignUniqueTag(uid);
+      MY_NICK = nick; MY_TAG = tag; MY_ELO = 1200;
+      await _fbDb.ref('users/'+uid).set({nick, tag, elo:1200, w:0, l:0, d:0, t:Date.now()});
+      await _fbDb.ref('leaderboard/'+uid).set({nick, tag, elo:1200, w:0, l:0, d:0});
+      _pendingNewUser = null;
+      await finishLogin();
+    } catch(e){
+      console.error('[Auth] 가입 실패:', e);
+      err.textContent = '가입 실패: ' + (e.message || e);
+      showLoginStep('loginNickStep');
+    }
+  };
+
+  // 로그인 완료 후 메인 UI 표시
+  async function finishLogin(){
+    window.MY_UID = MY_UID;
+    window.MY_NICK = MY_NICK;
+    window.MY_TAG = MY_TAG;
+    window.MY_ELO = MY_ELO;
+    renderProfile();
+    renderFriends();
+    renderBlocked();
+    startInviteListener();
+    startFriendRequestListener();
+    startFriendAcceptedListener();
+    watchRooms();
+    try {
+      updateDailyStreak();
+      renderQuestCardBadge();
+    } catch(e){ console.warn('[Daily] init 실패:', e); }
+    hideLoginGate();
+  }
+
   _fbAuth.onAuthStateChanged(async user=>{
     if(_authTimedOut) return;
     try {
-      // 첫 호출 시 redirect 결과 먼저 await (모바일 Google 로그인 후 복귀)
-      // 이걸 안 하면 signInAnonymously()가 먼저 트리거되어 익명 사용자로 덮어씌워짐
+      // 첫 호출 시 redirect 결과 먼저 await
       if(!_checkedRedirect){
         _checkedRedirect = true;
         try {
           const result = await _fbAuth.getRedirectResult();
           if(result && result.user){
-            console.log('[Auth] Redirect 로그인 성공:', result.user.email || '(no email)');
-            // user 객체가 업데이트됨. 이번 콜백의 user는 이미 그 user거나, 곧 다시 트리거됨.
-            // 이 콜백 안에서 정상 흐름 계속.
+            console.log('[Auth] Redirect 로그인 성공');
             user = result.user;
           }
         } catch(redirectErr){
           if(redirectErr.code === 'auth/credential-already-in-use'){
             await handleCredentialAlreadyInUse(redirectErr);
-            return; // signInWithCredential이 새 user로 콜백 다시 트리거
+            return;
           } else if(redirectErr.code && redirectErr.code !== 'auth/no-auth-event'){
-            console.warn('[Auth] getRedirectResult error:', redirectErr.code, redirectErr.message);
+            console.warn('[Auth] getRedirectResult error:', redirectErr.code);
           }
         }
       }
 
+      // 로그인 안 됨 → 게이트 표시
       if(!user){
-        try { await _fbAuth.signInAnonymously(); }
-        catch(e){ clearTimeout(authTimeout); setOfflineMode('익명 로그인 실패: ' + (e.message||e)); }
+        clearTimeout(authTimeout);
+        showLoginGate();
         return;
       }
+
+      // 익명 사용자 차단 (회원가입 필수)
+      if(user.isAnonymous){
+        try { await _fbAuth.signOut(); } catch(_){}
+        clearTimeout(authTimeout);
+        showLoginGate();
+        return;
+      }
+
       clearTimeout(authTimeout);
       MY_UID = user.uid;
-      // provider 정보 추출
       const providers = user.providerData || [];
       const googleProvider = providers.find(p => p.providerId === 'google.com');
       if(googleProvider){
         MY_PROVIDER = 'google';
         MY_EMAIL = googleProvider.email || user.email || '';
       } else {
-        MY_PROVIDER = 'anonymous';
-        MY_EMAIL = '';
+        MY_PROVIDER = 'other';
+        MY_EMAIL = user.email || '';
       }
+      
       const snap = await _fbDb.ref('users/'+MY_UID).once('value');
       const u = snap.val();
       if(!u || !u.nick){
-        // 새 사용자
-        let nick = prompt('닉네임을 입력하세요 (12자 이내)','플레이어'+Math.floor(Math.random()*9000+1000));
-        if(!nick) nick = '플레이어'+Math.floor(Math.random()*9000+1000);
-        nick = nick.slice(0,12);
-        const tag = await assignUniqueTag(MY_UID);
-        MY_NICK = nick; MY_TAG = tag; MY_ELO = 1200;
-        await _fbDb.ref('users/'+MY_UID).set({nick, tag, elo:1200, w:0, l:0, d:0, t:Date.now()});
-        await _fbDb.ref('leaderboard/'+MY_UID).set({nick, tag, elo:1200, w:0, l:0, d:0});
+        // 신규 사용자 → 닉네임 입력 단계
+        _pendingNewUser = { uid: MY_UID };
+        const suggested = (user.displayName || '').slice(0, 12) || ('플레이어'+Math.floor(Math.random()*9000+1000));
+        const inp = document.getElementById('loginNickInput');
+        if(inp){ inp.value = suggested; }
+        showLoginStep('loginNickStep');
+        setTimeout(()=> inp && inp.focus(), 100);
       } else {
+        // 기존 사용자
         MY_NICK = u.nick || '익명';
         MY_ELO = u.elo || 1200;
         MY_W = u.w || 0; MY_L = u.l || 0; MY_D = u.d || 0;
-        // 기존 사용자 마이그레이션: 태그 없으면 발급
         if(!u.tag){
           MY_TAG = await assignUniqueTag(MY_UID);
           try {
             await _fbDb.ref('users/'+MY_UID + '/tag').set(MY_TAG);
             await _fbDb.ref('leaderboard/'+MY_UID + '/tag').set(MY_TAG);
           } catch(e){
-            console.warn('[tag] 마이그레이션 쓰기 실패 (세션 한정 태그):', e.message);
+            console.warn('[tag] 마이그레이션 쓰기 실패:', e.message);
           }
         } else {
           MY_TAG = u.tag;
         }
+        await finishLogin();
       }
-      // 전역에 노출 (다른 페이지에서 URL 파라미터로 전달)
-      window.MY_UID = MY_UID;
-      window.MY_NICK = MY_NICK;
-      window.MY_TAG = MY_TAG;
-      window.MY_ELO = MY_ELO;
-      renderProfile();
-      renderFriends();
-      renderBlocked();
-      startInviteListener();
-      startFriendRequestListener();
-      startFriendAcceptedListener();
-      watchRooms();
-      // 데일리스트릭 갱신 + 일일 퀘스트 뱃지
-      try {
-        updateDailyStreak();
-        renderQuestCardBadge();
-      } catch(e){ console.warn('[Daily] init 실패:', e); }
     } catch(e){
       clearTimeout(authTimeout);
-      setOfflineMode('사용자 정보 로드 실패: ' + (e.message||e));
+      console.error('[Auth] 오류:', e);
+      alert('로그인 처리 실패: ' + (e.message||e));
+      showLoginGate();
     }
   });
 
