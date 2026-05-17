@@ -1290,6 +1290,7 @@ const INIT_HAND = parseHandStr(Q.get('hand'));
 //   spectator: 백 시점
 let MY_COLOR = 'w';
 if(NET_ROLE === 'guest') MY_COLOR = 'b';
+const _ORIG_MY_COLOR = MY_COLOR; // 리매치 시 원복용 (조커로 swap된 경우 대비)
 const IS_LOCAL = (MODE === 'local');
 const IS_AI    = (MODE === 'ai');
 const IS_AIVAI = (MODE === 'aivai');
@@ -2442,20 +2443,28 @@ function applyJokerPotion(potionId){
   blockedCells.forEach(b => { b.owner = opp(b.owner); });
   // 시간도 swap (각자 자기 시계)
   const tmpT = _wTimeLeft; _wTimeLeft = _bTimeLeft; _bTimeLeft = tmpT;
-  // 내 색 swap
+  // 내 색 swap (네트워크/AI만 — 로컬은 양쪽 다 본인이라 안 함)
   if(!IS_LOCAL){
     MY_COLOR = opp(MY_COLOR);
     document.body.classList.toggle('board-flipped');
   }
   consumePotion(potionId, cost);
-  // 합체 시 한 번 더 둘 수 있음
+  
   if(p.level === 2){
-    // turn 안 넘김
-    showFlash('🃏 조커 강화! 한 번 더 두기');
+    showFlash('🃏 조커 강화! 한 번 더 둘 수 있음');
+    renderAll();
+    // turn 안 넘김 — 자기 차례 유지
   } else {
     showFlash('🃏 진영 교환!');
+    // 한 수로 처리 → turn 넘김
+    turn = opp(turn);
+    if(IS_POTION) handlePotionTurnStart(turn);
+    renderAll();
+    // AI 차례면 AI가 두도록
+    if(IS_AI && turn !== MY_COLOR){
+      setTimeout(()=> { if(typeof aiTurn === 'function') aiTurn(); }, 300);
+    }
   }
-  renderAll();
   playSnd('move');
   if(IS_NET) sendToPeer({ t:'POTION_JOKER', level: p.level });
 }
@@ -5334,8 +5343,24 @@ function doRematch(){
   _eloPending = false;
   _lastTurn = 'w';
 
+  // 포션 상태 초기화 (잔류 방지)
+  if(IS_POTION){
+    blockedCells = [];
+    oppInventoryRevealed = null;
+    hidePeekFloatingCard && hidePeekFloatingCard();
+    drawBlockedOverlay && drawBlockedOverlay();
+  }
+  // 보드 회전 / MY_COLOR (조커 효과) 잔류 제거
+  if(document.body.classList.contains('board-flipped')){
+    document.body.classList.remove('board-flipped');
+    // MY_COLOR 원복: URL에서 받은 원본 색으로
+    if(!IS_LOCAL){
+      MY_COLOR = _ORIG_MY_COLOR || (NET_ROLE === 'host' ? 'w' : 'b');
+    }
+  }
+
   // 모든 모달 닫기 (혹시 열려있을 경우)
-  ['endModal','rematchAskModal','rulesModal','confirmModal','tutorialAskModal','custModal'].forEach(id => {
+  ['endModal','rematchAskModal','rulesModal','confirmModal','tutorialAskModal','custModal','potionInvModal','potionShopModal','potionActionMenu','reviveModal'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.classList.remove('show');
   });
@@ -5360,6 +5385,11 @@ function doRematch(){
   // AI 사고 인디케이터 숨김
   showAIThinking(false);
 
+  // 포션 모드 재초기화 (보드 다시 그리기 + 인벤 다시 분배)
+  if(IS_POTION){
+    initPotionMode();
+  }
+
   // 호스트만 방 상태 갱신
   if(NET_ROLE === 'host'){
     _fbDb && _fbDb.ref('rooms/'+ROOM_CODE).update({ gameActive:true }).catch(()=>{});
@@ -5372,7 +5402,6 @@ function doRematch(){
   if(IS_AI && turn === 'b'){
     setTimeout(()=> aiTurn(), 500);
   } else if(IS_AIVAI){
-    // AI vs AI: 백부터 자동 시작
     setTimeout(()=> aiTurn(), 800);
   }
 }
