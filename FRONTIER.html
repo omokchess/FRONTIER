@@ -1302,15 +1302,15 @@ const IS_POTION = (Q.get('potion') === '1');
 // ===== 물약 모드 =====
 const POTION_TYPES = {
   revive: { name:'부활 물약', icon:'🧪', color:'#5ac8fa', cost: 0,
-            desc:'죽은 기물 1개 부활. 비용 = 기물가치/2 (반올림 올림)',
+            desc:'죽은 기물 1개 부활. 비용 = 기물점수/2 (올림)',
             mergeDesc:'(합체) 부활 비용 50% 할인' },
-  block:  { name:'차단 물약', icon:'🚫', color:'#ff453a', cost: 3,
+  block:  { name:'차단 물약', icon:'🚫', color:'#ff453a', cost: 2,
             desc:'빈 칸 1개를 3턴간 차단. 이동·배치 불가, 통과는 가능',
             mergeDesc:'(합체) 차단 칸 2개 동시 선택' },
-  joker:  { name:'조커 포션', icon:'🃏', color:'#bf5af2', cost: 5,
+  joker:  { name:'조커 포션', icon:'🃏', color:'#bf5af2', cost: 3,
             desc:'양쪽 진영 색 교환 + 시점 회전',
             mergeDesc:'(합체) 색 교환 후 본인 한 번 더 둘 수 있음' },
-  time:   { name:'시간 물약', icon:'⏰', color:'#30d158', cost: 2,
+  time:   { name:'시간 물약', icon:'⏰', color:'#30d158', cost: 1,
             desc:'본인 시간 +3분',
             mergeDesc:'(합체) 상대 시간 -2분' },
   peek:   { name:'엿보기 물약', icon:'👁', color:'#f5c842', cost: 1,
@@ -1781,7 +1781,7 @@ function awardRandomPotion(forColor){
 function syncLocalInventory(){
   if(!IS_LOCAL) return;
   if(!window._localInv) window._localInv = { w:[], b:[] };
-  if(!window._localPts) window._localPts = { w:20, b:20 };
+  if(!window._localPts) window._localPts = { w:5, b:5 };
   myInventory = window._localInv[turn];
   myPoints = window._localPts[turn];
   oppInventoryCount = window._localInv[opp(turn)].length;
@@ -1807,22 +1807,10 @@ function handlePotionTurnStart(newTurnColor){
   updatePointsUI();
 }
 
-// 기물 잡았을 때 P 획득
+// 기물 잡았을 때 P 획득 — 비활성화 (사용자 요청)
 function awardCapturePoints(capturedKind, captorColor){
-  if(!IS_POTION) return;
-  const v = PIECE_VALUES[capturedKind] || 10;
-  const earn = Math.ceil(v / 2); // 폰 잡으면 +5P, 퀸 +45P
-  if(IS_LOCAL){
-    if(!window._localPts) window._localPts = { w:20, b:20 };
-    window._localPts[captorColor] += earn;
-    // turn 색이라면 myPoints도 갱신
-    if(captorColor === turn) myPoints = window._localPts[captorColor];
-  } else if(captorColor === MY_COLOR){
-    myPoints += earn;
-  } else if(IS_AI){
-    oppPoints += earn;
-  }
-  updatePointsUI();
+  // no-op: 기물 캡처로 P 획득 안 함
+  return;
 }
 
 function initPotionMode(){
@@ -1830,14 +1818,14 @@ function initPotionMode(){
   myInventory = [];
   oppInventoryCount = 0;
   oppInventoryRevealed = null;
-  myPoints = 20;
-  oppPoints = 20;
+  myPoints = 5;
+  oppPoints = 5;
   blockedCells = [];
   _potionAwardedThisTurn = { w:false, b:false };
   // 로컬: 양쪽 인벤/포인트 별도 변수
   if(IS_LOCAL){
     window._localInv = { w:[], b:[] };
-    window._localPts = { w:20, b:20 };
+    window._localPts = { w:5, b:5 };
   }
   // 게임 시작 시 양쪽 손에 첫 물약 1개씩
   awardRandomPotion('w');
@@ -2100,13 +2088,13 @@ function mergePotions(srcId, tgtId){
 
 // ===== 상점 =====
 const SHOP_PRICES = {
-  revive: { buy: 15, sell: 5 },
-  block:  { buy: 12, sell: 4 },
-  joker:  { buy: 25, sell: 10 },
-  time:   { buy: 10, sell: 3 },
-  peek:   { buy:  8, sell: 3 }
+  revive: { buy: 5, sell: 2 },
+  block:  { buy: 4, sell: 2 },
+  joker:  { buy: 8, sell: 3 },
+  time:   { buy: 3, sell: 1 },
+  peek:   { buy: 2, sell: 1 }
 };
-const GACHA_COST = 7;
+const GACHA_COST = 3;
 let _shopTab = 'buy';
 
 window.openPotionShop = function(){
@@ -3801,7 +3789,7 @@ async function applyEloChange(winner){
 // 13. AI
 // ===================================================================
 // 기물 가치 — 평가 함수의 기본 (호환성 유지용 상수)
-const PIECE_VALUES = { K:0, Q:90, R:50, B:35, N:30, P:10, SH:25, SN:60, JP:35 };
+const PIECE_VALUES = { K:0, Q:9, R:5, B:3, N:3, P:1, SH:3, SN:5, JP:3 };
 
 // === 진화 가능한 평가 가중치 (Genome) ===
 // 진화 알고리즘의 대상. 모든 평가 가중치를 한 객체에 모아놓음.
