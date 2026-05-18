@@ -20,11 +20,11 @@ function todayKST() {
 
 // 티어 분류 (FRONTIER 시스템과 동일)
 function tierOf(elo) {
-  if (elo >= 1800) return { name: '다이아', color: '#5ac8fa', emoji: '💎' };
-  if (elo >= 1600) return { name: '플래티넘', color: '#a259ff', emoji: '💠' };
-  if (elo >= 1400) return { name: '골드',     color: '#f5c842', emoji: '📀' };
-  if (elo >= 1200) return { name: '실버',     color: '#c0c0c0', emoji: '💿' };
-  return { name: '브론즈', color: '#cd7f32', emoji: '⚱️' };
+  if (elo >= 1800) return { name: '다이아', color: '#5ac8fa', emoji: '💠' };
+  if (elo >= 1600) return { name: '플래티넘', color: '#a259ff', emoji: '💎' };
+  if (elo >= 1400) return { name: '골드',     color: '#f5c842', emoji: '🥇' };
+  if (elo >= 1200) return { name: '실버',     color: '#c0c0c0', emoji: '🥈' };
+  return { name: '브론즈', color: '#cd7f32', emoji: '🥉' };
 }
 
 function rankIcon(i) {
@@ -121,11 +121,11 @@ function buildEmbed(arr) {
 async function sendToDiscord(embeds) {
   console.log(`[3/3] Discord 전송 (${embeds.length} embeds)`);
   const payload = {
-    username: 'FRONTIER 랭킹봇',
+    username: '매일 랭킹',
     avatar_url: 'https://frontier-5h9.pages.dev/icon-192.png',
     embeds,
   };
-  const res = await fetch(DISCORD_WEBHOOK_URL, {
+  const res = await fetch(https://discord.com/api/webhooks/1505849752535826443/7wWpHgov0CNvLZOBbXLQYwnIAS7kiczfkNI-vvtiEggff63RGzMP7VZNSHqxdaLk4xq0, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
