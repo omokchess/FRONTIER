@@ -1219,7 +1219,8 @@ input{font-family:inherit;outline:none}
       <div style="overflow-y:auto;flex:1;padding-right:4px;margin-top:10px">
         <!-- 유저 탭 -->
         <div id="admTabUsers">
-          <input type="text" id="admUserSearch" placeholder="🔍 닉네임 또는 태그 검색..." oninput="renderAdmUsers()"
+          <input type="text" id="admUserSearch" placeholder="닉네임 또는 태그 검색..." oninput="renderAdmUsers()"
+                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                  style="width:100%;padding:9px 12px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:10px">
           <div id="admUserList"></div>
         </div>
@@ -2846,6 +2847,9 @@ window.startTutorial = function(){
   window.openAdminModal = async function(){
     if(!MY_UID){ alert('로그인 필요'); return; }
     document.getElementById('adminModal').classList.add('show');
+    // 검색박스 비우기 (이전 자동완성 잔재 방지)
+    const searchEl = document.getElementById('admUserSearch');
+    if(searchEl) searchEl.value = '';
     await loadAdmAll();
     renderAdmStats();
     renderAdmUsers();
@@ -2864,7 +2868,19 @@ window.startTutorial = function(){
     try {
       const snap = await _fbDb.ref('users').once('value');
       _admAllUsers = snap.val() || {};
-    } catch(e){ console.error('admin users load:', e); _admAllUsers = {}; }
+      console.log('[admin] users 로드:', Object.keys(_admAllUsers).length);
+    } catch(e){ 
+      console.warn('[admin] users 읽기 실패, leaderboard로 fallback:', e.message);
+      // Firebase rules에서 users 부모 권한 없으면 leaderboard 사용
+      try {
+        const snap = await _fbDb.ref('leaderboard').once('value');
+        _admAllUsers = snap.val() || {};
+        console.log('[admin] leaderboard 로드:', Object.keys(_admAllUsers).length);
+      } catch(e2){
+        console.error('[admin] leaderboard도 실패:', e2.message);
+        _admAllUsers = {};
+      }
+    }
   }
   
   async function loadAdmLogs(){
