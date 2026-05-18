@@ -20,11 +20,11 @@ function todayKST() {
 
 // 티어 분류 (FRONTIER 시스템과 동일)
 function tierOf(elo) {
-  if (elo >= 1800) return { name: '다이아', color: '#5ac8fa', emoji: '💠' };
-  if (elo >= 1600) return { name: '플래티넘', color: '#a259ff', emoji: '💎' };
-  if (elo >= 1400) return { name: '골드',     color: '#f5c842', emoji: '🥇' };
-  if (elo >= 1200) return { name: '실버',     color: '#c0c0c0', emoji: '🥈' };
-  return { name: '브론즈', color: '#cd7f32', emoji: '🥉' };
+  if (elo >= 1800) return { name: '다이아', color: '#5ac8fa', emoji: '💎' };
+  if (elo >= 1600) return { name: '플래티넘', color: '#a259ff', emoji: '💠' };
+  if (elo >= 1400) return { name: '골드',     color: '#f5c842', emoji: '📀' };
+  if (elo >= 1200) return { name: '실버',     color: '#c0c0c0', emoji: '💿' };
+  return { name: '브론즈', color: '#cd7f32', emoji: '⚱️' };
 }
 
 function rankIcon(i) {
