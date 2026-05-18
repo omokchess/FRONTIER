@@ -564,50 +564,79 @@ input{font-family:inherit;outline:none}
   filter:drop-shadow(0 0 4px currentColor)
 }
 
-/* ========= 관리자 모달 ========= */
-.admin-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
-.adm-stat{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
-.adm-num{font-size:20px;font-weight:800;color:var(--gold)}
-.adm-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+/* ========= 관리자 풀스크린 view ========= */
+#adminModal.show{
+  background:var(--bg);
+  padding:0;
+  align-items:stretch;
+  justify-content:stretch
+}
+.admin-modal-card{
+  max-width:none !important;
+  width:100vw !important;
+  max-height:none !important;
+  height:100vh !important;
+  border-radius:0 !important;
+  border:none !important;
+  padding:24px 32px !important;
+  display:flex;
+  flex-direction:column
+}
 
-.admin-tabs{display:flex;gap:6px;border-bottom:1px solid var(--border)}
-.adm-tab{padding:8px 14px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;font-weight:700;border-bottom:2px solid transparent;font-family:inherit}
+.admin-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.adm-stat{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.adm-num{font-size:28px;font-weight:800;color:var(--gold)}
+.adm-lbl{font-size:12px;color:var(--muted);margin-top:4px}
+
+.admin-tabs{display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:14px}
+.adm-tab{padding:10px 18px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;font-weight:700;border-bottom:2px solid transparent;font-family:inherit}
 .adm-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
 
 .adm-user-card{
-  display:flex;align-items:center;gap:10px;
-  background:var(--panel2);border:1px solid var(--border);
-  border-radius:8px;padding:10px;margin-bottom:6px
+  display:flex;align-items:center;gap:14px;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:10px;padding:14px;margin-bottom:8px
 }
 .adm-user-card.banned{opacity:.55;border-color:var(--red)}
-.adm-avt{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#ff9500);color:#000;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex:0 0 auto}
+.adm-avt{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#ff9500);color:#000;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex:0 0 auto}
 .adm-user-card.banned .adm-avt{background:var(--red);color:#fff}
 .adm-info{flex:1;min-width:0;overflow:hidden}
-.adm-nick{font-weight:800;font-size:13px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-.adm-tag-small{font-size:10px;color:var(--muted);background:var(--panel);padding:1px 5px;border-radius:3px}
-.adm-stats-row{font-size:11px;color:var(--muted);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap}
+.adm-nick{font-weight:800;font-size:15px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.adm-tag-small{font-size:11px;color:var(--muted);background:var(--panel2);padding:2px 6px;border-radius:4px}
+.adm-stats-row{font-size:12px;color:var(--muted);margin-top:5px;display:flex;gap:14px;flex-wrap:wrap}
 .adm-elo{color:var(--gold);font-weight:700}
 .adm-pelo{color:#bf5af2;font-weight:700}
-.adm-act{display:flex;gap:4px;flex-shrink:0}
-.adm-act button{padding:5px 9px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:5px;cursor:pointer;font-size:11px;font-family:inherit}
-.adm-act .adm-btn-edit{color:#5ac8fa;border-color:rgba(10,132,255,.3)}
-.adm-act .adm-btn-ban{color:var(--red);border-color:rgba(255,69,58,.3)}
-.adm-act .adm-btn-unban{color:var(--green);border-color:rgba(48,209,88,.3)}
+.adm-act{display:flex;gap:6px;flex-shrink:0}
+.adm-act button{padding:7px 14px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:7px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;transition:all .15s}
+.adm-act button:hover{transform:translateY(-1px)}
+.adm-act .adm-btn-edit{color:#5ac8fa;border-color:rgba(10,132,255,.4)}
+.adm-act .adm-btn-ban{color:var(--red);border-color:rgba(255,69,58,.4)}
+.adm-act .adm-btn-unban{color:var(--green);border-color:rgba(48,209,88,.4)}
 
 .adm-log-row{
-  background:var(--panel2);border:1px solid var(--border);
-  border-radius:6px;padding:8px 10px;margin-bottom:5px;
-  font-size:12px;display:grid;grid-template-columns:100px 1fr 60px;gap:8px;align-items:center
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:8px;padding:12px 14px;margin-bottom:6px;
+  font-size:13px;display:grid;grid-template-columns:140px 1fr 90px;gap:14px;align-items:center
 }
-.adm-log-time{font-size:10px;color:var(--muted)}
-.adm-log-mode{text-align:right;font-size:10px;color:#bf5af2}
+.adm-log-time{font-size:11px;color:var(--muted)}
+.adm-log-mode{text-align:right;font-size:11px;color:#bf5af2;font-weight:700}
 .adm-log-mode.normal{color:var(--gold)}
 
-.adm-empty{text-align:center;color:var(--muted);padding:30px;font-size:13px}
+.adm-empty{text-align:center;color:var(--muted);padding:60px 20px;font-size:14px}
+
+/* 데스크탑 좀 더 큰 화면 */
+@media (min-width:900px){
+  .admin-modal-card{padding:32px 48px !important}
+  .admin-stats{grid-template-columns:repeat(4,1fr);gap:16px}
+  .adm-num{font-size:32px}
+}
 
 @media (max-width:600px){
-  .admin-stats{grid-template-columns:repeat(2,1fr)}
-  .adm-log-row{grid-template-columns:1fr;gap:3px}
+  .admin-modal-card{padding:14px !important}
+  .admin-stats{grid-template-columns:repeat(2,1fr);gap:8px}
+  .adm-stat{padding:10px}
+  .adm-num{font-size:22px}
+  .adm-log-row{grid-template-columns:1fr;gap:4px}
   .adm-log-mode{text-align:left}
   .adm-user-card{flex-wrap:wrap}
   .adm-act{width:100%;justify-content:flex-end;margin-top:4px}
@@ -1192,13 +1221,13 @@ input{font-family:inherit;outline:none}
     </div>
   </div>
 
-  <!-- ========= 관리자 모달 (admin만 접근) ========= -->
+  <!-- ========= 관리자 풀스크린 view ========= -->
   <div class="modal" id="adminModal" onclick="if(event.target.id==='adminModal') closeAdminModal()">
-    <div class="modal-card admin-modal-card" style="max-width:900px;width:96%;max-height:90vh;display:flex;flex-direction:column;padding:18px">
-      <h3 style="display:flex;align-items:center;gap:8px;margin-bottom:14px;color:var(--gold)">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <div class="modal-card admin-modal-card">
+      <h3 style="display:flex;align-items:center;gap:10px;margin-bottom:18px;color:var(--gold);font-size:22px">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         관리자 패널
-        <button class="btn btn-ghost" onclick="closeAdminModal()" style="margin-left:auto;padding:6px 12px;font-size:12px">닫기</button>
+        <button class="btn btn-ghost" onclick="closeAdminModal()" style="margin-left:auto;padding:8px 16px;font-size:13px">닫기</button>
       </h3>
       
       <!-- 상단 통계 -->
@@ -1216,12 +1245,12 @@ input{font-family:inherit;outline:none}
         <button class="adm-tab" data-adm-tab="banned" onclick="setAdmTab('banned')">정지 목록</button>
       </div>
       
-      <div style="overflow-y:auto;flex:1;padding-right:4px;margin-top:10px">
+      <div style="overflow-y:auto;flex:1;padding-right:4px">
         <!-- 유저 탭 -->
         <div id="admTabUsers">
           <input type="text" id="admUserSearch" placeholder="닉네임 또는 태그 검색..." oninput="renderAdmUsers()"
                  autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-                 style="width:100%;padding:9px 12px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:10px">
+                 style="width:100%;padding:11px 14px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:14px;font-family:inherit;margin-bottom:14px;box-sizing:border-box">
           <div id="admUserList"></div>
         </div>
         <!-- 로그 탭 -->
