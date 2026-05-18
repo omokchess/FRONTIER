@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FRONTIER 관리자</title>
+<style>
+:root{
+  --bg:#0a0a0c;--panel:#16161a;--panel2:#1f1f24;--border:#2a2a30;
+  --text:#e8e8ed;--muted:#8e8e93;
+  --gold:#f5c842;--red:#ff453a;--green:#30d158;--blue:#0a84ff;--purple:#bf5af2
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;min-height:100vh}
+body{padding:20px;max-width:1200px;margin:0 auto}
+
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.title{font-size:24px;font-weight:800;color:var(--gold)}
+.title small{font-size:12px;color:var(--muted);font-weight:400;display:block;margin-top:4px}
+.back-btn{padding:8px 16px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:8px;cursor:pointer;font-size:14px;text-decoration:none}
+.back-btn:hover{background:var(--panel2)}
+
+.gate{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center}
+.gate-icon{font-size:48px;margin-bottom:16px}
+.gate-msg{font-size:18px;color:var(--muted);margin-bottom:8px}
+.gate-sub{font-size:13px;color:var(--muted)}
+
+.tabs{display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border)}
+.tab{padding:10px 18px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;font-weight:700;border-bottom:2px solid transparent;font-family:inherit}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.tab:hover{color:var(--text)}
+
+.search-bar{margin-bottom:16px}
+.search-bar input{width:100%;padding:10px 14px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:14px;font-family:inherit}
+
+.user-card{
+  display:flex;align-items:center;gap:14px;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:10px;padding:14px;margin-bottom:10px;
+  transition:border-color .15s
+}
+.user-card:hover{border-color:var(--gold)}
+.user-card.banned{opacity:.5;border-color:var(--red)}
+.user-card.banned::before{content:'🚫 정지됨';position:absolute;color:var(--red);font-size:11px;font-weight:800}
+
+.uc-avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#ff9500);color:#000;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex:0 0 auto}
+.uc-info{flex:1;min-width:0}
+.uc-nick{font-weight:800;font-size:15px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.uc-tag{font-size:11px;color:var(--muted);background:var(--panel2);padding:2px 6px;border-radius:4px}
+.uc-stats{font-size:12px;color:var(--muted);margin-top:4px;display:flex;gap:14px;flex-wrap:wrap}
+.uc-elo{color:var(--gold);font-weight:700}
+.uc-pelo{color:var(--purple);font-weight:700}
+
+.uc-actions{display:flex;gap:6px;flex-shrink:0}
+.uc-actions button{padding:6px 12px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit}
+.uc-actions button:hover{background:var(--border)}
+.uc-actions .btn-edit{color:var(--blue);border-color:rgba(10,132,255,.3)}
+.uc-actions .btn-ban{color:var(--red);border-color:rgba(255,69,58,.3)}
+.uc-actions .btn-unban{color:var(--green);border-color:rgba(48,209,88,.3)}
+
+/* 모달 */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:100}
+.modal.show{display:flex}
+.modal-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:400px;width:90%}
+.modal-card h3{margin-bottom:14px;color:var(--gold)}
+.modal-card label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+.modal-card input{width:100%;padding:10px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:14px;font-family:inherit;margin-bottom:12px}
+.modal-card .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.modal-card .actions button{padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;border:1px solid var(--border)}
+.btn-cancel{background:var(--panel2);color:var(--text)}
+.btn-save{background:var(--gold);color:#000;border:none}
+.btn-danger{background:var(--red);color:#fff;border:none}
+
+/* 로그 */
+.log-row{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:8px;padding:10px 12px;margin-bottom:6px;
+  font-size:13px;display:grid;grid-template-columns:140px 1fr 80px;gap:12px;align-items:center
+}
+.log-time{font-size:11px;color:var(--muted)}
+.log-detail{color:var(--text)}
+.log-mode{text-align:right;font-size:11px;color:var(--purple)}
+.log-mode.normal{color:var(--gold)}
+.log-winner{font-weight:700}
+
+.empty{text-align:center;color:var(--muted);padding:40px;font-size:14px}
+
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center}
+.stat-num{font-size:24px;font-weight:800;color:var(--gold)}
+.stat-label{font-size:11px;color:var(--muted);margin-top:4px}
+
+@media (max-width:600px){
+  body{padding:12px}
+  .user-card{flex-wrap:wrap}
+  .uc-actions{width:100%;justify-content:flex-end;margin-top:6px}
+  .log-row{grid-template-columns:1fr;gap:4px}
+  .log-mode{text-align:left}
+  .stat-row{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="title">
+    🛡️ FRONTIER 관리자
+    <small id="adminLabel">로딩 중...</small>
+  </div>
+  <a href="index.html" class="back-btn">← 로비</a>
+</div>
+
+<!-- 비관리자 화면 -->
+<div id="gateView" class="gate" style="display:none">
+  <div class="gate-icon">🚫</div>
+  <div class="gate-msg">접근 권한이 없습니다</div>
+  <div class="gate-sub">이 페이지는 관리자만 이용할 수 있습니다.</div>
+</div>
+
+<!-- 관리자 메인 -->
+<div id="mainView" style="display:none">
+  <!-- 통계 -->
+  <div class="stat-row">
+    <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-label">총 유저</div></div>
+    <div class="stat-card"><div class="stat-num" id="statActive">0</div><div class="stat-label">전적 있는 유저</div></div>
+    <div class="stat-card"><div class="stat-num" id="statBanned">0</div><div class="stat-label">정지 유저</div></div>
+    <div class="stat-card"><div class="stat-num" id="statLogs">0</div><div class="stat-label">총 게임 로그</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="users" onclick="setTab('users')">👥 유저 관리</button>
+    <button class="tab" data-tab="logs" onclick="setTab('logs')">📋 게임 로그</button>
+    <button class="tab" data-tab="banned" onclick="setTab('banned')">🚫 정지 목록</button>
+  </div>
+
+  <!-- 유저 탭 -->
+  <div id="tabUsers">
+    <div class="search-bar">
+      <input type="text" id="userSearch" placeholder="🔍 닉네임 또는 태그 검색..." oninput="renderUsers()">
+    </div>
+    <div id="userList"></div>
+  </div>
+
+  <!-- 로그 탭 -->
+  <div id="tabLogs" style="display:none">
+    <div id="logList"></div>
+  </div>
+
+  <!-- 정지 탭 -->
+  <div id="tabBanned" style="display:none">
+    <div id="bannedList"></div>
+  </div>
+</div>
+
+<!-- ELO 수정 모달 -->
+<div class="modal" id="editEloModal" onclick="if(event.target.id==='editEloModal') closeEditElo()">
+  <div class="modal-card">
+    <h3>📊 ELO 수정 — <span id="editEloNick"></span></h3>
+    <label>현재 일반 ELO: <span id="curElo"></span></label>
+    <input type="number" id="newElo" placeholder="새 일반 ELO">
+    <label>현재 물약 ELO: <span id="curPotionElo"></span></label>
+    <input type="number" id="newPotionElo" placeholder="새 물약 ELO (변경 없으면 비움)">
+    <div class="actions">
+      <button class="btn-cancel" onclick="closeEditElo()">취소</button>
+      <button class="btn-save" onclick="saveEloChange()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 정지 모달 -->
+<div class="modal" id="banModal" onclick="if(event.target.id==='banModal') closeBan()">
+  <div class="modal-card">
+    <h3>🚫 유저 정지</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px"><b id="banNick"></b>를 정지합니다.<br>정지된 유저는 게임을 시작할 수 없습니다.</p>
+    <label>사유 (선택)</label>
+    <input type="text" id="banReason" placeholder="예: 승부 조작 / 어뷰징">
+    <div class="actions">
+      <button class="btn-cancel" onclick="closeBan()">취소</button>
+      <button class="btn-danger" onclick="confirmBan()">정지</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+const FB_CONFIG = {
+  apiKey: "AIzaSyD2sdMaXKsBSyjVf0OuJ43JI5SUSPKW9YQ",
+  authDomain: "ooooomok-285e6.firebaseapp.com",
+  databaseURL: "https://ooooomok-285e6-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ooooomok-285e6",
+  storageBucket: "ooooomok-285e6.firebasestorage.app",
+  messagingSenderId: "1003036050366",
+  appId: "1:1003036050366:web:b46b3b50a1f51cc12089ff"
+};
+
+let _fbApp = null, _fbDb = null, _fbAuth = null;
+let MY_UID = null, MY_NICK = '익명';
+let _isAdmin = false;
+let _allUsers = {};
+let _allLogs = [];
+let _allBanned = {};
+let _curEditUid = null, _curEditNick = '';
+let _curBanUid = null;
+
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+}
+
+(async function init(){
+  try {
+    _fbApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(FB_CONFIG);
+    _fbDb = firebase.database();
+    _fbAuth = firebase.auth();
+    await _fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+  } catch(e){
+    document.getElementById('gateView').style.display = 'flex';
+    document.querySelector('#gateView .gate-msg').textContent = 'Firebase 초기화 실패';
+    return;
+  }
+
+  _fbAuth.onAuthStateChanged(async user => {
+    if(!user || user.isAnonymous){
+      document.getElementById('gateView').style.display = 'flex';
+      document.querySelector('#gateView .gate-msg').textContent = '로그인이 필요합니다';
+      document.querySelector('#gateView .gate-sub').innerHTML = '<a href="index.html" style="color:var(--gold)">로비로 가서 로그인하세요</a>';
+      return;
+    }
+    MY_UID = user.uid;
+    
+    // 관리자 여부 확인
+    try {
+      const adminSnap = await _fbDb.ref('admins/'+MY_UID).once('value');
+      _isAdmin = (adminSnap.val() === true);
+    } catch(e){
+      console.error('[admin check] failed:', e);
+      _isAdmin = false;
+    }
+    
+    if(!_isAdmin){
+      document.getElementById('gateView').style.display = 'flex';
+      return;
+    }
+    
+    // 본인 닉 조회
+    try {
+      const meSnap = await _fbDb.ref('users/'+MY_UID).once('value');
+      const me = meSnap.val();
+      if(me) MY_NICK = me.nick || '익명';
+    } catch(_){}
+    
+    document.getElementById('adminLabel').textContent = '관리자: ' + MY_NICK;
+    document.getElementById('mainView').style.display = 'block';
+    
+    // 데이터 로드
+    await loadAll();
+  });
+})();
+
+async function loadAll(){
+  await Promise.all([loadUsers(), loadLogs(), loadBanned()]);
+  renderStats();
+  renderUsers();
+}
+
+async function loadUsers(){
+  try {
+    const snap = await _fbDb.ref('users').once('value');
+    _allUsers = snap.val() || {};
+  } catch(e){ console.error('users load failed:', e); }
+}
+
+async function loadLogs(){
+  try {
+    // 최근 100개만
+    const snap = await _fbDb.ref('matchLogs').orderByChild('ts').limitToLast(100).once('value');
+    const data = snap.val() || {};
+    _allLogs = Object.entries(data)
+      .map(([id, log]) => ({id, ...log}))
+      .sort((a,b) => (b.ts||0) - (a.ts||0));
+  } catch(e){ console.error('logs load failed:', e); _allLogs = []; }
+}
+
+async function loadBanned(){
+  try {
+    const snap = await _fbDb.ref('banned').once('value');
+    _allBanned = snap.val() || {};
+  } catch(e){ console.error('banned load failed:', e); }
+}
+
+function renderStats(){
+  const users = Object.values(_allUsers);
+  const active = users.filter(u => (u.w||0) + (u.l||0) + (u.d||0) > 0);
+  document.getElementById('statTotal').textContent = users.length;
+  document.getElementById('statActive').textContent = active.length;
+  document.getElementById('statBanned').textContent = Object.keys(_allBanned).length;
+  document.getElementById('statLogs').textContent = _allLogs.length;
+}
+
+function setTab(tab){
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.getElementById('tabUsers').style.display = (tab === 'users') ? 'block' : 'none';
+  document.getElementById('tabLogs').style.display = (tab === 'logs') ? 'block' : 'none';
+  document.getElementById('tabBanned').style.display = (tab === 'banned') ? 'block' : 'none';
+  if(tab === 'logs') renderLogs();
+  if(tab === 'banned') renderBanned();
+}
+
+function renderUsers(){
+  const q = document.getElementById('userSearch').value.trim().toLowerCase();
+  const arr = Object.entries(_allUsers)
+    .map(([uid, u]) => ({uid, ...u}))
+    .filter(u => {
+      if(!q) return true;
+      return (u.nick||'').toLowerCase().includes(q) || (u.tag||'').toLowerCase().includes(q);
+    })
+    .sort((a,b) => (b.elo||1200) - (a.elo||1200));
+  
+  const list = document.getElementById('userList');
+  if(arr.length === 0){
+    list.innerHTML = '<div class="empty">검색 결과 없음</div>';
+    return;
+  }
+  
+  list.innerHTML = arr.map(u => {
+    const banned = !!_allBanned[u.uid];
+    const w = u.w||0, l = u.l||0, d = u.d||0;
+    const pw = u.potionW||0, pl = u.potionL||0, pd = u.potionD||0;
+    const hasPotionStats = pw + pl + pd > 0;
+    return `
+      <div class="user-card ${banned ? 'banned' : ''}">
+        <div class="uc-avatar">${escapeHtml((u.nick||'?').charAt(0).toUpperCase())}</div>
+        <div class="uc-info">
+          <div class="uc-nick">
+            ${escapeHtml(u.nick||'익명')}
+            ${u.tag ? `<span class="uc-tag">#${escapeHtml(u.tag)}</span>` : ''}
+            ${banned ? '<span style="color:var(--red);font-size:11px">🚫 정지됨</span>' : ''}
+          </div>
+          <div class="uc-stats">
+            <span class="uc-elo">⭐ ${u.elo||1200} ELO</span>
+            <span>${w}승 ${l}패${d?` ${d}무`:''}</span>
+            ${hasPotionStats ? `<span class="uc-pelo">🧪 ${u.potionElo||1200} ELO</span><span>${pw}승 ${pl}패${pd?` ${pd}무`:''}</span>` : ''}
+          </div>
+        </div>
+        <div class="uc-actions">
+          <button class="btn-edit" onclick="openEditElo('${u.uid}','${escapeHtml(u.nick||'')}')">✏ ELO</button>
+          ${banned 
+            ? `<button class="btn-unban" onclick="unbanUser('${u.uid}')">✓ 해제</button>`
+            : `<button class="btn-ban" onclick="openBan('${u.uid}','${escapeHtml(u.nick||'')}')">🚫 정지</button>`
+          }
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderLogs(){
+  const list = document.getElementById('logList');
+  if(_allLogs.length === 0){
+    list.innerHTML = '<div class="empty">아직 게임 로그가 없습니다. (matchLogs 자동 기록 활성화 필요)</div>';
+    return;
+  }
+  list.innerHTML = _allLogs.map(log => {
+    const d = new Date(log.ts || 0);
+    const timeStr = d.toLocaleString('ko-KR', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+    const wName = escapeHtml(log.whiteNick || '?') + (log.whiteTag ? ` #${escapeHtml(log.whiteTag)}` : '');
+    const bName = escapeHtml(log.blackNick || '?') + (log.blackTag ? ` #${escapeHtml(log.blackTag)}` : '');
+    const winnerLabel = log.winner === 'w' ? `<span class="log-winner" style="color:var(--gold)">⚪ ${wName} 승리</span>`
+                     : log.winner === 'b' ? `<span class="log-winner" style="color:var(--gold)">⚫ ${bName} 승리</span>`
+                     : '<span style="color:var(--muted)">무승부</span>';
+    const reason = log.reason ? ` <span style="color:var(--muted)">(${escapeHtml(log.reason)})</span>` : '';
+    const modeClass = log.isPotion ? '' : 'normal';
+    const modeLabel = log.isPotion ? '🧪 물약' : '⚪ 일반';
+    return `
+      <div class="log-row">
+        <div class="log-time">${timeStr}</div>
+        <div class="log-detail">${wName} vs ${bName} — ${winnerLabel}${reason}</div>
+        <div class="log-mode ${modeClass}">${modeLabel}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderBanned(){
+  const list = document.getElementById('bannedList');
+  const entries = Object.entries(_allBanned);
+  if(entries.length === 0){
+    list.innerHTML = '<div class="empty">현재 정지된 유저가 없습니다.</div>';
+    return;
+  }
+  list.innerHTML = entries.map(([uid, info]) => {
+    const u = _allUsers[uid] || {};
+    const reason = info.reason || '사유 없음';
+    const at = info.at ? new Date(info.at).toLocaleString('ko-KR') : '';
+    return `
+      <div class="user-card banned" style="position:relative">
+        <div class="uc-avatar" style="background:var(--red)">${escapeHtml((u.nick||'?').charAt(0).toUpperCase())}</div>
+        <div class="uc-info">
+          <div class="uc-nick">${escapeHtml(u.nick||'(삭제된 유저)')} ${u.tag ? `<span class="uc-tag">#${escapeHtml(u.tag)}</span>` : ''}</div>
+          <div class="uc-stats">
+            <span style="color:var(--red)">사유: ${escapeHtml(reason)}</span>
+            ${at ? `<span>${at}</span>` : ''}
+          </div>
+        </div>
+        <div class="uc-actions">
+          <button class="btn-unban" onclick="unbanUser('${uid}')">✓ 해제</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ===== ELO 수정 =====
+function openEditElo(uid, nick){
+  _curEditUid = uid;
+  _curEditNick = nick;
+  const u = _allUsers[uid] || {};
+  document.getElementById('editEloNick').textContent = nick;
+  document.getElementById('curElo').textContent = u.elo || 1200;
+  document.getElementById('curPotionElo').textContent = u.potionElo || 1200;
+  document.getElementById('newElo').value = u.elo || 1200;
+  document.getElementById('newPotionElo').value = '';
+  document.getElementById('editEloModal').classList.add('show');
+}
+
+function closeEditElo(){
+  document.getElementById('editEloModal').classList.remove('show');
+}
+
+async function saveEloChange(){
+  if(!_curEditUid) return;
+  const newElo = parseInt(document.getElementById('newElo').value);
+  const newPotionEloStr = document.getElementById('newPotionElo').value.trim();
+  const updates = {};
+  if(!isNaN(newElo)){
+    updates.elo = newElo;
+  }
+  if(newPotionEloStr){
+    const v = parseInt(newPotionEloStr);
+    if(!isNaN(v)) updates.potionElo = v;
+  }
+  if(Object.keys(updates).length === 0){
+    alert('변경된 값이 없습니다.');
+    return;
+  }
+  try {
+    await _fbDb.ref('users/'+_curEditUid).update(updates);
+    await _fbDb.ref('leaderboard/'+_curEditUid).update(updates);
+    // 어드민 액션 로그
+    await _fbDb.ref('adminActions').push({
+      ts: Date.now(),
+      admin: MY_UID,
+      action: 'edit_elo',
+      target: _curEditUid,
+      targetNick: _curEditNick,
+      changes: updates
+    });
+    alert('✓ ELO 수정 완료');
+    closeEditElo();
+    await loadUsers();
+    renderUsers();
+  } catch(e){
+    alert('실패: ' + e.message);
+  }
+}
+
+// ===== 정지 =====
+function openBan(uid, nick){
+  _curBanUid = uid;
+  document.getElementById('banNick').textContent = nick;
+  document.getElementById('banReason').value = '';
+  document.getElementById('banModal').classList.add('show');
+}
+
+function closeBan(){
+  document.getElementById('banModal').classList.remove('show');
+}
+
+async function confirmBan(){
+  if(!_curBanUid) return;
+  const reason = document.getElementById('banReason').value.trim() || '관리자 정지';
+  try {
+    await _fbDb.ref('banned/'+_curBanUid).set({
+      reason: reason,
+      at: Date.now(),
+      by: MY_UID
+    });
+    await _fbDb.ref('adminActions').push({
+      ts: Date.now(),
+      admin: MY_UID,
+      action: 'ban',
+      target: _curBanUid,
+      reason: reason
+    });
+    alert('✓ 정지 완료');
+    closeBan();
+    await loadBanned();
+    renderStats();
+    renderUsers();
+  } catch(e){
+    alert('실패: ' + e.message);
+  }
+}
+
+async function unbanUser(uid){
+  if(!confirm('정지를 해제하시겠습니까?')) return;
+  try {
+    await _fbDb.ref('banned/'+uid).remove();
+    await _fbDb.ref('adminActions').push({
+      ts: Date.now(),
+      admin: MY_UID,
+      action: 'unban',
+      target: uid
+    });
+    alert('✓ 정지 해제 완료');
+    await loadBanned();
+    renderStats();
+    renderUsers();
+    if(document.querySelector('.tab.active').dataset.tab === 'banned') renderBanned();
+  } catch(e){
+    alert('실패: ' + e.message);
+  }
+}
+</script>
+</body>
+</html>

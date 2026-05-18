@@ -3679,6 +3679,11 @@ function endGame(emoji, title, desc, winner /* 'w'|'b'|'draw' */){
         eloEl.className = 'elo-change';
         eloEl.innerHTML = '⚠ ELO 오류: ' + (e && e.message ? e.message : e);
       });
+      
+      // 매치 로그 저장 (호스트만 — 중복 방지)
+      if(NET_ROLE === 'host'){
+        saveMatchLog(winner, title, desc);
+      }
     }
   } else if(IS_AI || IS_LOCAL){
     eloEl.style.display = '';
@@ -3800,6 +3805,34 @@ async function checkPostEloAchievements(newElo, newW){
   if(newElo >= 1400) await unlockAch('gold_tier');
   if(newElo >= 1600) await unlockAch('platinum_tier');
   if(newElo >= 1800) await unlockAch('diamond_tier');
+}
+
+// 매치 로그 자동 기록 (호스트만 호출)
+async function saveMatchLog(winner, title, desc){
+  if(!_gameRatingInfo || !_fbDb) return;
+  try {
+    if(_authReady){ try { await _authReady; } catch(_){} }
+    if(!_fbAuth.currentUser || _fbAuth.currentUser.isAnonymous) return;
+    const log = {
+      ts: Date.now(),
+      isPotion: !!IS_POTION,
+      whiteUid: _gameRatingInfo.whiteUid || null,
+      whiteNick: _gameRatingInfo.whiteNick || null,
+      whiteTag: _gameRatingInfo.whiteTag || null,
+      whiteElo: _gameRatingInfo.whiteElo || 1200,
+      blackUid: _gameRatingInfo.blackUid || null,
+      blackNick: _gameRatingInfo.blackNick || null,
+      blackTag: _gameRatingInfo.blackTag || null,
+      blackElo: _gameRatingInfo.blackElo || 1200,
+      winner: winner || null,
+      reason: title || null,
+      detail: desc || null
+    };
+    await _fbDb.ref('matchLogs').push(log);
+    console.log('[matchLog] 저장 완료');
+  } catch(e){
+    console.warn('[matchLog] 저장 실패:', e.message);
+  }
 }
 
 async function applyEloChange(winner){

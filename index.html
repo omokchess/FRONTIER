@@ -2968,6 +2968,30 @@ window.startTutorial = function(){
       }
 
       authDebug('인증 성공 uid=' + user.uid.slice(0,8) + ' email=' + (user.email||''));
+      
+      // 정지 상태 체크
+      try {
+        const banSnap = await _fbDb.ref('banned/'+user.uid).once('value');
+        const banInfo = banSnap.val();
+        if(banInfo){
+          authDebug('정지된 유저 — 차단');
+          const reason = banInfo.reason || '관리자 정지';
+          await _fbAuth.signOut();
+          try { localStorage.removeItem('frontier_logged_in'); } catch(_){}
+          document.body.innerHTML = `
+            <div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0a0a0c;color:#e8e8ed;text-align:center;padding:20px;font-family:-apple-system,sans-serif">
+              <div style="font-size:64px;margin-bottom:20px">🚫</div>
+              <h2 style="color:#ff453a;margin-bottom:12px">계정 정지</h2>
+              <p style="color:#8e8e93;margin-bottom:8px">사유: ${reason.replace(/[<>]/g,'')}</p>
+              <p style="color:#8e8e93;font-size:12px">관리자에게 문의하세요.</p>
+            </div>
+          `;
+          return;
+        }
+      } catch(banErr){
+        console.warn('[ban check] 실패:', banErr.message);
+      }
+      
       clearTimeout(authTimeout);
       MY_UID = user.uid;
       const providers = user.providerData || [];
@@ -3027,7 +3051,7 @@ window.startTutorial = function(){
     }
   });
 
-  function renderProfile(){
+  async function renderProfile(){
     const titlePrefix = window.MY_TITLE_NAME 
       ? `<span class="nick-title" style="color:${window.MY_TITLE_COLOR||'var(--gold)'}">${window.MY_TITLE_NAME}</span> ` 
       : '';
@@ -3085,6 +3109,15 @@ window.startTutorial = function(){
     const acctEl = document.getElementById('accountSection');
     if(acctEl){
       if(MY_PROVIDER === 'google'){
+        // 관리자 여부 확인
+        let adminHtml = '';
+        try {
+          const adminSnap = await _fbDb.ref('admins/'+MY_UID).once('value');
+          if(adminSnap.val() === true){
+            adminHtml = '<a href="admin.html" class="acct-btn" style="background:linear-gradient(135deg,rgba(245,200,66,.25),rgba(255,149,0,.15));border:1px solid rgba(245,200,66,.5);color:#f5c842;text-decoration:none;margin-right:6px">🛡️ 관리자</a>';
+          }
+        } catch(_){}
+        
         acctEl.innerHTML = `
           <div class="acct-status acct-linked">
             <div class="acct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
@@ -3092,6 +3125,7 @@ window.startTutorial = function(){
               <div class="acct-label">✓ Google 계정 연결됨</div>
               <div class="acct-email">${escapeAttr(MY_EMAIL || '이메일 없음')}</div>
             </div>
+            ${adminHtml}
             <button class="acct-btn" onclick="signOutAndReset()">로그아웃</button>
           </div>`;
       } else {
