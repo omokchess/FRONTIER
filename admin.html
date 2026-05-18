@@ -221,34 +221,52 @@ function escapeHtml(s){
     return;
   }
 
-  // 세션 복원 대기 — 첫 콜백이 null로 와도 일정 시간 더 기다림
+  // 이전 로그인 흔적 확인 — 있으면 더 오래 대기
+  let hasLoginFlag = false;
+  try {
+    hasLoginFlag = (localStorage.getItem('frontier_logged_in') === '1');
+  } catch(_){}
+  
+  // 로딩 상태 표시 (gateView를 로딩으로 활용)
+  const gate = document.getElementById('gateView');
+  gate.style.display = 'flex';
+  gate.querySelector('.gate-icon').textContent = '⏳';
+  gate.querySelector('.gate-msg').textContent = '세션 확인 중...';
+  gate.querySelector('.gate-sub').textContent = hasLoginFlag ? '잠시만 기다려주세요' : '';
+  
+  // Redirect 결과도 await (모바일 시나리오 대비)
+  try {
+    await _fbAuth.getRedirectResult();
+  } catch(_){}
+  
+  // 세션 복원 대기 — 모바일은 더 느릴 수 있음
   let resolved = false;
-  let timeoutId = null;
+  let attempts = 0;
+  const MAX_WAIT = hasLoginFlag ? 30000 : 8000; // 로그인 흔적 있으면 30초까지
+  const startTime = Date.now();
   
   const handleAuth = async (user) => {
     if(resolved) return;
     
     if(!user){
-      // 아직 세션 복원 중일 수 있음 — 8초 대기 후 진짜 없으면 게이트
-      if(!timeoutId){
-        timeoutId = setTimeout(() => {
-          if(!resolved){
-            resolved = true;
-            showGate('로그인이 필요합니다');
-          }
-        }, 8000);
+      // user.currentUser 직접도 확인 (콜백 미발화 케이스)
+      const cur = _fbAuth.currentUser;
+      if(cur && !cur.isAnonymous){
+        user = cur;
+      } else {
+        // 아직 복원 중일 수 있음
+        return;
       }
-      return;
     }
     
-    // user 받음
-    if(timeoutId){ clearTimeout(timeoutId); timeoutId = null; }
-    resolved = true;
-    
     if(user.isAnonymous){
+      resolved = true;
       showGate('Google 계정으로 로그인해야 합니다');
       return;
     }
+    
+    resolved = true;
+    if(_pollInterval) clearInterval(_pollInterval);
     
     MY_UID = user.uid;
     
@@ -274,6 +292,8 @@ function escapeHtml(s){
       if(me) MY_NICK = me.nick || '익명';
     } catch(_){}
     
+    // 게이트 숨기고 메인 표시
+    document.getElementById('gateView').style.display = 'none';
     document.getElementById('adminLabel').textContent = '관리자: ' + MY_NICK;
     document.getElementById('mainView').style.display = 'block';
     
@@ -281,19 +301,36 @@ function escapeHtml(s){
   };
   
   _fbAuth.onAuthStateChanged(handleAuth);
+  
+  // 추가 폴링 — onAuthStateChanged가 안 와도 currentUser 직접 체크
+  let _pollInterval = setInterval(() => {
+    if(resolved){ clearInterval(_pollInterval); return; }
+    const cur = _fbAuth.currentUser;
+    if(cur){ handleAuth(cur); }
+    if(Date.now() - startTime > MAX_WAIT){
+      clearInterval(_pollInterval);
+      if(!resolved){
+        resolved = true;
+        showGate('로그인이 필요합니다');
+      }
+    }
+  }, 500);
 })();
 
 function showGate(msg){
   const gate = document.getElementById('gateView');
   gate.style.display = 'flex';
+  gate.querySelector('.gate-icon').textContent = '🚫';
   const msgEl = gate.querySelector('.gate-msg');
   if(msgEl) msgEl.textContent = msg;
   const subEl = gate.querySelector('.gate-sub');
   if(subEl){
-    if(msg.includes('로그인')){
+    if(msg.includes('로그인') || msg.includes('Google')){
       subEl.innerHTML = '<a href="index.html" style="color:var(--gold)">로비로 가서 로그인하세요</a>';
     } else if(msg.includes('관리자')){
       subEl.textContent = '관리자만 접근 가능합니다.';
+    } else {
+      subEl.textContent = '';
     }
   }
 }
