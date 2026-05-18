@@ -21,8 +21,8 @@ body{padding:20px;max-width:1200px;margin:0 auto}
 .back-btn:hover{background:var(--panel2)}
 
 .gate{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center}
-.gate-icon{font-size:48px;margin-bottom:16px}
-.gate-msg{font-size:18px;color:var(--muted);margin-bottom:8px}
+.gate-icon{margin-bottom:16px}
+.gate-msg{font-size:18px;color:var(--text);margin-bottom:8px;font-weight:700}
 .gate-sub{font-size:13px;color:var(--muted)}
 
 .tabs{display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border)}
@@ -110,11 +110,23 @@ body{padding:20px;max-width:1200px;margin:0 auto}
   <a href="index.html" class="back-btn">← 로비</a>
 </div>
 
-<!-- 비관리자 화면 -->
+<!-- 비관리자 / 로딩 / 비로그인 화면 -->
 <div id="gateView" class="gate" style="display:none">
-  <div class="gate-icon">🚫</div>
-  <div class="gate-msg">접근 권한이 없습니다</div>
-  <div class="gate-sub">이 페이지는 관리자만 이용할 수 있습니다.</div>
+  <svg class="gate-icon" id="gateIconSvg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted)">
+    <circle cx="12" cy="12" r="10"/>
+    <polyline points="12 6 12 12 16 14"/>
+  </svg>
+  <div class="gate-msg">로딩 중...</div>
+  <div class="gate-sub"></div>
+  <button id="gateLoginBtn" onclick="doDirectLogin()" style="display:none;margin-top:20px;padding:12px 24px;background:var(--panel);border:1px solid var(--gold);color:var(--gold);border-radius:10px;cursor:pointer;font-size:14px;font-weight:700;font-family:inherit;display:none;align-items:center;gap:10px">
+    <svg width="20" height="20" viewBox="0 0 48 48" style="flex:0 0 auto">
+      <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
+      <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
+      <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
+      <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
+    </svg>
+    <span>Google로 로그인</span>
+  </button>
 </div>
 
 <!-- 관리자 메인 -->
@@ -217,7 +229,7 @@ function escapeHtml(s){
     _fbAuth = firebase.auth();
     await _fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
   } catch(e){
-    showGate('Firebase 초기화 실패: ' + e.message);
+    showGate('Firebase 초기화 실패: ' + e.message, {type:'error'});
     return;
   }
 
@@ -228,11 +240,7 @@ function escapeHtml(s){
   } catch(_){}
   
   // 로딩 상태 표시 (gateView를 로딩으로 활용)
-  const gate = document.getElementById('gateView');
-  gate.style.display = 'flex';
-  gate.querySelector('.gate-icon').textContent = '⏳';
-  gate.querySelector('.gate-msg').textContent = '세션 확인 중...';
-  gate.querySelector('.gate-sub').textContent = hasLoginFlag ? '잠시만 기다려주세요' : '';
+  showGate('세션 확인 중...', {sub: hasLoginFlag ? '잠시만 기다려주세요' : ''});
   
   // Redirect 결과도 await (모바일 시나리오 대비)
   try {
@@ -261,7 +269,7 @@ function escapeHtml(s){
     
     if(user.isAnonymous){
       resolved = true;
-      showGate('Google 계정으로 로그인해야 합니다');
+      showGate('Google 계정으로 로그인이 필요합니다', {type:'login'});
       return;
     }
     
@@ -276,12 +284,12 @@ function escapeHtml(s){
       _isAdmin = (adminSnap.val() === true);
     } catch(e){
       console.error('[admin check] failed:', e);
-      showGate('권한 확인 실패: ' + e.message);
+      showGate('권한 확인 실패: ' + e.message, {type:'error'});
       return;
     }
     
     if(!_isAdmin){
-      showGate('이 페이지는 관리자만 이용할 수 있습니다');
+      showGate('관리자만 접근 가능합니다', {type:'forbidden', sub:'권한이 필요하면 게임 오너에게 문의하세요'});
       return;
     }
     
@@ -311,29 +319,81 @@ function escapeHtml(s){
       clearInterval(_pollInterval);
       if(!resolved){
         resolved = true;
-        showGate('로그인이 필요합니다');
+        showGate('로그인이 필요합니다', {type:'login', sub:'아래 버튼으로 로그인하세요'});
       }
     }
   }, 500);
 })();
 
-function showGate(msg){
+function showGate(msg, opts){
+  opts = opts || {};
   const gate = document.getElementById('gateView');
   gate.style.display = 'flex';
-  gate.querySelector('.gate-icon').textContent = '🚫';
+  
+  // SVG 아이콘 변경
+  const iconEl = document.getElementById('gateIconSvg');
+  if(iconEl){
+    if(opts.type === 'forbidden'){
+      // 자물쇠 아이콘
+      iconEl.innerHTML = '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>';
+      iconEl.style.color = 'var(--red)';
+    } else if(opts.type === 'login'){
+      // 사람 아이콘
+      iconEl.innerHTML = '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>';
+      iconEl.style.color = 'var(--gold)';
+    } else if(opts.type === 'error'){
+      // 경고 삼각형
+      iconEl.innerHTML = '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>';
+      iconEl.style.color = 'var(--red)';
+    } else {
+      // 시계 (로딩)
+      iconEl.innerHTML = '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>';
+      iconEl.style.color = 'var(--muted)';
+    }
+  }
+  
   const msgEl = gate.querySelector('.gate-msg');
   if(msgEl) msgEl.textContent = msg;
+  
   const subEl = gate.querySelector('.gate-sub');
-  if(subEl){
-    if(msg.includes('로그인') || msg.includes('Google')){
-      subEl.innerHTML = '<a href="index.html" style="color:var(--gold)">로비로 가서 로그인하세요</a>';
-    } else if(msg.includes('관리자')){
-      subEl.textContent = '관리자만 접근 가능합니다.';
+  if(subEl) subEl.textContent = opts.sub || '';
+  
+  // 로그인 버튼은 'login' 타입일 때만 표시
+  const loginBtn = document.getElementById('gateLoginBtn');
+  if(loginBtn){
+    if(opts.type === 'login'){
+      loginBtn.style.display = 'inline-flex';
     } else {
-      subEl.textContent = '';
+      loginBtn.style.display = 'none';
     }
   }
 }
+
+// 게이트에서 직접 Google 로그인 (페이지 이동 없이)
+window.doDirectLogin = async function(){
+  if(!_fbAuth) return;
+  const btn = document.getElementById('gateLoginBtn');
+  if(btn){ btn.disabled = true; btn.querySelector('span').textContent = '로그인 중...'; }
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({prompt:'select_account'});
+    await _fbAuth.signInWithPopup(provider);
+    // onAuthStateChanged가 자동 트리거됨
+  } catch(e){
+    console.error('Direct login failed:', e);
+    if(e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment'){
+      // Popup 차단 → Redirect로 시도
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({prompt:'select_account'});
+        await _fbAuth.signInWithRedirect(provider);
+      } catch(_){}
+    } else {
+      alert('로그인 실패: ' + (e.message || e));
+      if(btn){ btn.disabled = false; btn.querySelector('span').textContent = 'Google로 로그인'; }
+    }
+  }
+};
 
 async function loadAll(){
   await Promise.all([loadUsers(), loadLogs(), loadBanned()]);
