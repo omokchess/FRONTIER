@@ -217,18 +217,39 @@ function escapeHtml(s){
     _fbAuth = firebase.auth();
     await _fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
   } catch(e){
-    document.getElementById('gateView').style.display = 'flex';
-    document.querySelector('#gateView .gate-msg').textContent = 'Firebase 초기화 실패';
+    showGate('Firebase 초기화 실패: ' + e.message);
     return;
   }
 
-  _fbAuth.onAuthStateChanged(async user => {
-    if(!user || user.isAnonymous){
-      document.getElementById('gateView').style.display = 'flex';
-      document.querySelector('#gateView .gate-msg').textContent = '로그인이 필요합니다';
-      document.querySelector('#gateView .gate-sub').innerHTML = '<a href="index.html" style="color:var(--gold)">로비로 가서 로그인하세요</a>';
+  // 세션 복원 대기 — 첫 콜백이 null로 와도 일정 시간 더 기다림
+  let resolved = false;
+  let timeoutId = null;
+  
+  const handleAuth = async (user) => {
+    if(resolved) return;
+    
+    if(!user){
+      // 아직 세션 복원 중일 수 있음 — 8초 대기 후 진짜 없으면 게이트
+      if(!timeoutId){
+        timeoutId = setTimeout(() => {
+          if(!resolved){
+            resolved = true;
+            showGate('로그인이 필요합니다');
+          }
+        }, 8000);
+      }
       return;
     }
+    
+    // user 받음
+    if(timeoutId){ clearTimeout(timeoutId); timeoutId = null; }
+    resolved = true;
+    
+    if(user.isAnonymous){
+      showGate('Google 계정으로 로그인해야 합니다');
+      return;
+    }
+    
     MY_UID = user.uid;
     
     // 관리자 여부 확인
@@ -237,11 +258,12 @@ function escapeHtml(s){
       _isAdmin = (adminSnap.val() === true);
     } catch(e){
       console.error('[admin check] failed:', e);
-      _isAdmin = false;
+      showGate('권한 확인 실패: ' + e.message);
+      return;
     }
     
     if(!_isAdmin){
-      document.getElementById('gateView').style.display = 'flex';
+      showGate('이 페이지는 관리자만 이용할 수 있습니다');
       return;
     }
     
@@ -255,10 +277,26 @@ function escapeHtml(s){
     document.getElementById('adminLabel').textContent = '관리자: ' + MY_NICK;
     document.getElementById('mainView').style.display = 'block';
     
-    // 데이터 로드
     await loadAll();
-  });
+  };
+  
+  _fbAuth.onAuthStateChanged(handleAuth);
 })();
+
+function showGate(msg){
+  const gate = document.getElementById('gateView');
+  gate.style.display = 'flex';
+  const msgEl = gate.querySelector('.gate-msg');
+  if(msgEl) msgEl.textContent = msg;
+  const subEl = gate.querySelector('.gate-sub');
+  if(subEl){
+    if(msg.includes('로그인')){
+      subEl.innerHTML = '<a href="index.html" style="color:var(--gold)">로비로 가서 로그인하세요</a>';
+    } else if(msg.includes('관리자')){
+      subEl.textContent = '관리자만 접근 가능합니다.';
+    }
+  }
+}
 
 async function loadAll(){
   await Promise.all([loadUsers(), loadLogs(), loadBanned()]);
