@@ -51,7 +51,7 @@ function buildEmbed(arr) {
     const lines = normalArr.map(function(u, i) {
       const name = (u.nick || '익명') + (u.tag ? ' `#' + u.tag + '`' : '');
       const w = u.w || 0, l = u.l || 0, d = u.d || 0;
-      return rankLabel(i) + ' ' + name + ' — `' + (u.elo || 1200) + '` ELO (' + w + '승 ' + l + '패' + (d ? ' ' + d + '무' : '') + ')';
+      return rankLabel(i) + ' ' + name + '\n- `' + (u.elo || 1200) + ' ELO` (' + w + '승 ' + l + '패' + (d ? ' ' + d + '무' : '') + ')';
     });
     embeds.push({
       title: 'FRONTIER 일일 랭킹 — 일반 모드',
@@ -66,7 +66,7 @@ function buildEmbed(arr) {
     const lines = potionArr.map(function(u, i) {
       const name = (u.nick || '익명') + (u.tag ? ' `#' + u.tag + '`' : '');
       const w = u.potionW || 0, l = u.potionL || 0, d = u.potionD || 0;
-      return rankLabel(i) + ' ' + name + ' — `' + (u.potionElo || 1200) + '` ELO (' + w + '승 ' + l + '패' + (d ? ' ' + d + '무' : '') + ')';
+      return rankLabel(i) + ' ' + name + '\n* `' + (u.potionElo || 1200) + ' ELO` (' + w + '승 ' + l + '패' + (d ? ' ' + d + '무' : '') + ')';
     });
     embeds.push({
       title: 'FRONTIER 일일 랭킹 — 물약 모드',
