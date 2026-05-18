@@ -1311,9 +1311,7 @@ const MY_NICK_P = Q.get('nick') || (MODE==='ai' ? '플레이어' : '나');
 const MY_TAG_P  = Q.get('tag') || '';
 const MY_ELO_P  = parseInt(Q.get('elo') || '1200');
 const MY_TITLE_NAME = Q.get('title') || '';
-const MY_TITLE_COLOR = Q.get('titleColor') || '#f5c842';
-
-// INIT_HAND must be declared BEFORE parsing _handParam to avoid ReferenceError
+const MY_TITLE_COLOR = Q.get('titleColor') || '#f5c842';// INIT_HAND must be declared BEFORE parsing _handParam to avoid ReferenceError
 const DEFAULT_HAND = {K:1, Q:1, R:2, B:2, N:2, P:8, SH:0, SN:0, JP:0};
 function parseHandStr(s){
   if(!s) return {...DEFAULT_HAND};
@@ -3805,8 +3803,28 @@ async function checkPostEloAchievements(newElo, newW){
 }
 
 async function applyEloChange(winner){
-  if(!_gameRatingInfo){ console.warn('[ELO] _gameRatingInfo 없음 — 적용 안 함'); return null; }
   if(!_fbDb){ console.warn('[ELO] _fbDb 없음 — 적용 안 함'); return null; }
+  
+  // _gameRatingInfo 없으면 자기 데이터로 fallback (HELLO 메시지 누락 시)
+  if(!_gameRatingInfo){
+    console.warn('[ELO] _gameRatingInfo 없음 — 자기 데이터로 fallback');
+    _gameRatingInfo = {
+      whiteUid: MY_COLOR==='w' ? MY_UID : '__unknown_w__',
+      whiteElo: MY_COLOR==='w' ? MY_ELO_P : 1200,
+      whiteNick: MY_COLOR==='w' ? MY_NICK_P : '백',
+      whiteTag: MY_COLOR==='w' ? MY_TAG_P : '',
+      blackUid: MY_COLOR==='b' ? MY_UID : '__unknown_b__',
+      blackElo: MY_COLOR==='b' ? MY_ELO_P : 1200,
+      blackNick: MY_COLOR==='b' ? MY_NICK_P : '흑',
+      blackTag: MY_COLOR==='b' ? MY_TAG_P : ''
+    };
+  }
+  
+  // 모드별 ELO 필드
+  const ELO_FIELD = IS_POTION ? 'potionElo' : 'elo';
+  const W_FIELD = IS_POTION ? 'potionW' : 'w';
+  const L_FIELD = IS_POTION ? 'potionL' : 'l';
+  const D_FIELD = IS_POTION ? 'potionD' : 'd';
   const myCol = MY_COLOR;
   const myInfo = myCol === 'w'
     ? {uid:_gameRatingInfo.whiteUid, elo:_gameRatingInfo.whiteElo}
@@ -3814,55 +3832,74 @@ async function applyEloChange(winner){
   const oppInfo = myCol === 'w'
     ? {uid:_gameRatingInfo.blackUid, elo:_gameRatingInfo.blackElo}
     : {uid:_gameRatingInfo.whiteUid, elo:_gameRatingInfo.whiteElo};
-  if(!myInfo.uid || !oppInfo.uid){ console.warn('[ELO] uid 누락', {myInfo, oppInfo}); return null; }
+  if(!myInfo.uid || myInfo.uid.startsWith('__unknown')){
+    console.warn('[ELO] 내 uid 누락 — 적용 안 함');
+    return null;
+  }
+
+  // 리매치 + 이전 판 ELO 반영 — Firebase에서 현재 ELO 다시 가져오기
+  let actualMyElo = myInfo.elo;
+  let actualOppElo = oppInfo.elo;
+  try {
+    const mySnap = await _fbDb.ref('leaderboard/' + myInfo.uid).once('value');
+    const myLB = mySnap.val();
+    if(myLB){
+      actualMyElo = myLB[ELO_FIELD] || myInfo.elo;
+    }
+  } catch(_){}
+  if(oppInfo.uid && !oppInfo.uid.startsWith('__unknown')){
+    try {
+      const oppSnap = await _fbDb.ref('leaderboard/' + oppInfo.uid).once('value');
+      const oppLB = oppSnap.val();
+      if(oppLB){
+        actualOppElo = oppLB[ELO_FIELD] || oppInfo.elo;
+      }
+    } catch(_){}
+  }
 
   const score = winner === 'draw' ? 0.5 : (winner === myCol ? 1 : 0);
   const K = 32;
-  const expected = 1 / (1 + Math.pow(10, (oppInfo.elo - myInfo.elo)/400));
+  const expected = 1 / (1 + Math.pow(10, (actualOppElo - actualMyElo)/400));
   const diff = Math.round(K * (score - expected));
-  const newElo = myInfo.elo + diff;
-  console.log(`[ELO] ${myCol} score=${score} expected=${expected.toFixed(3)} diff=${diff} ${myInfo.elo}→${newElo}`);
+  const newElo = actualMyElo + diff;
+  console.log(`[ELO ${ELO_FIELD}] ${myCol} score=${score} expected=${expected.toFixed(3)} diff=${diff} ${actualMyElo}→${newElo} (vs ${actualOppElo})`);
 
-  // 본인 데이터만 업데이트 (보안 규칙상)
   try{
-    // auth가 준비됐는지 확인
     if(_authReady){
-      try { await _authReady; } catch(_) { /* 실패해도 try 내부에서 한 번 더 시도 */ }
+      try { await _authReady; } catch(_) {}
     }
-    if(!_fbAuth.currentUser){
-      console.warn('[ELO] auth.currentUser 없음 — 익명 로그인 시도');
-      try { await _fbAuth.signInAnonymously(); } catch(e){ console.error('[ELO] 익명 로그인 실패', e); }
+    if(!_fbAuth.currentUser || _fbAuth.currentUser.isAnonymous){
+      console.warn('[ELO] Google 세션 없음 — ELO 업데이트 불가');
+      return null;
     }
-    if(_fbAuth.currentUser && _fbAuth.currentUser.uid !== myInfo.uid){
-      console.warn(`[ELO] auth.uid(${_fbAuth.currentUser.uid}) !== myInfo.uid(${myInfo.uid})`,
-        '— 동일 브라우저로 호스트/게스트 둘 다 테스트하면 발생. 본인 ELO만 갱신됨.');
-      // 그래도 본인이 본인 UID에 쓰는 건 가능 (auth.uid === path uid 인 경우만). 
-      // myInfo.uid가 auth.uid와 다르면 보안규칙이 거부.
-      if(_fbAuth.currentUser.uid !== myInfo.uid){
-        // 잘못된 매칭이면 본인 UID 쪽에만 기록
-        myInfo.uid = _fbAuth.currentUser.uid;
-      }
+    if(_fbAuth.currentUser.uid !== myInfo.uid){
+      console.warn(`[ELO] auth.uid(${_fbAuth.currentUser.uid}) !== myInfo.uid(${myInfo.uid}) — 본인 UID로 처리`);
+      myInfo.uid = _fbAuth.currentUser.uid;
     }
     const ref = _fbDb.ref('users/'+myInfo.uid);
     const snap = await ref.once('value');
     const cur = snap.val() || {};
-    const upd = {
-      elo: newElo,
-      w: (cur.w||0) + (score===1?1:0),
-      l: (cur.l||0) + (score===0?1:0),
-      d: (cur.d||0) + (score===0.5?1:0)
-    };
+    const upd = {};
+    upd[ELO_FIELD] = newElo;
+    upd[W_FIELD] = (cur[W_FIELD]||0) + (score===1?1:0);
+    upd[L_FIELD] = (cur[L_FIELD]||0) + (score===0?1:0);
+    upd[D_FIELD] = (cur[D_FIELD]||0) + (score===0.5?1:0);
     await ref.update(upd);
-    await _fbDb.ref('leaderboard/'+myInfo.uid).update({
-      nick: cur.nick || MY_NICK_P,
-      elo: newElo, w: upd.w, l: upd.l, d: upd.d
-    });
-    console.log('[ELO] 업데이트 성공', upd);
-    // 업적: 누적 승수 + 티어 갱신
-    try { await checkPostEloAchievements(newElo, upd.w); } catch(_){}
+    const lbUpd = {
+      nick: cur.nick || MY_NICK_P
+    };
+    lbUpd[ELO_FIELD] = newElo;
+    lbUpd[W_FIELD] = upd[W_FIELD];
+    lbUpd[L_FIELD] = upd[L_FIELD];
+    lbUpd[D_FIELD] = upd[D_FIELD];
+    await _fbDb.ref('leaderboard/'+myInfo.uid).update(lbUpd);
+    console.log(`[ELO ${ELO_FIELD}] 업데이트 성공`, upd);
+    if(!IS_POTION){
+      try { await checkPostEloAchievements(newElo, upd[W_FIELD]); } catch(_){}
+    }
   }catch(e){
     console.error('[ELO] 업데이트 실패',e);
-    throw e; // 위에서 잡아 사용자에게 표시
+    throw e;
   }
   return diff;
 }
@@ -4698,25 +4735,25 @@ function fbInit(){
   const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FB_CONFIG);
   _fbDb = firebase.database();
   _fbAuth = firebase.auth();
-  // 이전 페이지(index.html)에서 익명 로그인 한 세션이 있으면 자동 복원됨.
-  // 없으면 새로 익명 로그인. ELO 업데이트가 보안규칙상 auth.uid를 필요로 하므로 미리 보장.
-  _authReady = new Promise((resolve, reject)=>{
-    const unsub = _fbAuth.onAuthStateChanged(async u => {
-      unsub();
-      if(u){ console.log('[Auth] 기존 익명 세션 복원:', u.uid); resolve(u); }
-      else {
-        try {
-          const cred = await _fbAuth.signInAnonymously();
-          console.log('[Auth] 새 익명 로그인:', cred.user.uid);
-          resolve(cred.user);
-        } catch(e){
-          console.error('[Auth] 익명 로그인 실패', e);
-          reject(e);
+  // 세션 영속화 — index.html에서 LOCAL persistence로 저장된 Google 세션 복원
+  _authReady = (async () => {
+    try {
+      await _fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    } catch(_){}
+    return new Promise((resolve)=>{
+      const unsub = _fbAuth.onAuthStateChanged(u => {
+        unsub();
+        if(u && !u.isAnonymous){
+          console.log('[Auth] Google 세션 복원:', u.uid);
+          resolve(u);
+        } else {
+          console.warn('[Auth] 정상 세션 없음 — ELO 업데이트 불가');
+          resolve(null);
         }
-      }
+      });
+      setTimeout(()=> resolve(null), 8000);
     });
-    setTimeout(()=> { try { reject(new Error('auth timeout')); } catch(_) {} }, 8000);
-  });
+  })();
 }
 
 let _peer = null;
@@ -4804,18 +4841,24 @@ function tryConnect(attempt){
   }, 1500);
 }
 
+let _connCloseTimer = null;
 function setupConn(conn){
-  conn.on('data', data => onPeerMessage(data));
+  conn.on('data', data => {
+    // 정상 메시지 받음 → 끊김 grace 취소
+    if(_connCloseTimer){ clearTimeout(_connCloseTimer); _connCloseTimer = null; }
+    onPeerMessage(data);
+  });
   conn.on('close', () => {
-    // 연결 끊김: 게임 진행 중이면 자동 기권 처리 (남은 쪽이 승리)
+    // 연결 끊김: 게임 진행 중이면 grace period 30초
+    // (Alt+Tab으로 인한 일시적 끊김 등 보호)
     if(!gameOver && !IS_SPEC){
-      showFlash('상대 연결이 끊겼습니다 — 자동 승리 처리');
-      // 약간 지연 후 endGame (showFlash 보이게)
-      setTimeout(() => {
+      showFlash('연결 끊김 — 30초간 재연결 대기 중');
+      if(_connCloseTimer) clearTimeout(_connCloseTimer);
+      _connCloseTimer = setTimeout(() => {
         if(!gameOver){
-          endGame('🔌','상대 연결 끊김', '상대 연결이 끊겨 자동 승리합니다.', MY_COLOR);
+          endGame('🔌','상대 연결 끊김', '상대 연결이 30초간 끊겨 자동 승리합니다.', MY_COLOR);
         }
-      }, 400);
+      }, 30000);
     } else if(!gameOver && IS_SPEC){
       showFlash('호스트 연결이 끊겼습니다');
     }
@@ -5256,27 +5299,32 @@ let _timerInterval = null;
 let _wTimeLeft = 0;               // 백의 남은 총 시간 (초)
 let _bTimeLeft = 0;               // 흑의 남은 총 시간 (초)
 
-// 모바일: 백그라운드 진입 시 타이머 일시정지 (시간 누락 + 강제 종료 방지)
-document.addEventListener('visibilitychange', () => {
+// 모바일/데스크탑: 백그라운드 진입 시 타이머 완전 정지 (시간 차감 X)
+// 복귀 시 turn 시각 재설정 → 백그라운드 시간이 본인 시계에 안 들어감
+// visibilitychange: 모바일 백그라운드 / 탭 전환
+// blur/focus: 데스크탑 Alt+Tab / 다른 창 클릭
+function _pauseTimerForBlur(){
   if(typeof TIME_LIMIT === 'undefined' || TIME_LIMIT <= 0) return;
   if(gameOver) return;
-  if(document.hidden){
-    // 백그라운드: 현재 차례 시간 정산 + 타이머 정지
-    if(_timerInterval && _turnStartTime){
-      const elapsed = (Date.now() - _turnStartTime) / 1000;
-      if(turn === 'w') _wTimeLeft = Math.max(0, _wTimeLeft - elapsed);
-      else _bTimeLeft = Math.max(0, _bTimeLeft - elapsed);
-      clearInterval(_timerInterval);
-      _timerInterval = null;
-    }
-  } else {
-    // 포그라운드 복귀: 시각 리셋 + 타이머 재시작
-    if(!_timerInterval){
-      _turnStartTime = Date.now();
-      _timerInterval = setInterval(updateTimer, 100);
-    }
+  if(_timerInterval){
+    clearInterval(_timerInterval);
+    _timerInterval = null;
   }
+}
+function _resumeTimerForBlur(){
+  if(typeof TIME_LIMIT === 'undefined' || TIME_LIMIT <= 0) return;
+  if(gameOver) return;
+  if(!_timerInterval){
+    _turnStartTime = Date.now();
+    _timerInterval = setInterval(updateTimer, 100);
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden) _pauseTimerForBlur();
+  else _resumeTimerForBlur();
 });
+window.addEventListener('blur', _pauseTimerForBlur);
+window.addEventListener('focus', _resumeTimerForBlur);
 
 function startTimerIfNeeded(){
   if(TIME_LIMIT <= 0) return;
