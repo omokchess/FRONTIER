@@ -3051,10 +3051,13 @@ window.startTutorial = function(){
     try {
       await _fbDb.ref('users/'+_admCurEditUid).update(updates);
       await _fbDb.ref('leaderboard/'+_admCurEditUid).update(updates);
-      await _fbDb.ref('adminActions').push({
-        ts: Date.now(), admin: MY_UID, action: 'edit_elo',
-        target: _admCurEditUid, targetNick: _admCurEditNick, changes: updates
-      });
+      // adminActions는 옵셔널 (실패해도 ELO 저장은 성공)
+      try {
+        await _fbDb.ref('adminActions').push({
+          ts: Date.now(), admin: MY_UID, action: 'edit_elo',
+          target: _admCurEditUid, targetNick: _admCurEditNick, changes: updates
+        });
+      } catch(logErr){ console.warn('[adminActions] 로그 실패:', logErr.message); }
       alert('ELO 수정 완료');
       closeAdmEditElo();
       await loadAdmUsers();
@@ -3083,10 +3086,12 @@ window.startTutorial = function(){
       await _fbDb.ref('banned/'+_admCurBanUid).set({
         reason, at: Date.now(), by: MY_UID
       });
-      await _fbDb.ref('adminActions').push({
-        ts: Date.now(), admin: MY_UID, action: 'ban',
-        target: _admCurBanUid, reason
-      });
+      try {
+        await _fbDb.ref('adminActions').push({
+          ts: Date.now(), admin: MY_UID, action: 'ban',
+          target: _admCurBanUid, reason
+        });
+      } catch(logErr){ console.warn('[adminActions] 로그 실패:', logErr.message); }
       alert('정지 완료');
       closeAdmBan();
       await loadAdmBanned();
@@ -3101,9 +3106,11 @@ window.startTutorial = function(){
     if(!confirm('정지를 해제하시겠습니까?')) return;
     try {
       await _fbDb.ref('banned/'+uid).remove();
-      await _fbDb.ref('adminActions').push({
-        ts: Date.now(), admin: MY_UID, action: 'unban', target: uid
-      });
+      try {
+        await _fbDb.ref('adminActions').push({
+          ts: Date.now(), admin: MY_UID, action: 'unban', target: uid
+        });
+      } catch(logErr){ console.warn('[adminActions] 로그 실패:', logErr.message); }
       alert('정지 해제 완료');
       await loadAdmBanned();
       renderAdmStats();
