@@ -881,6 +881,7 @@ input{font-family:inherit;outline:none}
         </div>
         <div class="big-tag-row">
           <span class="big-tag" id="bigTagFull" onclick="copyMyTag()" title="클릭하여 친구 코드 복사">#—</span>
+          <span class="big-tag" id="bigUidFull" onclick="copyMyUid()" title="클릭하여 UID 복사 (관리자용)" style="background:rgba(10,132,255,.15);border:1px solid rgba(10,132,255,.4);color:#5ac8fa;font-size:10px;cursor:pointer;margin-left:6px;display:none">UID 복사</span>
         </div>
         <div class="big-stats">
           <div class="bs-item">
@@ -3077,6 +3078,11 @@ window.startTutorial = function(){
     if(bigRc) bigRc.textContent = `${MY_W}승 ${MY_L}패${MY_D?` ${MY_D}무`:''}`;
     if(bigTr){ bigTr.textContent = t.name; bigTr.style.background = t.color; }
     if(bigTg) bigTg.textContent = '#' + MY_TAG;
+    const uidEl = document.getElementById('bigUidFull');
+    if(uidEl){
+      uidEl.style.display = 'inline-block';
+      uidEl.textContent = 'UID 복사';
+    }
     
     // 물약 모드 ELO 표시 (별도 카드)
     let potionEloCard = document.getElementById('potionEloCard');
@@ -3151,6 +3157,25 @@ window.startTutorial = function(){
   }
 
   // 친구 코드 복사
+  window.copyMyUid = function(){
+    if(!MY_UID) return;
+    const doCopy = () => {
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        return navigator.clipboard.writeText(MY_UID);
+      }
+      prompt('UID (복사하세요):', MY_UID);
+      return Promise.resolve();
+    };
+    doCopy().then(()=>{
+      const el = document.getElementById('bigUidFull');
+      if(el){
+        const orig = el.textContent;
+        el.textContent = '✓ 복사됨';
+        setTimeout(()=>{ el.textContent = 'UID 복사'; }, 1500);
+      }
+    });
+  };
+
   window.copyMyTag = function(){
     if(!MY_TAG) return;
     const fullCode = MY_NICK + '#' + MY_TAG;
