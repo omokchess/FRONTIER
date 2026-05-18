@@ -1,0 +1,25 @@
+name: Daily Ranking to Discord
+
+# 트리거: 매일 KST 00:00 (UTC 15:00) + 수동 실행 가능
+on:
+  schedule:
+    - cron: '0 15 * * *'   # UTC 15:00 = KST 00:00
+  workflow_dispatch:        # GitHub UI에서 "Run workflow" 수동 실행
+
+jobs:
+  send-ranking:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch leaderboard + send to Discord
+        env:
+          FIREBASE_DB_URL: ${{ secrets.FIREBASE_DB_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: node .github/scripts/send-ranking.mjs
