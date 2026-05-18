@@ -564,6 +564,55 @@ input{font-family:inherit;outline:none}
   filter:drop-shadow(0 0 4px currentColor)
 }
 
+/* ========= 관리자 모달 ========= */
+.admin-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.adm-stat{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
+.adm-num{font-size:20px;font-weight:800;color:var(--gold)}
+.adm-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+
+.admin-tabs{display:flex;gap:6px;border-bottom:1px solid var(--border)}
+.adm-tab{padding:8px 14px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;font-weight:700;border-bottom:2px solid transparent;font-family:inherit}
+.adm-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+
+.adm-user-card{
+  display:flex;align-items:center;gap:10px;
+  background:var(--panel2);border:1px solid var(--border);
+  border-radius:8px;padding:10px;margin-bottom:6px
+}
+.adm-user-card.banned{opacity:.55;border-color:var(--red)}
+.adm-avt{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#ff9500);color:#000;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex:0 0 auto}
+.adm-user-card.banned .adm-avt{background:var(--red);color:#fff}
+.adm-info{flex:1;min-width:0;overflow:hidden}
+.adm-nick{font-weight:800;font-size:13px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.adm-tag-small{font-size:10px;color:var(--muted);background:var(--panel);padding:1px 5px;border-radius:3px}
+.adm-stats-row{font-size:11px;color:var(--muted);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap}
+.adm-elo{color:var(--gold);font-weight:700}
+.adm-pelo{color:#bf5af2;font-weight:700}
+.adm-act{display:flex;gap:4px;flex-shrink:0}
+.adm-act button{padding:5px 9px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:5px;cursor:pointer;font-size:11px;font-family:inherit}
+.adm-act .adm-btn-edit{color:#5ac8fa;border-color:rgba(10,132,255,.3)}
+.adm-act .adm-btn-ban{color:var(--red);border-color:rgba(255,69,58,.3)}
+.adm-act .adm-btn-unban{color:var(--green);border-color:rgba(48,209,88,.3)}
+
+.adm-log-row{
+  background:var(--panel2);border:1px solid var(--border);
+  border-radius:6px;padding:8px 10px;margin-bottom:5px;
+  font-size:12px;display:grid;grid-template-columns:100px 1fr 60px;gap:8px;align-items:center
+}
+.adm-log-time{font-size:10px;color:var(--muted)}
+.adm-log-mode{text-align:right;font-size:10px;color:#bf5af2}
+.adm-log-mode.normal{color:var(--gold)}
+
+.adm-empty{text-align:center;color:var(--muted);padding:30px;font-size:13px}
+
+@media (max-width:600px){
+  .admin-stats{grid-template-columns:repeat(2,1fr)}
+  .adm-log-row{grid-template-columns:1fr;gap:3px}
+  .adm-log-mode{text-align:left}
+  .adm-user-card{flex-wrap:wrap}
+  .adm-act{width:100%;justify-content:flex-end;margin-top:4px}
+}
+
 /* 🧪 물약 모드 ELO 카드 */
 .potion-elo-card{
   display:flex;align-items:center;gap:12px;
@@ -1139,6 +1188,78 @@ input{font-family:inherit;outline:none}
       <div id="achList" style="overflow-y:auto;flex:1;padding-right:6px"></div>
       <div class="actions" style="justify-content:center;margin-top:12px">
         <button class="btn btn-ghost" onclick="closeAchievementsModal()">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========= 관리자 모달 (admin만 접근) ========= -->
+  <div class="modal" id="adminModal" onclick="if(event.target.id==='adminModal') closeAdminModal()">
+    <div class="modal-card admin-modal-card" style="max-width:900px;width:96%;max-height:90vh;display:flex;flex-direction:column;padding:18px">
+      <h3 style="display:flex;align-items:center;gap:8px;margin-bottom:14px;color:var(--gold)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        관리자 패널
+        <button class="btn btn-ghost" onclick="closeAdminModal()" style="margin-left:auto;padding:6px 12px;font-size:12px">닫기</button>
+      </h3>
+      
+      <!-- 상단 통계 -->
+      <div class="admin-stats">
+        <div class="adm-stat"><div class="adm-num" id="admStatTotal">0</div><div class="adm-lbl">유저</div></div>
+        <div class="adm-stat"><div class="adm-num" id="admStatActive">0</div><div class="adm-lbl">활성</div></div>
+        <div class="adm-stat"><div class="adm-num" id="admStatBanned">0</div><div class="adm-lbl">정지</div></div>
+        <div class="adm-stat"><div class="adm-num" id="admStatLogs">0</div><div class="adm-lbl">로그</div></div>
+      </div>
+      
+      <!-- 탭 -->
+      <div class="admin-tabs">
+        <button class="adm-tab active" data-adm-tab="users" onclick="setAdmTab('users')">유저 관리</button>
+        <button class="adm-tab" data-adm-tab="logs" onclick="setAdmTab('logs')">게임 로그</button>
+        <button class="adm-tab" data-adm-tab="banned" onclick="setAdmTab('banned')">정지 목록</button>
+      </div>
+      
+      <div style="overflow-y:auto;flex:1;padding-right:4px;margin-top:10px">
+        <!-- 유저 탭 -->
+        <div id="admTabUsers">
+          <input type="text" id="admUserSearch" placeholder="🔍 닉네임 또는 태그 검색..." oninput="renderAdmUsers()"
+                 style="width:100%;padding:9px 12px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:10px">
+          <div id="admUserList"></div>
+        </div>
+        <!-- 로그 탭 -->
+        <div id="admTabLogs" style="display:none">
+          <div id="admLogList"></div>
+        </div>
+        <!-- 정지 탭 -->
+        <div id="admTabBanned" style="display:none">
+          <div id="admBannedList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- ELO 수정 서브모달 -->
+  <div class="modal" id="admEditEloModal" onclick="if(event.target.id==='admEditEloModal') closeAdmEditElo()">
+    <div class="modal-card" style="max-width:380px;width:90%">
+      <h3 style="color:var(--gold);margin-bottom:14px">ELO 수정 — <span id="admEditEloNick"></span></h3>
+      <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">일반 ELO (현재: <span id="admCurElo"></span>)</label>
+      <input type="number" id="admNewElo" placeholder="새 일반 ELO" style="width:100%;padding:9px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:14px;font-family:inherit;margin-bottom:12px">
+      <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">물약 ELO (현재: <span id="admCurPotionElo"></span>)</label>
+      <input type="number" id="admNewPotionElo" placeholder="변경 없으면 비움" style="width:100%;padding:9px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:14px;font-family:inherit;margin-bottom:12px">
+      <div class="actions" style="justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="closeAdmEditElo()">취소</button>
+        <button class="btn btn-gold" onclick="saveAdmEloChange()">저장</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 정지 서브모달 -->
+  <div class="modal" id="admBanModal" onclick="if(event.target.id==='admBanModal') closeAdmBan()">
+    <div class="modal-card" style="max-width:380px;width:90%">
+      <h3 style="color:var(--red);margin-bottom:14px">유저 정지</h3>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:12px"><b id="admBanNick"></b>를 정지합니다.<br>정지된 유저는 게임을 시작할 수 없습니다.</p>
+      <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">사유 (선택)</label>
+      <input type="text" id="admBanReason" placeholder="예: 승부 조작 / 어뷰징" style="width:100%;padding:9px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:14px;font-family:inherit;margin-bottom:12px">
+      <div class="actions" style="justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="closeAdmBan()">취소</button>
+        <button class="btn" onclick="confirmAdmBan()" style="background:var(--red);color:#fff;border:none">정지</button>
       </div>
     </div>
   </div>
@@ -2717,6 +2838,267 @@ window.startTutorial = function(){
     document.getElementById('titlesModal').classList.remove('show');
   };
 
+  // ============ 관리자 패널 ============
+  let _admAllUsers = {}, _admAllLogs = [], _admAllBanned = {};
+  let _admCurEditUid = null, _admCurEditNick = '';
+  let _admCurBanUid = null;
+  
+  window.openAdminModal = async function(){
+    if(!MY_UID){ alert('로그인 필요'); return; }
+    document.getElementById('adminModal').classList.add('show');
+    await loadAdmAll();
+    renderAdmStats();
+    renderAdmUsers();
+    setAdmTab('users');
+  };
+  
+  window.closeAdminModal = function(){
+    document.getElementById('adminModal').classList.remove('show');
+  };
+  
+  async function loadAdmAll(){
+    await Promise.all([loadAdmUsers(), loadAdmLogs(), loadAdmBanned()]);
+  }
+  
+  async function loadAdmUsers(){
+    try {
+      const snap = await _fbDb.ref('users').once('value');
+      _admAllUsers = snap.val() || {};
+    } catch(e){ console.error('admin users load:', e); _admAllUsers = {}; }
+  }
+  
+  async function loadAdmLogs(){
+    try {
+      const snap = await _fbDb.ref('matchLogs').orderByChild('ts').limitToLast(100).once('value');
+      const data = snap.val() || {};
+      _admAllLogs = Object.entries(data)
+        .map(([id, log]) => ({id, ...log}))
+        .sort((a,b) => (b.ts||0) - (a.ts||0));
+    } catch(e){ console.error('admin logs load:', e); _admAllLogs = []; }
+  }
+  
+  async function loadAdmBanned(){
+    try {
+      const snap = await _fbDb.ref('banned').once('value');
+      _admAllBanned = snap.val() || {};
+    } catch(e){ console.error('admin banned load:', e); _admAllBanned = {}; }
+  }
+  
+  function renderAdmStats(){
+    const users = Object.values(_admAllUsers);
+    const active = users.filter(u => (u.w||0) + (u.l||0) + (u.d||0) > 0);
+    document.getElementById('admStatTotal').textContent = users.length;
+    document.getElementById('admStatActive').textContent = active.length;
+    document.getElementById('admStatBanned').textContent = Object.keys(_admAllBanned).length;
+    document.getElementById('admStatLogs').textContent = _admAllLogs.length;
+  }
+  
+  window.setAdmTab = function(tab){
+    document.querySelectorAll('.adm-tab').forEach(t => t.classList.toggle('active', t.dataset.admTab === tab));
+    document.getElementById('admTabUsers').style.display = (tab === 'users') ? 'block' : 'none';
+    document.getElementById('admTabLogs').style.display = (tab === 'logs') ? 'block' : 'none';
+    document.getElementById('admTabBanned').style.display = (tab === 'banned') ? 'block' : 'none';
+    if(tab === 'logs') renderAdmLogs();
+    if(tab === 'banned') renderAdmBanned();
+  };
+  
+  window.renderAdmUsers = function(){
+    const q = (document.getElementById('admUserSearch').value || '').trim().toLowerCase();
+    const arr = Object.entries(_admAllUsers)
+      .map(([uid, u]) => ({uid, ...u}))
+      .filter(u => {
+        if(!q) return true;
+        return (u.nick||'').toLowerCase().includes(q) || (u.tag||'').toLowerCase().includes(q);
+      })
+      .sort((a,b) => (b.elo||1200) - (a.elo||1200));
+    
+    const list = document.getElementById('admUserList');
+    if(arr.length === 0){
+      list.innerHTML = '<div class="adm-empty">결과 없음</div>';
+      return;
+    }
+    list.innerHTML = arr.map(u => {
+      const banned = !!_admAllBanned[u.uid];
+      const w = u.w||0, l = u.l||0, d = u.d||0;
+      const pw = u.potionW||0, pl = u.potionL||0, pd = u.potionD||0;
+      const hasPotionStats = pw + pl + pd > 0;
+      const safeNick = escapeHtml(u.nick||'?');
+      const safeNickAttr = escapeAttr(u.nick||'');
+      return `
+        <div class="adm-user-card ${banned ? 'banned' : ''}">
+          <div class="adm-avt">${escapeHtml((u.nick||'?').charAt(0).toUpperCase())}</div>
+          <div class="adm-info">
+            <div class="adm-nick">
+              ${safeNick}
+              ${u.tag ? `<span class="adm-tag-small">#${escapeHtml(u.tag)}</span>` : ''}
+              ${banned ? '<span style="color:var(--red);font-size:10px">정지</span>' : ''}
+            </div>
+            <div class="adm-stats-row">
+              <span class="adm-elo">${u.elo||1200} ELO</span>
+              <span>${w}승 ${l}패${d?` ${d}무`:''}</span>
+              ${hasPotionStats ? `<span class="adm-pelo">${u.potionElo||1200} 물약</span><span>${pw}승 ${pl}패${pd?` ${pd}무`:''}</span>` : ''}
+            </div>
+          </div>
+          <div class="adm-act">
+            <button class="adm-btn-edit" onclick="openAdmEditElo('${u.uid}','${safeNickAttr}')">ELO</button>
+            ${banned 
+              ? `<button class="adm-btn-unban" onclick="admUnbanUser('${u.uid}')">해제</button>`
+              : `<button class="adm-btn-ban" onclick="openAdmBan('${u.uid}','${safeNickAttr}')">정지</button>`
+            }
+          </div>
+        </div>
+      `;
+    }).join('');
+  };
+  
+  function renderAdmLogs(){
+    const list = document.getElementById('admLogList');
+    if(_admAllLogs.length === 0){
+      list.innerHTML = '<div class="adm-empty">아직 게임 로그가 없습니다</div>';
+      return;
+    }
+    list.innerHTML = _admAllLogs.map(log => {
+      const d = new Date(log.ts || 0);
+      const timeStr = d.toLocaleString('ko-KR', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+      const wName = escapeHtml(log.whiteNick || '?') + (log.whiteTag ? `#${escapeHtml(log.whiteTag)}` : '');
+      const bName = escapeHtml(log.blackNick || '?') + (log.blackTag ? `#${escapeHtml(log.blackTag)}` : '');
+      const winnerLabel = log.winner === 'w' ? `<b style="color:var(--gold)">${wName} 승</b>`
+                       : log.winner === 'b' ? `<b style="color:var(--gold)">${bName} 승</b>`
+                       : '<span style="color:var(--muted)">무</span>';
+      const reason = log.reason ? ` <span style="color:var(--muted);font-size:10px">(${escapeHtml(log.reason)})</span>` : '';
+      const modeClass = log.isPotion ? '' : 'normal';
+      const modeLabel = log.isPotion ? '물약' : '일반';
+      return `
+        <div class="adm-log-row">
+          <div class="adm-log-time">${timeStr}</div>
+          <div>${wName} vs ${bName} — ${winnerLabel}${reason}</div>
+          <div class="adm-log-mode ${modeClass}">${modeLabel}</div>
+        </div>
+      `;
+    }).join('');
+  }
+  
+  function renderAdmBanned(){
+    const list = document.getElementById('admBannedList');
+    const entries = Object.entries(_admAllBanned);
+    if(entries.length === 0){
+      list.innerHTML = '<div class="adm-empty">정지된 유저 없음</div>';
+      return;
+    }
+    list.innerHTML = entries.map(([uid, info]) => {
+      const u = _admAllUsers[uid] || {};
+      const reason = info.reason || '사유 없음';
+      const at = info.at ? new Date(info.at).toLocaleString('ko-KR') : '';
+      return `
+        <div class="adm-user-card banned">
+          <div class="adm-avt">${escapeHtml((u.nick||'?').charAt(0).toUpperCase())}</div>
+          <div class="adm-info">
+            <div class="adm-nick">${escapeHtml(u.nick||'(삭제됨)')} ${u.tag ? `<span class="adm-tag-small">#${escapeHtml(u.tag)}</span>` : ''}</div>
+            <div class="adm-stats-row"><span style="color:var(--red)">${escapeHtml(reason)}</span>${at ? `<span>${at}</span>` : ''}</div>
+          </div>
+          <div class="adm-act"><button class="adm-btn-unban" onclick="admUnbanUser('${uid}')">해제</button></div>
+        </div>
+      `;
+    }).join('');
+  }
+  
+  window.openAdmEditElo = function(uid, nick){
+    _admCurEditUid = uid;
+    _admCurEditNick = nick;
+    const u = _admAllUsers[uid] || {};
+    document.getElementById('admEditEloNick').textContent = nick;
+    document.getElementById('admCurElo').textContent = u.elo || 1200;
+    document.getElementById('admCurPotionElo').textContent = u.potionElo || 1200;
+    document.getElementById('admNewElo').value = u.elo || 1200;
+    document.getElementById('admNewPotionElo').value = '';
+    document.getElementById('admEditEloModal').classList.add('show');
+  };
+  
+  window.closeAdmEditElo = function(){
+    document.getElementById('admEditEloModal').classList.remove('show');
+  };
+  
+  window.saveAdmEloChange = async function(){
+    if(!_admCurEditUid) return;
+    const newElo = parseInt(document.getElementById('admNewElo').value);
+    const newPotionEloStr = document.getElementById('admNewPotionElo').value.trim();
+    const updates = {};
+    if(!isNaN(newElo)) updates.elo = newElo;
+    if(newPotionEloStr){
+      const v = parseInt(newPotionEloStr);
+      if(!isNaN(v)) updates.potionElo = v;
+    }
+    if(Object.keys(updates).length === 0){
+      alert('변경된 값 없음');
+      return;
+    }
+    try {
+      await _fbDb.ref('users/'+_admCurEditUid).update(updates);
+      await _fbDb.ref('leaderboard/'+_admCurEditUid).update(updates);
+      await _fbDb.ref('adminActions').push({
+        ts: Date.now(), admin: MY_UID, action: 'edit_elo',
+        target: _admCurEditUid, targetNick: _admCurEditNick, changes: updates
+      });
+      alert('ELO 수정 완료');
+      closeAdmEditElo();
+      await loadAdmUsers();
+      renderAdmStats();
+      renderAdmUsers();
+    } catch(e){
+      alert('실패: ' + e.message);
+    }
+  };
+  
+  window.openAdmBan = function(uid, nick){
+    _admCurBanUid = uid;
+    document.getElementById('admBanNick').textContent = nick;
+    document.getElementById('admBanReason').value = '';
+    document.getElementById('admBanModal').classList.add('show');
+  };
+  
+  window.closeAdmBan = function(){
+    document.getElementById('admBanModal').classList.remove('show');
+  };
+  
+  window.confirmAdmBan = async function(){
+    if(!_admCurBanUid) return;
+    const reason = document.getElementById('admBanReason').value.trim() || '관리자 정지';
+    try {
+      await _fbDb.ref('banned/'+_admCurBanUid).set({
+        reason, at: Date.now(), by: MY_UID
+      });
+      await _fbDb.ref('adminActions').push({
+        ts: Date.now(), admin: MY_UID, action: 'ban',
+        target: _admCurBanUid, reason
+      });
+      alert('정지 완료');
+      closeAdmBan();
+      await loadAdmBanned();
+      renderAdmStats();
+      renderAdmUsers();
+    } catch(e){
+      alert('실패: ' + e.message);
+    }
+  };
+  
+  window.admUnbanUser = async function(uid){
+    if(!confirm('정지를 해제하시겠습니까?')) return;
+    try {
+      await _fbDb.ref('banned/'+uid).remove();
+      await _fbDb.ref('adminActions').push({
+        ts: Date.now(), admin: MY_UID, action: 'unban', target: uid
+      });
+      alert('정지 해제 완료');
+      await loadAdmBanned();
+      renderAdmStats();
+      renderAdmUsers();
+      const activeTab = document.querySelector('.adm-tab.active');
+      if(activeTab && activeTab.dataset.admTab === 'banned') renderAdmBanned();
+    } catch(e){
+      alert('실패: ' + e.message);
+    }
+  };
+
   // ===== 사용자 태그 생성 =====
   const TAG_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   
@@ -3120,7 +3502,7 @@ window.startTutorial = function(){
         try {
           const adminSnap = await _fbDb.ref('admins/'+MY_UID).once('value');
           if(adminSnap.val() === true){
-            adminHtml = '<a href="admin.html" class="acct-btn" style="background:linear-gradient(135deg,rgba(245,200,66,.25),rgba(255,149,0,.15));border:1px solid rgba(245,200,66,.5);color:#f5c842;text-decoration:none;margin-right:6px">🛡️ 관리자</a>';
+            adminHtml = '<button class="acct-btn" onclick="openAdminModal()" style="background:linear-gradient(135deg,rgba(245,200,66,.25),rgba(255,149,0,.15));border:1px solid rgba(245,200,66,.5);color:#f5c842;margin-right:6px;cursor:pointer">관리자</button>';
           }
         } catch(_){}
         
