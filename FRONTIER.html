@@ -5069,6 +5069,7 @@ function triggerDisconnect(){
   }, 300);
 }
 function setupConn(conn){
+  console.log('[net] setupConn 호출 — role:', NET_ROLE);
   conn.on('data', data => {
     // 정상 메시지 받음 → 끊김 grace 취소 + pong 시간 갱신
     _lastPongTime = Date.now();
@@ -5090,8 +5091,7 @@ function setupConn(conn){
     }
   });
   conn.on('error', e => {
-    console.error('Conn error',e);
-    // error만 발생하고 close 안 나는 경우 대비
+    console.error('[net] Conn error',e);
     if(gameOver || IS_SPEC) return;
     if(!_connCloseTimer && !_hostDisconnected){
       _hostDisconnected = true;
@@ -5108,23 +5108,38 @@ function setupConn(conn){
   document.getElementById('connectModal').classList.remove('show');
   document.getElementById('chatFab').style.display = '';
   document.getElementById('forfeitBtn').style.display = '';
-  // 게임 시작 시점에 myRoomCode null로 (페이지 이동 보호)
-  // 단, 이 페이지를 떠날 때 방 삭제는 여전히 필요
 
-  // 인사 교환
-  if(NET_ROLE === 'host'){
-    sendToPeer({
-      t:'HELLO',
-      hostNick: MY_NICK_P, hostElo: MY_ELO_P, hostUid: MY_UID,
-      hostTitle: MY_TITLE_NAME || '', hostTitleColor: MY_TITLE_COLOR || '',
-      hand: INIT_HAND
-    });
+  // 인사 교환 — conn이 완전히 open된 후 보내야 (PeerJS race condition 방지)
+  const sendHello = () => {
+    if(NET_ROLE === 'host'){
+      const payload = {
+        t:'HELLO',
+        hostNick: MY_NICK_P, hostElo: MY_ELO_P, hostUid: MY_UID, hostTag: MY_TAG_P,
+        hostTitle: MY_TITLE_NAME || '', hostTitleColor: MY_TITLE_COLOR || '',
+        hand: INIT_HAND
+      };
+      console.log('[net] HELLO 송신 (host):', payload);
+      sendToPeer(payload);
+    } else {
+      const payload = {
+        t:'HELLO',
+        guestNick: MY_NICK_P, guestElo: MY_ELO_P, guestUid: MY_UID, guestTag: MY_TAG_P,
+        guestTitle: MY_TITLE_NAME || '', guestTitleColor: MY_TITLE_COLOR || ''
+      };
+      console.log('[net] HELLO 송신 (guest):', payload);
+      sendToPeer(payload);
+    }
+  };
+  
+  // conn.open 상태 확인. 이미 open이면 즉시, 아니면 'open' 이벤트 대기
+  if(conn.open){
+    sendHello();
   } else {
-    sendToPeer({
-      t:'HELLO',
-      guestNick: MY_NICK_P, guestElo: MY_ELO_P, guestUid: MY_UID,
-      guestTitle: MY_TITLE_NAME || '', guestTitleColor: MY_TITLE_COLOR || ''
-    });
+    conn.on('open', sendHello);
+    // 안전망: 1초 후에도 안 보내졌으면 강제 송신
+    setTimeout(() => {
+      if(conn.open) sendHello();
+    }, 1000);
   }
 
   // gameActive 마크 (호스트만)
@@ -5183,11 +5198,25 @@ function onPeerMessage(data){
       }, 1500);
       return;
     }
+  if(data.t === 'HELLO'){
+    console.log('[net] HELLO 수신:', data);
+    // 같은 계정 매칭 방지
+    const otherUid = NET_ROLE === 'host' ? data.guestUid : data.hostUid;
+    if(otherUid && otherUid === MY_UID){
+      sendToPeer({t:'REJECT', reason:'same_account'});
+      showFlash('자기 자신과는 매칭할 수 없습니다');
+      setTimeout(()=>{
+        cleanupRoom();
+        goLobby();
+      }, 1500);
+      return;
+    }
     if(NET_ROLE === 'host'){
       _gameRatingInfo = {
         whiteUid: MY_UID, whiteElo: MY_ELO_P, whiteNick: MY_NICK_P, whiteTag: MY_TAG_P,
         blackUid: data.guestUid, blackElo: data.guestElo, blackNick: data.guestNick, blackTag: data.guestTag||''
       };
+      console.log('[net] _gameRatingInfo 설정 (host):', _gameRatingInfo);
       _opponentUid = data.guestUid;
       const gTag = data.guestTag ? `<span class="ingame-tag">#${escapeHtml(data.guestTag)}</span>` : '';
       const gTitle = data.guestTitle 
@@ -5195,13 +5224,21 @@ function onPeerMessage(data){
         : '';
       document.getElementById('oppName').innerHTML = gTitle + escapeHtml(data.guestNick) + gTag + ` (${data.guestElo})`;
       document.getElementById('oppMeta').textContent = '흑 ELO ' + data.guestElo;
-      // 상대 칭호 prefix 보호
       if(data.guestTitle) setupTitleObserver('oppName', data.guestTitle, data.guestTitleColor||'#f5c842');
+      // 호스트가 게스트한테 자기 정보 답장 (게스트가 host 정보 받을 수 있도록 확실히)
+      sendToPeer({
+        t:'HELLO',
+        hostNick: MY_NICK_P, hostElo: MY_ELO_P, hostUid: MY_UID, hostTag: MY_TAG_P,
+        hostTitle: MY_TITLE_NAME || '', hostTitleColor: MY_TITLE_COLOR || '',
+        hand: INIT_HAND
+      });
+      console.log('[net] HELLO 답장 송신 (host → guest)');
     } else {
       _gameRatingInfo = {
         whiteUid: data.hostUid, whiteElo: data.hostElo, whiteNick: data.hostNick, whiteTag: data.hostTag||'',
         blackUid: MY_UID, blackElo: MY_ELO_P, blackNick: MY_NICK_P, blackTag: MY_TAG_P
       };
+      console.log('[net] _gameRatingInfo 설정 (guest):', _gameRatingInfo);
       _opponentUid = data.hostUid;
       const hTag = data.hostTag ? `<span class="ingame-tag">#${escapeHtml(data.hostTag)}</span>` : '';
       const hTitle = data.hostTitle 
@@ -5214,7 +5251,6 @@ function onPeerMessage(data){
         hands.b = {...DEFAULT_HAND, ...data.hand};
         renderAll();
       }
-      // 상대 칭호 prefix 보호
       if(data.hostTitle) setupTitleObserver('oppName', data.hostTitle, data.hostTitleColor||'#f5c842');
     }
     // 차단 검사 — 내가 이미 차단한 상대인지 확인
