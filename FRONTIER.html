@@ -1309,7 +1309,7 @@ const TIME_LIMIT_RAW = Q.get('time') || 'unlimited';
 const MY_UID    = Q.get('uid') || ('local-' + Math.random().toString(36).slice(2,8));
 const MY_NICK_P = Q.get('nick') || (MODE==='ai' ? '플레이어' : '나');
 const MY_TAG_P  = Q.get('tag') || '';
-const MY_ELO_P  = parseInt(Q.get('elo') || '1200');
+let MY_ELO_P  = parseInt(Q.get('elo') || '1200');
 const MY_TITLE_NAME = Q.get('title') || '';
 const MY_TITLE_COLOR = Q.get('titleColor') || '#f5c842';// INIT_HAND must be declared BEFORE parsing _handParam to avoid ReferenceError
 const DEFAULT_HAND = {K:1, Q:1, R:2, B:2, N:2, P:8, SH:0, SN:0, JP:0};
@@ -3695,6 +3695,18 @@ function endGame(emoji, title, desc, winner /* 'w'|'b'|'draw' */, fromHost){
               eloEl.className = 'elo-change ' + (myDiff>0?'up':'dn');
               eloEl.innerHTML = `${MY_ELO_P} → <b>${newElo}</b> <span style="opacity:.8">(${sign}${myDiff})</span>`;
             }
+            // 리매치를 위해 MY_ELO_P + _gameRatingInfo 갱신
+            MY_ELO_P = newElo;
+            if(_gameRatingInfo){
+              if(MY_COLOR === 'w'){
+                _gameRatingInfo.whiteElo = newElo;
+                _gameRatingInfo.blackElo = oppNewElo;
+              } else {
+                _gameRatingInfo.blackElo = newElo;
+                _gameRatingInfo.whiteElo = oppNewElo;
+              }
+              console.log('[ELO] _gameRatingInfo 갱신 (호스트):', _gameRatingInfo);
+            }
           } else {
             eloEl.className = 'elo-change';
             eloEl.innerHTML = '⚠ ELO 업데이트 실패';
@@ -3735,6 +3747,12 @@ function endGame(emoji, title, desc, winner /* 'w'|'b'|'draw' */, fromHost){
                   const sign = diff > 0 ? '+' : '';
                   eloEl.className = 'elo-change ' + (diff>0?'up':'dn');
                   eloEl.innerHTML = `${MY_ELO_P} → <b>${newElo}</b> <span style="opacity:.8">(${sign}${diff})</span>`;
+                }
+                // 리매치를 위해 갱신
+                MY_ELO_P = newElo;
+                if(_gameRatingInfo){
+                  if(MY_COLOR === 'w') _gameRatingInfo.whiteElo = newElo;
+                  else _gameRatingInfo.blackElo = newElo;
                 }
               } else {
                 eloEl.className = 'elo-change';
@@ -5198,6 +5216,16 @@ function onPeerMessage(data){
         eloEl.innerHTML = `${MY_ELO_P} → <b>${newElo}</b> <span style="opacity:.8">(${sign}${diff})</span>`;
       }
       eloEl.style.display = '';
+    }
+    // 리매치를 위해 MY_ELO_P + _gameRatingInfo 갱신
+    MY_ELO_P = newElo;
+    if(_gameRatingInfo){
+      if(MY_COLOR === 'w'){
+        _gameRatingInfo.whiteElo = newElo;
+      } else {
+        _gameRatingInfo.blackElo = newElo;
+      }
+      console.log('[ELO] _gameRatingInfo 갱신 (게스트):', _gameRatingInfo);
     }
     // 자기 데이터에 저장 (자기 인증으로)
     applyEloAsGuest(diff, newElo, _lastWinnerForGuest);
