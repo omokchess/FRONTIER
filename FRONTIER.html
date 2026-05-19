@@ -3686,14 +3686,20 @@ function endGame(emoji, title, desc, winner /* 'w'|'b'|'draw' */, fromHost){
           _eloPending = false;
           setEndNavDisabled(false);
           if(myDiff !== null){
-            const sign = myDiff > 0 ? '+' : '';
-            eloEl.className = 'elo-change ' + (myDiff>0?'up':myDiff<0?'dn':'');
-            eloEl.innerHTML = `레이팅 <b>${sign}${myDiff}</b> → ${MY_ELO_P + myDiff}`;
+            const newElo = MY_ELO_P + myDiff;
+            if(myDiff === 0){
+              eloEl.className = 'elo-change';
+              eloEl.innerHTML = `<span style="color:var(--muted)">변동 없음</span> · ${MY_ELO_P} ELO`;
+            } else {
+              const sign = myDiff > 0 ? '+' : '';
+              eloEl.className = 'elo-change ' + (myDiff>0?'up':'dn');
+              eloEl.innerHTML = `${MY_ELO_P} → <b>${newElo}</b> <span style="opacity:.8">(${sign}${myDiff})</span>`;
+            }
           } else {
             eloEl.className = 'elo-change';
             eloEl.innerHTML = '⚠ ELO 업데이트 실패';
           }
-          // 게스트에게 결과 전송 (게스트 diff + 게스트 새 ELO)
+          // 게스트에게 결과 전송
           try {
             sendToPeer({ t:'ELO_RESULT', diff: oppDiff, newElo: oppNewElo });
             console.log('[ELO] 게스트에게 결과 전송:', {oppDiff, oppNewElo});
@@ -3721,9 +3727,15 @@ function endGame(emoji, title, desc, winner /* 'w'|'b'|'draw' */, fromHost){
               _eloPending = false;
               setEndNavDisabled(false);
               if(diff !== null){
-                const sign = diff > 0 ? '+' : '';
-                eloEl.className = 'elo-change ' + (diff>0?'up':diff<0?'dn':'');
-                eloEl.innerHTML = `레이팅 <b>${sign}${diff}</b> → ${MY_ELO_P + diff}`;
+                const newElo = MY_ELO_P + diff;
+                if(diff === 0){
+                  eloEl.className = 'elo-change';
+                  eloEl.innerHTML = `<span style="color:var(--muted)">변동 없음</span> · ${MY_ELO_P} ELO`;
+                } else {
+                  const sign = diff > 0 ? '+' : '';
+                  eloEl.className = 'elo-change ' + (diff>0?'up':'dn');
+                  eloEl.innerHTML = `${MY_ELO_P} → <b>${newElo}</b> <span style="opacity:.8">(${sign}${diff})</span>`;
+                }
               } else {
                 eloEl.className = 'elo-change';
                 eloEl.innerHTML = '⚠ ELO 업데이트 실패';
@@ -5177,9 +5189,14 @@ function onPeerMessage(data){
     const newElo = data.newElo;
     const eloEl = document.getElementById('endElo');
     if(eloEl && diff !== null && diff !== undefined){
-      const sign = diff > 0 ? '+' : '';
-      eloEl.className = 'elo-change ' + (diff>0?'up':diff<0?'dn':'');
-      eloEl.innerHTML = `레이팅 <b>${sign}${diff}</b> → ${newElo}`;
+      if(diff === 0){
+        eloEl.className = 'elo-change';
+        eloEl.innerHTML = `<span style="color:var(--muted)">변동 없음</span> · ${MY_ELO_P} ELO`;
+      } else {
+        const sign = diff > 0 ? '+' : '';
+        eloEl.className = 'elo-change ' + (diff>0?'up':'dn');
+        eloEl.innerHTML = `${MY_ELO_P} → <b>${newElo}</b> <span style="opacity:.8">(${sign}${diff})</span>`;
+      }
       eloEl.style.display = '';
     }
     // 자기 데이터에 저장 (자기 인증으로)
