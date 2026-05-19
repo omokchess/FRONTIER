@@ -3733,40 +3733,39 @@ function endGame(emoji, title, desc, winner /* 'w'|'b'|'draw' */, fromHost){
         _waitingForEloResult = true;
         _lastWinnerForGuest = winner;
         // 만약 8초 안에 ELO_RESULT 안 오면 자체 계산으로 fallback
+        // (호스트 연결 끊김 등 — gameOver 상태여도 ELO 계산은 진행되어야 함)
         setTimeout(() => {
-          if(_waitingForEloResult && !gameOver){
-            // 시간 경과 → 자체 계산 fallback (호스트 연결 끊김 등)
-            _waitingForEloResult = false;
-            console.warn('[ELO] 호스트 ELO_RESULT 8초 timeout — 자체 계산 fallback');
-            applyEloChange(winner).then(diff => {
-              _eloPending = false;
-              setEndNavDisabled(false);
-              if(diff !== null){
-                const newElo = MY_ELO_P + diff;
-                if(diff === 0){
-                  eloEl.className = 'elo-change';
-                  eloEl.innerHTML = `<span style="color:var(--muted)">변동 없음</span> · ${MY_ELO_P} ELO`;
-                } else {
-                  const sign = diff > 0 ? '+' : '';
-                  eloEl.className = 'elo-change ' + (diff>0?'up':'dn');
-                  eloEl.innerHTML = `${MY_ELO_P} → <b>${newElo}</b> <span style="opacity:.8">(${sign}${diff})</span>`;
-                }
-                // 리매치를 위해 갱신
-                MY_ELO_P = newElo;
-                if(_gameRatingInfo){
-                  if(MY_COLOR === 'w') _gameRatingInfo.whiteElo = newElo;
-                  else _gameRatingInfo.blackElo = newElo;
-                }
-              } else {
+          if(!_waitingForEloResult) return; // 이미 처리됨
+          _waitingForEloResult = false;
+          console.warn('[ELO] 호스트 ELO_RESULT 8초 timeout — 자체 계산 fallback');
+          applyEloChange(winner).then(diff => {
+            _eloPending = false;
+            setEndNavDisabled(false);
+            if(diff !== null){
+              const newElo = MY_ELO_P + diff;
+              if(diff === 0){
                 eloEl.className = 'elo-change';
-                eloEl.innerHTML = '⚠ ELO 업데이트 실패';
+                eloEl.innerHTML = `<span style="color:var(--muted)">변동 없음</span> · ${MY_ELO_P} ELO`;
+              } else {
+                const sign = diff > 0 ? '+' : '';
+                eloEl.className = 'elo-change ' + (diff>0?'up':'dn');
+                eloEl.innerHTML = `${MY_ELO_P} → <b>${newElo}</b> <span style="opacity:.8">(${sign}${diff})</span>`;
               }
-            }).catch(e => {
-              _eloPending = false;
-              setEndNavDisabled(false);
-              eloEl.innerHTML = '⚠ ELO 오류: ' + (e.message || e);
-            });
-          }
+              // 리매치를 위해 갱신
+              MY_ELO_P = newElo;
+              if(_gameRatingInfo){
+                if(MY_COLOR === 'w') _gameRatingInfo.whiteElo = newElo;
+                else _gameRatingInfo.blackElo = newElo;
+              }
+            } else {
+              eloEl.className = 'elo-change';
+              eloEl.innerHTML = '⚠ ELO 업데이트 실패';
+            }
+          }).catch(e => {
+            _eloPending = false;
+            setEndNavDisabled(false);
+            eloEl.innerHTML = '⚠ ELO 오류: ' + (e.message || e);
+          });
         }, 8000);
       }
     }
