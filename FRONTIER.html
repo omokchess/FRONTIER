@@ -5187,18 +5187,6 @@ function onPeerMessage(data){
     return;
   }
   if(data.t === 'HELLO'){
-    // 같은 계정 매칭 방지
-    const otherUid = NET_ROLE === 'host' ? data.guestUid : data.hostUid;
-    if(otherUid && otherUid === MY_UID){
-      sendToPeer({t:'REJECT', reason:'same_account'});
-      showFlash('자기 자신과는 매칭할 수 없습니다');
-      setTimeout(()=>{
-        cleanupRoom();
-        goLobby();
-      }, 1500);
-      return;
-    }
-  if(data.t === 'HELLO'){
     console.log('[net] HELLO 수신:', data);
     // 같은 계정 매칭 방지
     const otherUid = NET_ROLE === 'host' ? data.guestUid : data.hostUid;
