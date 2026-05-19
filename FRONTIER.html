@@ -3610,6 +3610,9 @@ window.addEventListener('beforeunload', e => {
 function endGame(emoji, title, desc, winner /* 'w'|'b'|'draw' */, fromHost){
   if(gameOver) return;
   
+  // 게임 종료 — 새로고침 감지 마커 제거 (이후 새로고침해도 안전)
+  try { sessionStorage.removeItem('frontier_active_game'); } catch(_){}
+  
   // 게스트는 호스트 신호 외에 자체 endGame 차단 (winner 일관성 보장)
   // 단 호스트와 연결 끊긴 경우엔 통과 (fromHost=true로 별도 호출)
   if(IS_NET && NET_ROLE === 'guest' && !fromHost && !_hostDisconnected){
@@ -5948,6 +5951,8 @@ function confirmLeave(){
   });
 }
 function goLobby(){
+  // 정상 퇴장 — 새로고침 감지 마커 제거
+  try { sessionStorage.removeItem('frontier_active_game'); } catch(_){}
   cleanupRoom();
   myRoomCode = null;
   location.href = 'index.html';
@@ -6392,6 +6397,27 @@ function init(){
   // 진화 학습 모드: UI는 init() 뒤에 별도 처리, 게임 init 건너뜀
   if(IS_EVOLVE){
     return;
+  }
+  
+  // 새로고침 감지 — P2P 게임 도중 새로고침 시 자동으로 로비로
+  // (PeerJS conn 끊기고 게임 상태 망가지니 재개 불가능)
+  if(IS_NET && !IS_SPEC){
+    try {
+      const prev = sessionStorage.getItem('frontier_active_game');
+      if(prev){
+        const info = JSON.parse(prev);
+        if(info && info.room === ROOM_CODE){
+          // 같은 방 재진입 = 새로고침
+          sessionStorage.removeItem('frontier_active_game');
+          alert('게임이 새로고침으로 중단되었습니다.\n상대에게는 자동 승리 처리됩니다.\n로비로 돌아갑니다.');
+          goLobby();
+          return;
+        }
+        sessionStorage.removeItem('frontier_active_game');
+      }
+      // 정상 진입 — 마커 등록 (다음 새로고침 감지용)
+      sessionStorage.setItem('frontier_active_game', JSON.stringify({room: ROOM_CODE, role: NET_ROLE, ts: Date.now()}));
+    } catch(_){}
   }
 
   // UI 초기 정보
