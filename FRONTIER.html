@@ -3605,8 +3605,24 @@ window.addEventListener('beforeunload', e => {
   }
 });
 
-function endGame(emoji, title, desc, winner /* 'w'|'b'|'draw' */){
+function endGame(emoji, title, desc, winner /* 'w'|'b'|'draw' */, fromHost){
   if(gameOver) return;
+  
+  // 게스트는 호스트 신호 외에 자체 endGame 차단 (winner 일관성 보장)
+  // 단 호스트와 연결 끊긴 경우엔 통과 (fromHost=true로 별도 호출)
+  if(IS_NET && NET_ROLE === 'guest' && !fromHost && !_hostDisconnected){
+    // 게스트는 자체 종료 조건 감지해도 endGame 호출 X — 호스트가 신호 보낼 때까지 대기
+    // 호스트도 같은 board 상태라 같은 결론 내릴 것
+    return;
+  }
+  
+  // 호스트는 endGame 진입 즉시 게스트에게 신호 전송
+  if(IS_NET && NET_ROLE === 'host'){
+    try {
+      sendToPeer({ t:'END_SIGNAL', winner, title, desc, emoji });
+    } catch(_){}
+  }
+  
   gameOver = true;
   // 리플레이 저장 (먼저 저장하고 나머지 진행)
   saveReplayToStorage(winner, title, desc);
@@ -4875,6 +4891,36 @@ function tryConnect(attempt){
 }
 
 let _connCloseTimer = null;
+let _hostDisconnected = false;
+let _lastPongTime = 0;
+let _heartbeatInterval = null;
+
+function startHeartbeat(){
+  if(_heartbeatInterval) clearInterval(_heartbeatInterval);
+  _lastPongTime = Date.now();
+  _heartbeatInterval = setInterval(() => {
+    if(gameOver){ clearInterval(_heartbeatInterval); return; }
+    // ping 보냄
+    try { sendToPeer({ t:'PING', ts: Date.now() }); } catch(_){}
+    // 30초간 pong 없으면 연결 끊김으로 간주
+    const elapsed = Date.now() - _lastPongTime;
+    if(elapsed > 30000 && !_connCloseTimer){
+      console.warn('[heartbeat] 30초간 응답 없음 — 연결 끊김 처리');
+      triggerDisconnect();
+    }
+  }, 5000); // 5초마다 ping
+}
+
+function triggerDisconnect(){
+  if(gameOver || IS_SPEC) return;
+  _hostDisconnected = true;
+  showFlash('상대 연결 끊김 — 자동 승리 처리');
+  setTimeout(() => {
+    if(!gameOver){
+      endGame('🔌','상대 연결 끊김', '상대 응답 없음 — 자동 승리합니다.', MY_COLOR, NET_ROLE === 'guest');
+    }
+  }, 500);
+}
 function setupConn(conn){
   conn.on('data', data => {
     // 정상 메시지 받음 → 끊김 grace 취소
@@ -4882,14 +4928,14 @@ function setupConn(conn){
     onPeerMessage(data);
   });
   conn.on('close', () => {
-    // 연결 끊김: 게임 진행 중이면 grace period 30초
-    // (Alt+Tab으로 인한 일시적 끊김 등 보호)
+    if(_connCloseTimer) return; // 이미 처리 중
     if(!gameOver && !IS_SPEC){
-      showFlash('연결 끊김 — 30초간 재연결 대기 중');
+      showFlash('연결 끊김 — 30초 대기 중');
+      _hostDisconnected = true;
       if(_connCloseTimer) clearTimeout(_connCloseTimer);
       _connCloseTimer = setTimeout(() => {
         if(!gameOver){
-          endGame('🔌','상대 연결 끊김', '상대 연결이 30초간 끊겨 자동 승리합니다.', MY_COLOR);
+          endGame('🔌','상대 연결 끊김', '상대 연결이 30초간 끊겨 자동 승리합니다.', MY_COLOR, NET_ROLE === 'guest');
         }
       }, 30000);
     } else if(!gameOver && IS_SPEC){
@@ -4929,6 +4975,23 @@ function setupConn(conn){
 
 function onPeerMessage(data){
   if(!data || !data.t) return;
+  // 정상 메시지 받음 → pong 시각 갱신 + grace 취소
+  _lastPongTime = Date.now();
+  // PING/PONG (연결 상태 확인용)
+  if(data.t === 'PING'){
+    try { sendToPeer({ t:'PONG', ts: data.ts }); } catch(_){}
+    return;
+  }
+  if(data.t === 'PONG'){
+    return; // _lastPongTime은 위에서 갱신됨
+  }
+  // 호스트가 보낸 종료 신호 (게스트 전용)
+  if(data.t === 'END_SIGNAL'){
+    if(NET_ROLE === 'guest' && !gameOver){
+      endGame(data.emoji || '🏁', data.title || '게임 종료', data.desc || '', data.winner, true);
+    }
+    return;
+  }
   if(data.t === 'HELLO'){
     // 같은 계정 매칭 방지
     const otherUid = NET_ROLE === 'host' ? data.guestUid : data.hostUid;
@@ -4982,6 +5045,8 @@ function onPeerMessage(data){
     if(bBtn) bBtn.style.display = '';
     publishGameState();
     startTimerIfNeeded();
+    // 연결 상태 모니터링 시작 (PING/PONG 5초마다)
+    if(IS_NET) startHeartbeat();
   } else if(data.t === 'MOVE'){
     // 상대가 둔 수 적용
     let _captured = null;
@@ -5074,8 +5139,12 @@ function onPeerMessage(data){
     document.body.classList.toggle('board-flipped');
     if(data.level === 2){
       showFlash('🃏 상대 조커 강화! 한 번 더 둠');
+      // 레벨 2: 상대가 한 번 더 둠 — turn 그대로 (상대 차례 유지)
     } else {
       showFlash('🃏 진영 교환됨!');
+      // 일반: 한 수로 처리 → turn 넘김 (보내는 쪽도 넘김)
+      turn = opp(turn);
+      if(IS_POTION) handlePotionTurnStart(turn);
     }
     renderAll();
     playSnd('move');
