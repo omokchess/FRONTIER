@@ -201,16 +201,18 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
 
 /* 토픽바 타이머 (모든 화면 크기에서 보임) */
 .topbar-timer{display:flex;gap:4px;align-items:center;font-family:'Cinzel',monospace}
-.tt-side{display:flex;gap:3px;align-items:center;padding:3px 7px;border-radius:6px;
-  background:var(--panel2);border:1px solid transparent;font-size:13px;font-weight:700;
+.tt-side{display:flex;gap:4px;align-items:center;padding:2px 8px;border-radius:6px;
+  background:var(--panel2);border:1px solid transparent;font-size:12px;font-weight:700;
   transition:all .15s;
-  /* 폭 고정 — 숫자 변해도 컨테이너 안 흔들림 */
-  min-width:88px;justify-content:center}
+  /* 폭만 고정 — height는 콤팩트 */
+  min-width:78px;height:26px;
+  justify-content:center;line-height:1}
 .tt-side .tt-time{
   font-variant-numeric:tabular-nums;
   font-feature-settings:"tnum";
   display:inline-block;
-  min-width:62px;text-align:center
+  min-width:54px;text-align:center;
+  line-height:1
 }
 .tt-side.active{background:rgba(245,200,66,.18);border-color:var(--gold);color:var(--gold)}
 .tt-side.warn{animation:pulse 1s infinite;color:var(--red);background:rgba(255,69,58,.15);border-color:var(--red)}
@@ -456,6 +458,10 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
   box-shadow:0 4px 14px rgba(0,0,0,.5),0 0 0 1px rgba(191,90,242,.3) inset;
   cursor:pointer;
   padding:0
+}
+/* 포션 모드일 때만 모바일에서 표시 */
+@media (max-width:600px){
+  .potion-fab.show-potion{display:flex}
 }
 .potion-fab:active{transform:scale(.92)}
 .potion-fab-badge{
@@ -997,7 +1003,7 @@ body.board-flipped .cell{transform:rotate(180deg)}
 
   <!-- 모바일 전용 눈 버튼: 우상단 고정 원형 (sketch 디자인) -->
   <button class="opp-eye-fab mobile-only" onclick="toggleOppSheet()" title="상대 정보">👁</button>
-  <button class="potion-fab mobile-only" id="potionFab" onclick="openPotionInventoryModal()" title="물약 인벤토리">
+  <button class="potion-fab" id="potionFab" onclick="openPotionInventoryModal()" title="물약 인벤토리">
     <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
       <path d="M11 4 L11 12 L6 24 Q5 28 9 28 L23 28 Q27 28 26 24 L21 12 L21 4 Z" fill="rgba(191,90,242,.3)" stroke="#bf5af2" stroke-width="2" stroke-linejoin="round"/>
       <path d="M8.5 18 L23.5 18 L26 24 Q27 28 23 28 L9 28 Q5 28 6 24 Z" fill="#bf5af2" opacity="0.7"/>
@@ -1997,7 +2003,8 @@ function renderPotionUI(){
   if(IS_POTION){
     if(container) container.style.display = 'block';
     if(fab){
-      fab.style.display = ''; // CSS .mobile-only{display:flex} 적용 (모바일에서만 보임)
+      fab.classList.add('show-potion'); // CSS가 모바일에서만 display:flex
+      fab.style.display = ''; // inline 제거 (이전 호출 잔재)
       const badge = document.getElementById('potionFabBadge');
       const myCount = myInventory.length;
       if(badge){
@@ -2011,7 +2018,7 @@ function renderPotionUI(){
     }
   } else {
     if(container) container.style.display = 'none';
-    if(fab) fab.style.display = 'none';
+    if(fab){ fab.classList.remove('show-potion'); fab.style.display = 'none'; }
     return;
   }
   if(!container) return;
@@ -5719,9 +5726,9 @@ let _chatLog = [];
 
 // ===== 이모지 시스템 (채팅 통합) =====
 const EMOJI_LIST = [
-  { id:'checkmate', name:'체크메이트', url:'assets/emojis/checkmate.jpg' },
-  { id:'hi', name:'안녕', url:'assets/emojis/hi.jpg' },
-  { id:'silly', name:'헤헤', url:'assets/emojis/silly.jpg' }
+  { id:'checkmate', name:'체크메이트', url:'./assets/emojis/checkmate.jpg' },
+  { id:'hi', name:'안녕', url:'./assets/emojis/hi.jpg' },
+  { id:'silly', name:'헤헤', url:'./assets/emojis/silly.jpg' }
 ];
 
 // ===== 타이머 프로필 사진 =====
@@ -5783,19 +5790,22 @@ function addChatMsg(from, msg, mine, sys, emojiId){
 // 이모지 drawer 토글
 let _lastEmojiSent = 0;
 window.toggleChatEmojiDrawer = function(){
+  console.log('[emoji] 버튼 클릭');
   const dr = document.getElementById('chatEmojiDrawer');
-  if(!dr) return;
+  if(!dr){ console.warn('[emoji] drawer element 없음!'); return; }
   const open = dr.classList.toggle('show');
+  console.log('[emoji] drawer 열림:', open);
   if(open){
     // 그리드 렌더
     const grid = document.getElementById('cedGrid');
-    if(grid && typeof EMOJI_LIST !== 'undefined'){
-      grid.innerHTML = EMOJI_LIST.map(e =>
-        `<button class="ced-cell" onclick="sendChatEmoji('${e.id}')" title="${escapeAttr(e.name)}">
-          <img src="${e.url}" alt="${escapeAttr(e.name)}" loading="lazy">
-        </button>`
-      ).join('');
-    }
+    if(!grid){ console.warn('[emoji] grid element 없음!'); return; }
+    console.log('[emoji] EMOJI_LIST 길이:', EMOJI_LIST.length);
+    grid.innerHTML = EMOJI_LIST.map(e =>
+      `<button class="ced-cell" onclick="sendChatEmoji('${e.id}')" title="${escapeAttr(e.name)}">
+        <img src="${e.url}" alt="${escapeAttr(e.name)}" loading="lazy" onerror="console.warn('[emoji] 이미지 로드 실패:','${e.url}'); this.parentNode.innerHTML='${escapeAttr(e.name)}'; this.parentNode.style.fontSize='10px'; this.parentNode.style.color='#888'">
+      </button>`
+    ).join('');
+    console.log('[emoji] grid 렌더 완료');
   }
 };
 
