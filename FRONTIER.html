@@ -322,6 +322,75 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
 .chat-fab{position:fixed;bottom:14px;right:14px;width:50px;height:50px;border-radius:50%;
   background:var(--gold);color:#1c1c1e;font-size:22px;display:flex;align-items:center;justify-content:center;
   box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:50;cursor:pointer}
+
+/* ===== 이모지 시스템 ===== */
+.emoji-fab{position:fixed;bottom:14px;right:74px;width:50px;height:50px;border-radius:50%;
+  background:var(--panel);color:var(--gold);border:1px solid var(--gold);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:50;cursor:pointer;
+  transition:transform .15s}
+.emoji-fab:hover{transform:scale(1.05)}
+.emoji-fab:active{transform:scale(.92)}
+
+.emoji-panel{position:fixed;bottom:74px;right:14px;
+  background:var(--panel);border:1px solid var(--border);border-radius:14px;
+  padding:10px;z-index:55;display:none;
+  box-shadow:0 10px 30px rgba(0,0,0,.5);
+  max-width:280px}
+.emoji-panel.show{display:block}
+.emoji-panel-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.emoji-cell{
+  width:72px;height:72px;
+  background:#fff;border:1px solid var(--border);border-radius:10px;
+  cursor:pointer;padding:0;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .12s, border-color .12s
+}
+.emoji-cell:hover{transform:scale(1.05);border-color:var(--gold)}
+.emoji-cell:active{transform:scale(.93)}
+.emoji-cell img{width:100%;height:100%;object-fit:contain;pointer-events:none;display:block}
+
+/* 보낸/받은 이모지가 큰 사이즈로 잠시 표시되는 영역 */
+.emoji-display-area{
+  position:fixed;left:0;right:0;top:50%;
+  transform:translateY(-50%);
+  display:flex;justify-content:center;align-items:center;
+  pointer-events:none;z-index:90;
+  gap:40px
+}
+.emoji-popup{
+  width:240px;max-width:80vw;
+  animation: emojiPopup 3s ease forwards;
+  filter:drop-shadow(0 8px 24px rgba(0,0,0,.5))
+}
+.emoji-popup img{width:100%;height:auto;display:block;border-radius:14px;background:#fff;padding:6px}
+.emoji-popup.from-opp{transform:scaleX(-1)}
+.emoji-popup.from-opp img{transform:scaleX(-1)}
+
+@keyframes emojiPopup{
+  0%{transform:scale(.3) translateY(40px);opacity:0}
+  15%{transform:scale(1.1) translateY(0);opacity:1}
+  25%{transform:scale(1) translateY(0);opacity:1}
+  75%{transform:scale(1) translateY(0);opacity:1}
+  100%{transform:scale(.9) translateY(-30px);opacity:0}
+}
+.emoji-popup.from-opp{
+  animation-name: emojiPopupOpp;
+}
+@keyframes emojiPopupOpp{
+  0%{transform:scaleX(-1) scale(.3) translateY(40px);opacity:0}
+  15%{transform:scaleX(-1) scale(1.1) translateY(0);opacity:1}
+  25%{transform:scaleX(-1) scale(1) translateY(0);opacity:1}
+  75%{transform:scaleX(-1) scale(1) translateY(0);opacity:1}
+  100%{transform:scaleX(-1) scale(.9) translateY(-30px);opacity:0}
+}
+
+@media (max-width:600px){
+  .emoji-fab{bottom:14px;right:74px;width:46px;height:46px}
+  .emoji-panel{right:10px;bottom:70px;padding:8px}
+  .emoji-cell{width:64px;height:64px}
+  .emoji-popup{width:200px}
+}
 .chat-badge{position:absolute;top:-3px;right:-3px;background:var(--red);color:#fff;font-size:10px;
   font-weight:700;padding:2px 5px;border-radius:9px;min-width:18px;text-align:center}
 .chat-panel{position:fixed;bottom:14px;right:14px;width:300px;max-width:calc(100vw - 28px);height:380px;max-height:60vh;
@@ -444,9 +513,18 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
   .mobile-only{display:flex}
   /* 흑 패널 완전 숨김 — 눈 버튼으로만 확인 */
   .side.left{display:none}
-  /* 모바일 상단바 컴팩트 */
+  /* 모바일 상단바 컴팩트 + 화면 위에 고정 (스크롤해도 타이머 안 사라짐) */
   .tb-mid{display:none}
-  .topbar{padding:6px 10px}
+  .topbar{
+    padding:6px 10px;
+    position:sticky;
+    top:0;
+    z-index:40;
+    background:var(--panel);
+    margin-left:-4px; margin-right:-4px; padding-left:14px; padding-right:14px;
+    border-radius:0;
+    border-top:none; border-left:none; border-right:none
+  }
   .tb-btn{padding:5px 8px;font-size:13px}
   #modeLbl{font-size:11px !important;padding:2px 6px !important}
   /* 4행 그리드: 상단바 / 보드 / 내 통계 / 내 손패 */
@@ -1028,6 +1106,21 @@ body.board-flipped .cell{transform:rotate(180deg)}
 <button class="chat-fab" id="chatFab" onclick="toggleChat()" style="display:none">
   💬<span class="chat-badge" id="chatBadge" style="display:none">0</span>
 </button>
+
+<!-- 이모지 FAB (P2P 게임 중에만 보임) -->
+<button class="emoji-fab" id="emojiFab" onclick="toggleEmojiPanel()" style="display:none" aria-label="이모지 보내기">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>
+  </svg>
+</button>
+
+<!-- 이모지 패널 -->
+<div class="emoji-panel" id="emojiPanel">
+  <div class="emoji-panel-grid" id="emojiPanelGrid"></div>
+</div>
+
+<!-- 이모지 표시 영역 (받았거나 보낸 이모지가 큰 사이즈로 잠시 표시) -->
+<div class="emoji-display-area" id="emojiDisplayArea"></div>
 
 <!-- AI 사고 중 인디케이터 -->
 <div id="aiThinkingIndicator" style="display:none;position:fixed;top:60px;left:50%;transform:translateX(-50%);
@@ -3844,15 +3937,35 @@ function trackQuestProgressLocal(eventType, payload){
 
 // ===== 업적 검사 =====
 async function unlockAch(id){
-  if(!_fbDb || !MY_UID) return;
+  if(!_fbDb) return;
+  // 인증된 실제 uid 사용 (MY_UID는 URL 파라미터라 신뢰 X)
+  if(_authReady){ try { await _authReady; } catch(_){} }
+  const actualUid = (_fbAuth && _fbAuth.currentUser && !_fbAuth.currentUser.isAnonymous) 
+    ? _fbAuth.currentUser.uid : null;
+  if(!actualUid){ console.warn('[Ach] 인증 없음 — 업적 저장 skip:', id); return; }
   try {
-    const snap = await _fbDb.ref(`users/${MY_UID}/achievements/${id}`).once('value');
+    const snap = await _fbDb.ref(`users/${actualUid}/achievements/${id}`).once('value');
     if(snap.exists()) return; // 이미 달성
-    await _fbDb.ref(`users/${MY_UID}/achievements/${id}`).set({ unlockedAt: Date.now() });
+    await _fbDb.ref(`users/${actualUid}/achievements/${id}`).set({ unlockedAt: Date.now() });
+    console.log('[Ach] 해제:', id);
     showFlash(`🏆 업적 해제: ${id}`);
   } catch(e){
-    console.warn('[Ach] unlock 실패:', e.message);
+    console.warn('[Ach] unlock 실패:', e.message, '— id:', id);
   }
+}
+
+async function checkPostEloAchievements(newElo, newW){
+  if(!_fbDb) return;
+  console.log('[Ach] checkPostElo — newElo:', newElo, 'newW:', newW);
+  if(newW === 1) await unlockAch('first_win');
+  if(newW >= 5) await unlockAch('five_wins');
+  if(newW >= 10) await unlockAch('ten_wins');
+  if(newW >= 50) await unlockAch('fifty_wins');
+  if(newW >= 100) await unlockAch('hundred_wins');
+  if(newElo >= 1200) await unlockAch('silver_tier');
+  if(newElo >= 1400) await unlockAch('gold_tier');
+  if(newElo >= 1600) await unlockAch('platinum_tier');
+  if(newElo >= 1800) await unlockAch('diamond_tier');
 }
 
 async function checkAchievements(winner, title, desc){
@@ -3875,20 +3988,6 @@ async function checkAchievements(winner, title, desc){
       else if(diff === 'hard') await unlockAch('ai_hard');
     }
   }
-}
-
-// ELO 갱신 후 누적 승수/티어 검사 (applyEloChange 안에서 호출)
-async function checkPostEloAchievements(newElo, newW){
-  if(!_fbDb || !MY_UID) return;
-  if(newW === 1) await unlockAch('first_win');
-  if(newW >= 5) await unlockAch('five_wins');
-  if(newW >= 10) await unlockAch('ten_wins');
-  if(newW >= 50) await unlockAch('fifty_wins');
-  if(newW >= 100) await unlockAch('hundred_wins');
-  if(newElo >= 1200) await unlockAch('silver_tier');
-  if(newElo >= 1400) await unlockAch('gold_tier');
-  if(newElo >= 1600) await unlockAch('platinum_tier');
-  if(newElo >= 1800) await unlockAch('diamond_tier');
 }
 
 // 호스트 전용: 양쪽 ELO diff 계산 + 자기 저장 + 게스트 diff 반환
@@ -5140,6 +5239,9 @@ function setupConn(conn){
   document.getElementById('connectModal').classList.remove('show');
   document.getElementById('chatFab').style.display = '';
   document.getElementById('forfeitBtn').style.display = '';
+  // 이모지 FAB도 표시 (P2P 한정)
+  const emojiFab = document.getElementById('emojiFab');
+  if(emojiFab) emojiFab.style.display = 'flex';
 
   // 인사 교환 — conn이 완전히 open된 후 보내야 (PeerJS race condition 방지)
   const sendHello = () => {
@@ -5197,6 +5299,10 @@ function onPeerMessage(data){
     if(NET_ROLE === 'guest' && !gameOver){
       endGame(data.emoji || '🏁', data.title || '게임 종료', data.desc || '', data.winner, true);
     }
+    return;
+  }
+  if(data.t === 'EMOJI'){
+    if(data.id) displayEmoji(data.id, true);
     return;
   }
   if(data.t === 'ELO_RESULT'){
@@ -5532,6 +5638,71 @@ let _opponentUid = null;       // 상대 UID (차단/친구추가 시 사용)
 let _myBlockedSet = new Set(); // 내 차단 목록 UID 집합
 let _chatLog = [];
 
+// ===== 이모지 시스템 =====
+const EMOJI_LIST = [
+  { id:'checkmate', name:'체크메이트', url:'assets/emojis/checkmate.jpg' },
+  { id:'hi', name:'안녕', url:'assets/emojis/hi.jpg' },
+  { id:'silly', name:'헤헤', url:'assets/emojis/silly.jpg' }
+];
+
+let _lastEmojiSent = 0; // 쿨다운용 (스팸 방지)
+
+function renderEmojiPanel(){
+  const grid = document.getElementById('emojiPanelGrid');
+  if(!grid) return;
+  grid.innerHTML = EMOJI_LIST.map(e => 
+    `<button class="emoji-cell" onclick="sendEmoji('${e.id}')" title="${escapeAttr(e.name)}">
+      <img src="${e.url}" alt="${escapeAttr(e.name)}" loading="lazy">
+    </button>`
+  ).join('');
+}
+
+window.toggleEmojiPanel = function(){
+  const panel = document.getElementById('emojiPanel');
+  if(!panel) return;
+  const isOpen = panel.classList.toggle('show');
+  if(isOpen){
+    // 채팅 패널 열려있으면 닫음
+    const chat = document.getElementById('chatPanel');
+    if(chat && chat.classList.contains('show')) chat.classList.remove('show');
+    renderEmojiPanel();
+  }
+};
+
+window.sendEmoji = function(emojiId){
+  // 쿨다운 — 2초에 한 번만 (스팸 방지)
+  const now = Date.now();
+  if(now - _lastEmojiSent < 2000){
+    return;
+  }
+  _lastEmojiSent = now;
+  
+  // 자기 화면에 표시
+  displayEmoji(emojiId, false);
+  
+  // 상대에게 전송
+  if(IS_NET){
+    try { sendToPeer({ t:'EMOJI', id: emojiId }); } catch(_){}
+  }
+  
+  // 패널 닫기
+  document.getElementById('emojiPanel').classList.remove('show');
+};
+
+function displayEmoji(emojiId, fromOpp){
+  const e = EMOJI_LIST.find(x => x.id === emojiId);
+  if(!e) return;
+  const area = document.getElementById('emojiDisplayArea');
+  if(!area) return;
+  const popup = document.createElement('div');
+  popup.className = 'emoji-popup' + (fromOpp ? ' from-opp' : '');
+  popup.innerHTML = `<img src="${e.url}" alt="${escapeAttr(e.name)}">`;
+  area.appendChild(popup);
+  setTimeout(() => {
+    if(popup.parentNode) popup.parentNode.removeChild(popup);
+  }, 3100);
+}
+
 function toggleChat(){
   _chatOpen = !_chatOpen;
   document.getElementById('chatPanel').classList.toggle('show', _chatOpen);
@@ -5661,6 +5832,12 @@ function _pauseTimerForBlur(){
   if(_timerInterval){
     clearInterval(_timerInterval);
     _timerInterval = null;
+    // pause 직전까지의 elapsed를 _wTimeLeft/_bTimeLeft에 반영
+    // (이게 없으면 복귀 시 _turnStartTime이 reset되어 사용한 시간이 사라짐)
+    const elapsedNow = (Date.now() - _turnStartTime) / 1000;
+    if(turn === 'w') _wTimeLeft = Math.max(0, _wTimeLeft - elapsedNow);
+    else _bTimeLeft = Math.max(0, _bTimeLeft - elapsedNow);
+    _turnStartTime = Date.now(); // pause 동안 0부터 시작
   }
 }
 function _resumeTimerForBlur(){
