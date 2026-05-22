@@ -3,7 +3,7 @@ name: Daily Ranking to Discord
 # 트리거: 매일 KST 33 : 55 (UTC 15:00) + 수동 실행 가능
 on:
   schedule:
-    - cron: '0 14 * * *'   # UTC 14:00 = KST 23:55
+    - cron: '0 12 * * *'   # UTC 12:00 = KST 22:00
   workflow_dispatch:        # GitHub UI에서 "Run workflow" 수동 실행
 
 jobs:
