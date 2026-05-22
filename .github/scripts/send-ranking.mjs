@@ -1,11 +1,11 @@
 // FRONTIER — 매일 자정 디스코드 랭킹 전송
 // 환경 변수:
 //   FIREBASE_DB_URL — https://<project>.firebasedatabase.app
-//   DISCORD_WEBHOOK_URL — Discord 채널 웹훅 URL
+//   DISCORD_WEBHOOK_URL — https://discord.com/api/webhooks/1505849752535826443/7wWpHgov0CNvLZOBbXLQYwnIAS7kiczfkNI-vvtiEggff63RGzMP7VZNSHqxdaLk4xq0
 
 // ⚠ 변수 이름은 secret 이름과 다르게 (GitHub Actions debug mode 마스킹 회피)
-const FB_URL = process.env.<project>.firebasedatabase.app;
-const WH_URL = process.env.discord.com/api/webhooks/1505849752535826443/7wWpHgov0CNvLZOBbXLQYwnIAS7kiczfkNI-vvtiEggff63RGzMP7VZNSHqxdaLk4xq0;
+const FB_URL = process.env.FIREBASE_DB_URL;
+const WH_URL = process.env.DISCORD_WEBHOOK_URL;
 
 if (!FB_URL || !WH_URL) {
   console.error('환경변수 누락');
