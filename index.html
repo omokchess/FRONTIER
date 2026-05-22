@@ -2465,8 +2465,16 @@ window.startTutorial = function(){
         tag: MY_TAG,
         acceptedAt: Date.now()
       });
-      // 첫 친구 업적
-      try { await _fbDb.ref(`users/${MY_UID}/achievements/first_friend`).set({unlockedAt:Date.now()}); } catch(_){}
+      // 첫 친구 + 친구 수 업적
+      try { 
+        await _fbDb.ref(`users/${MY_UID}/achievements/first_friend`).set({unlockedAt:Date.now()});
+        // 현재 친구 수 조회 → popular 업적
+        const friendsSnap = await _fbDb.ref(`friendAccepted/${MY_UID}`).once('value');
+        const friendCount = friendsSnap.numChildren ? friendsSnap.numChildren() : Object.keys(friendsSnap.val()||{}).length;
+        if(friendCount >= 10){
+          await _fbDb.ref(`users/${MY_UID}/achievements/popular`).set({unlockedAt:Date.now()});
+        }
+      } catch(_){}
       // 목록에서 제거 (listener의 child_removed 도 자동 호출됨)
       _pendingFriendReqs = _pendingFriendReqs.filter(r => r.senderUid !== senderUid);
       updateFriendReqCount();
@@ -2490,37 +2498,61 @@ window.startTutorial = function(){
 
   // ===== 업적 시스템 =====
   // 친근한 이름 + 밈 포함
+  // 색상 helper — 그라데이션은 'gradient' 키 사용
+  const GRAD = {
+    'yellow-pink':   'linear-gradient(90deg,#f5c842,#ff7eb6)',
+    'gold-yellow':   'linear-gradient(90deg,#ffae00,#f5c842)',
+    'sky-blue':      'linear-gradient(90deg,#5ac8fa,#0a84ff)',
+    'pink-purple':   'linear-gradient(90deg,#ff7eb6,#bf5af2)',
+    'gold-yellow2':  'linear-gradient(90deg,#ffd700,#f5c842)'
+  };
+  
   const ACHIEVEMENTS = [
-    // 게임 첫 경험
-    { id:'first_win',     name:'환영합니다 챔피언',  desc:'첫 게임에서 승리. 시작이 반!',          icon:'🏆', cat:'시작' },
-    { id:'first_omok',    name:'5목 짜릿하지?',     desc:'5목으로 첫 승리',                       icon:'⭕', cat:'시작' },
-    { id:'first_mate',    name:'체크메이트 빠빠빠',  desc:'체크메이트로 첫 승리',                  icon:'♔', cat:'시작' },
-    { id:'first_friend',  name:'혼자보다 둘',       desc:'친구 첫 추가 성공',                     icon:'🤝', cat:'시작' },
-    // 누적 승수
-    { id:'five_wins',     name:'5의 마법',          desc:'누적 5승',                              icon:'✋', cat:'승수' },
-    { id:'ten_wins',      name:'두 자릿수 클라이머', desc:'누적 10승',                             icon:'🔟', cat:'승수' },
-    { id:'fifty_wins',    name:'이젠 진짜 베테랑',   desc:'누적 50승',                             icon:'🎖', cat:'승수' },
-    { id:'hundred_wins',  name:'100승의 영웅',      desc:'누적 100승',                            icon:'👑', cat:'승수' },
-    // AI 격파
-    { id:'ai_easy',       name:'식은 죽 먹기',      desc:'AI 쉬움 난이도 격파',                   icon:'🤖', cat:'AI' },
-    { id:'ai_normal',     name:'보통은 무난히',     desc:'AI 보통 난이도 격파',                   icon:'🤖', cat:'AI' },
-    { id:'ai_hard',       name:'어려운 거 깼다',    desc:'AI 어려움 난이도 격파',                 icon:'🔥', cat:'AI' },
-    // 티어
-    { id:'silver_tier',   name:'은빛 새벽',         desc:'실버 티어 진입 (ELO 1200)',             icon:'🥈', cat:'티어' },
-    { id:'gold_tier',     name:'찬란한 황금기',     desc:'골드 티어 진입 (ELO 1400)',             icon:'🥇', cat:'티어' },
-    { id:'platinum_tier', name:'백금의 인내',       desc:'플래티넘 티어 진입 (ELO 1600)',         icon:'💎', cat:'티어' },
-    { id:'diamond_tier',  name:'다이아몬드 핸드',   desc:'다이아 티어 진입 (ELO 1800)',           icon:'💠', cat:'티어' },
-    // 데일리 스트릭 (잔디 시리즈 — 깃허브 밈)
-    { id:'streak_3',      name:'잔디를 만져요',     desc:'3일 연속 접속',                         icon:'🌱', cat:'데일리' },
-    { id:'streak_7',      name:'잔디 정원사',       desc:'7일 연속 접속',                         icon:'🌿', cat:'데일리' },
-    { id:'streak_30',     name:'한 달의 잔디',      desc:'30일 연속 접속',                        icon:'🍀', cat:'데일리' },
-    { id:'streak_100',    name:'100일의 잔디',      desc:'100일 연속 접속',                       icon:'🌳', cat:'데일리' },
-    { id:'streak_365',    name:'1년의 정원사',      desc:'365일 연속 접속. 진심으로 대단해요.',   icon:'🏞', cat:'데일리' },
-    // 일일 퀘스트
-    { id:'quest_first',   name:'오늘의 첫 걸음',    desc:'일일 퀘스트 1개 완료',                  icon:'📋', cat:'데일리' },
-    { id:'quest_all',     name:'오늘 다 깬 사람',   desc:'하루 만에 일일 퀘스트 3개 모두 완료',   icon:'🎯', cat:'데일리' },
-    { id:'quest_streak_7',name:'주말도 일하는 사람', desc:'7일 연속 일일 퀘스트 1개 이상 완료',    icon:'⚡', cat:'데일리' },
+    // ── 첫 경험
+    { id:'first_win',     name:'이겼다!',           desc:'첫 승리',                       color:'#9be15d', cat:'시작' },
+    { id:'first_loss',    name:'질 수도 있지.',     desc:'첫 패배',                       color:'#ff453a', cat:'시작' },
+    { id:'first_omok',    name:'이건 예상 못했지?', desc:'오목으로 승리',                 color:'#ffffff', cat:'시작' },
+    { id:'first_mate',    name:'체크메이트!',       desc:'체크메이트로 승리',             color:'#1c1c1e', cat:'시작' },
+    { id:'first_friend',  name:'둘도 없는 친구',    desc:'첫 친구 추가 성공',             color:'#ff7eb6', cat:'시작' },
+    { id:'popular',       name:'유명인',            desc:'친구 추가 10회 성공',           gradient:'yellow-pink', cat:'친구' },
+    // ── 누적 승수
+    { id:'five_wins',     name:'감 좀 잡았나?',     desc:'누적 5승',                      color:'#f5c842', cat:'승수' },
+    { id:'ten_wins',      name:'좀 하네?',          desc:'누적 10승',                     color:'#ff9500', cat:'승수' },
+    { id:'fifty_wins',    name:'고급자',            desc:'누적 50승',                     color:'#bf5af2', cat:'승수' },
+    { id:'hundred_wins',  name:'전설',              desc:'누적 100승',                    gradient:'gold-yellow', cat:'승수' },
+    // ── 연승
+    { id:'win_streak_5',  name:'승리의 대가',       desc:'5연승',                         color:'#f5c842', cat:'연승' },
+    { id:'win_streak_10', name:'이게 다 몇 점이야?',desc:'10연승',                        gradient:'gold-yellow2', cat:'연승' },
+    // ── AI 격파
+    { id:'ai_easy',       name:'토리얼 끝!',        desc:'쉬움 AI 격파',                  color:'#9be15d', cat:'AI' },
+    { id:'ai_normal',     name:'아직 무난무난',     desc:'보통 AI 격파',                  color:'#ff9500', cat:'AI' },
+    { id:'ai_hard',       name:'어려운 거 깼다',    desc:'어려움 AI 격파',                color:'#ff453a', cat:'AI' },
+    // ── 티어
+    { id:'silver_tier',   name:'첫 접속인가?',      desc:'실버 티어 진입 (ELO 1200)',     color:'#c0c0c0', cat:'티어' },
+    { id:'gold_tier',     name:'중급자!',           desc:'골드 티어 진입 (ELO 1400)',     color:'#f5c842', cat:'티어' },
+    { id:'platinum_tier', name:'고수',              desc:'플래티넘 티어 진입 (ELO 1600)', color:'#5ac8fa', cat:'티어' },
+    { id:'diamond_tier',  name:'diamond!',          desc:'다이아 티어 진입 (ELO 1800)',   gradient:'sky-blue', cat:'티어' },
+    // ── 연속 접속 (데일리)
+    { id:'streak_3',      name:'부지런한 사람',     desc:'3일 연속 접속',                 color:'#ffffff', cat:'데일리' },
+    { id:'streak_7',      name:'이 게임이 재밌어',  desc:'7일 연속 접속',                 color:'#9be15d', cat:'데일리' },
+    { id:'streak_30',     name:'정말이야?',         desc:'30일 연속 접속',                color:'#5ac8fa', cat:'데일리' },
+    { id:'streak_100',    name:'잔디를 만져요',     desc:'100일 연속 접속',               color:'#0a84ff', cat:'데일리' },
+    { id:'streak_365',    name:'밖에좀 나가..',     desc:'365일 연속 접속',               color:'#bf5af2', cat:'데일리' },
+    // ── 일일 퀘스트
+    { id:'quest_first',   name:'생각보다 할만 한데?', desc:'일일 퀘스트 1개 완료',        color:'#9be15d', cat:'퀘스트' },
+    { id:'quest_all',     name:'일과 끝!',           desc:'하루 일일 퀘스트 모두 완료',   color:'#30d158', cat:'퀘스트' },
+    { id:'quest_streak_7',  name:'쉬는 날이 없어..', desc:'7일 연속 일일 퀘스트 완료',     color:'#5ac8d2', cat:'퀘스트' },
+    { id:'quest_streak_30', name:'휴가는 언제?',    desc:'30일 연속 일일 퀘스트 완료',    color:'#bf5af2', cat:'퀘스트' },
+    { id:'quest_streak_100',name:'DAY 100',         desc:'100일 연속 일일 퀘스트 완료',   color:'#ff7eb6', cat:'퀘스트' },
+    { id:'quest_streak_365',name:'고인물',          desc:'365일 연속 일일 퀘스트 완료',   gradient:'pink-purple', cat:'퀘스트' }
   ];
+  
+  // helper: 업적의 표시 색상 (gradient면 객체 반환, 단색이면 문자열)
+  function getAchColor(ach){
+    if(ach.gradient && GRAD[ach.gradient]) return { type:'gradient', value: GRAD[ach.gradient] };
+    return { type:'solid', value: ach.color || '#f5c842' };
+  }
+  window.getAchColor = getAchColor;
 
   // ===== 일일 퀘스트 + 데일리스트릭 =====
   const QUEST_POOL = [
@@ -2631,12 +2663,110 @@ window.startTutorial = function(){
         const completedCount = data.quests.filter(q => q.completed).length;
         if(completedCount >= 1) _fbDb.ref(`users/${MY_UID}/achievements/quest_first`).set({unlockedAt:Date.now()}).catch(()=>{});
         if(completedCount >= 3) _fbDb.ref(`users/${MY_UID}/achievements/quest_all`).set({unlockedAt:Date.now()}).catch(()=>{});
+        
+        // 🎁 데일리 상자 보상 — 3개 모두 완료 시 (오늘 보상 이미 받았는지 체크)
+        if(completedCount >= 3 && !data.rewardClaimed){
+          data.rewardClaimed = true;
+          try { localStorage.setItem('frontier_quests', JSON.stringify(data)); } catch(_){}
+          // 보상 처리 + 모달 표시
+          giveDailyBoxReward();
+        }
       }
       // 7일 연속 quest streak (간이 추적)
       if(anyCompleted > 0) trackQuestStreak();
     }
     return data;
   };
+  
+  // ===== 데일리 상자 보상 =====
+  const REWARD_TITLES = [
+    { name:'🍀 행운아', color:'#30d158' },
+    { name:'🎁 데일리 마스터', color:'#bf5af2' },
+    { name:'✨ 빛나는 자', color:'#f5c842' },
+    { name:'🌟 별빛', color:'#5ac8fa' },
+    { name:'🎀 데일리 챔피언', color:'#ff453a' }
+  ];
+  
+  async function giveDailyBoxReward(){
+    if(!MY_UID || !_fbDb) return;
+    // 보상 — 200~500 포인트 + 10% 확률로 새 칭호
+    const points = 200 + Math.floor(Math.random() * 301);
+    const titleRoll = Math.random() < 0.10;
+    
+    let newTitle = null;
+    
+    try {
+      // 현재 포인트 가져옴 + 증가
+      const ptSnap = await _fbDb.ref(`users/${MY_UID}/points`).once('value');
+      const curPts = ptSnap.val() || 0;
+      await _fbDb.ref(`users/${MY_UID}/points`).set(curPts + points);
+      
+      // 칭호 — 10% 확률
+      if(titleRoll){
+        // 보유하지 않은 보상 칭호 중 랜덤
+        const ownedSnap = await _fbDb.ref(`users/${MY_UID}/ownedTitles`).once('value');
+        const owned = ownedSnap.val() || {};
+        const available = REWARD_TITLES.filter(t => !owned[t.name]);
+        if(available.length > 0){
+          newTitle = available[Math.floor(Math.random() * available.length)];
+          await _fbDb.ref(`users/${MY_UID}/ownedTitles/${newTitle.name}`).set({
+            color: newTitle.color,
+            unlockedAt: Date.now(),
+            source: 'daily_box'
+          });
+        }
+      }
+    } catch(e){
+      console.warn('[Box] 보상 저장 실패:', e.message);
+    }
+    
+    // 보상 모달 표시
+    showDailyBoxRewardModal(points, newTitle);
+  }
+  
+  function showDailyBoxRewardModal(points, title){
+    // 기존 모달 있으면 제거
+    const existing = document.getElementById('boxRewardModal');
+    if(existing) existing.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'boxRewardModal';
+    modal.className = 'modal show';
+    modal.innerHTML = `
+      <div class="modal-card" style="max-width:380px;width:90%;text-align:center;padding:28px">
+        <div style="margin-bottom:14px">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#f5c842" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 12px rgba(245,200,66,.6));animation:boxBounce .8s ease-out">
+            <polyline points="20 12 20 22 4 22 4 12"/>
+            <rect x="2" y="7" width="20" height="5"/>
+            <line x1="12" y1="22" x2="12" y2="7"/>
+            <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/>
+            <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+          </svg>
+        </div>
+        <h2 style="color:#f5c842;margin-bottom:6px">데일리 상자 획득!</h2>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:18px">오늘의 퀘스트 3개를 모두 완료했습니다</p>
+        
+        <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:22px;font-weight:800;color:#f5c842">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><text x="12" y="16" text-anchor="middle" font-size="13" font-weight="900" fill="#1c1c1e">P</text></svg>
+            +${points}P
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">포인트</div>
+        </div>
+        
+        ${title ? `
+          <div style="background:linear-gradient(135deg,rgba(245,200,66,.15),rgba(255,149,0,.08));border:1px solid ${title.color};border-radius:10px;padding:14px;margin-bottom:14px">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:6px">🎉 보너스 — 새 칭호!</div>
+            <div style="color:${title.color};font-size:17px;font-weight:800;text-shadow:0 0 8px ${title.color}">${escapeHtml(title.name)}</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:6px">내 페이지 > 칭호에서 장착 가능</div>
+          </div>
+        ` : ''}
+        
+        <button class="btn btn-gold" onclick="document.getElementById('boxRewardModal').remove()" style="width:100%;padding:12px;font-weight:800">확인</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
 
   function trackQuestStreak(){
     let s;
@@ -2649,8 +2779,11 @@ window.startTutorial = function(){
     else s.current = 1;
     s.last = today;
     try { localStorage.setItem('frontier_quest_streak', JSON.stringify(s)); } catch(_){}
-    if(s.current >= 7 && MY_UID && _fbDb){
-      _fbDb.ref(`users/${MY_UID}/achievements/quest_streak_7`).set({unlockedAt:Date.now()}).catch(()=>{});
+    if(MY_UID && _fbDb){
+      if(s.current >= 7)   _fbDb.ref(`users/${MY_UID}/achievements/quest_streak_7`).set({unlockedAt:Date.now()}).catch(()=>{});
+      if(s.current >= 30)  _fbDb.ref(`users/${MY_UID}/achievements/quest_streak_30`).set({unlockedAt:Date.now()}).catch(()=>{});
+      if(s.current >= 100) _fbDb.ref(`users/${MY_UID}/achievements/quest_streak_100`).set({unlockedAt:Date.now()}).catch(()=>{});
+      if(s.current >= 365) _fbDb.ref(`users/${MY_UID}/achievements/quest_streak_365`).set({unlockedAt:Date.now()}).catch(()=>{});
     }
   }
 
@@ -2729,12 +2862,16 @@ window.startTutorial = function(){
     prog.innerHTML = `<b style="color:var(--gold)">${unlocked}</b> / ${ACHIEVEMENTS.length} 달성`;
     list.innerHTML = ACHIEVEMENTS.map(a => {
       const got = !!_myAchievements[a.id];
+      const c = getAchColor(a);
+      const bgStyle = got ? (c.type === 'gradient' 
+        ? `background:${c.value};color:#1c1c1e` 
+        : `background:${c.value};color:${c.value === '#1c1c1e' || c.value === '#0a84ff' || c.value === '#bf5af2' ? '#fff' : '#1c1c1e'}`) : '';
       return `
         <div class="ach-item ${got?'got':'locked'}">
-          <div class="ach-icon">${got ? a.icon : '🔒'}</div>
+          <div class="ach-icon" style="${bgStyle}">${got ? '★' : '🔒'}</div>
           <div class="ach-info">
-            <div class="ach-name">${a.name}</div>
-            <div class="ach-desc">${a.desc}</div>
+            <div class="ach-name">${escapeHtml(a.name)}</div>
+            <div class="ach-desc">${escapeHtml(a.desc)}</div>
           </div>
           ${got ? '<div class="ach-badge">✓</div>' : ''}
         </div>`;
@@ -2759,9 +2896,27 @@ window.startTutorial = function(){
   async function loadMyRanking(){
     if(!MY_UID || !_fbDb) return null;
     try {
-      const snap = await _fbDb.ref('leaderboard').once('value');
-      const obj = snap.val() || {};
+      // 본인이 어드민이면 랭킹 제외
+      if(window.IS_ADMIN) return null;
+      // 본인 태그 없으면 랭킹 제외
+      if(!MY_TAG) return null;
+      
+      // 어드민 목록 + leaderboard 동시 조회
+      const [lbSnap, adSnap] = await Promise.all([
+        _fbDb.ref('leaderboard').once('value'),
+        _fbDb.ref('admins').once('value')
+      ]);
+      const obj = lbSnap.val() || {};
+      const admins = adSnap.val() || {};
+      
       const arr = Object.entries(obj)
+        .filter(([uid, info]) => {
+          // 어드민 제외
+          if(admins[uid] === true) return false;
+          // 태그 없는 유저 제외
+          if(!info.tag) return false;
+          return true;
+        })
         .map(([uid, info]) => ({uid, elo: info.elo||1200}))
         .sort((a,b)=> b.elo - a.elo);
       const idx = arr.findIndex(x => x.uid === MY_UID);
@@ -3158,6 +3313,8 @@ window.startTutorial = function(){
   function appendTitleParams(params){
     if(window.MY_TITLE_NAME) params.set('title', window.MY_TITLE_NAME);
     if(window.MY_TITLE_COLOR) params.set('titleColor', window.MY_TITLE_COLOR);
+    // 프로필 사진 — Google Auth photoURL이 있으면 전달
+    if(window.MY_PHOTO_URL) params.set('photo', window.MY_PHOTO_URL);
     return params;
   }
   window.appendTitleParams = appendTitleParams;
@@ -3434,9 +3591,12 @@ window.startTutorial = function(){
       if(googleProvider){
         MY_PROVIDER = 'google';
         MY_EMAIL = googleProvider.email || user.email || '';
+        // 프로필 사진 URL — 게임 페이지로 전달 + 로비 표시용
+        window.MY_PHOTO_URL = googleProvider.photoURL || user.photoURL || '';
       } else {
         MY_PROVIDER = 'other';
         MY_EMAIL = user.email || '';
+        window.MY_PHOTO_URL = user.photoURL || '';
       }
       
       authDebug('users/' + user.uid.slice(0,8) + ' 조회...');
@@ -3486,7 +3646,46 @@ window.startTutorial = function(){
     }
   });
 
+  // 활성 칭호가 현재 ELO/순위에 부합하지 않으면 자동 해제 (로비 진입/프로필 갱신 시)
+  async function unsetInactiveTitleInLobby(){
+    if(!MY_UID || !_fbDb) return;
+    try {
+      const snap = await _fbDb.ref(`users/${MY_UID}/activeTitle`).once('value');
+      const active = snap.val();
+      if(!active) return;
+      // 어드민은 해제 X (모든 칭호 자동 보유)
+      if(window.IS_ADMIN) return;
+      
+      let shouldUnset = false;
+      const TIER_MIN = { tier_diamond:1800, tier_platinum:1600, tier_gold:1400, tier_silver:1200 };
+      if(TIER_MIN[active] !== undefined && MY_ELO < TIER_MIN[active]){
+        shouldUnset = true;
+      }
+      if(active === 'rank_1' || active === 'rank_2' || active === 'rank_3'){
+        const r = await loadMyRanking();
+        const req = active === 'rank_1' ? 1 : active === 'rank_2' ? 2 : 3;
+        if(r !== req) shouldUnset = true;
+      }
+      if(shouldUnset){
+        await Promise.all([
+          _fbDb.ref(`users/${MY_UID}/activeTitle`).remove(),
+          _fbDb.ref(`users/${MY_UID}/activeTitleName`).remove(),
+          _fbDb.ref(`users/${MY_UID}/activeTitleColor`).remove(),
+          _fbDb.ref(`leaderboard/${MY_UID}/activeTitle`).remove(),
+          _fbDb.ref(`leaderboard/${MY_UID}/activeTitleName`).remove(),
+          _fbDb.ref(`leaderboard/${MY_UID}/activeTitleColor`).remove()
+        ]);
+        window.MY_TITLE_NAME = '';
+        window.MY_TITLE_COLOR = '';
+        console.log('[title] 로비에서 자동 해제:', active);
+      }
+    } catch(e){ console.warn('[title] 자동 해제 실패:', e.message); }
+  }
+  
   async function renderProfile(){
+    // 활성 칭호 자동 해제 검사 (백그라운드)
+    unsetInactiveTitleInLobby();
+    
     const titlePrefix = window.MY_TITLE_NAME 
       ? `<span class="nick-title" style="color:${window.MY_TITLE_COLOR||'var(--gold)'}">${window.MY_TITLE_NAME}</span> ` 
       : '';
@@ -3554,7 +3753,20 @@ window.startTutorial = function(){
         try {
           const adminSnap = await _fbDb.ref('admins/'+MY_UID).once('value');
           if(adminSnap.val() === true){
+            window.IS_ADMIN = true;
             adminHtml = '<button class="acct-btn" onclick="openAdminModal()" style="background:linear-gradient(135deg,rgba(245,200,66,.25),rgba(255,149,0,.15));border:1px solid rgba(245,200,66,.5);color:#f5c842;margin-right:6px;cursor:pointer">관리자</button>';
+            // 어드민 자동 — 모든 업적 unlock
+            try {
+              const updates = {};
+              ACHIEVEMENTS.forEach(a => {
+                if(!_myAchievements[a.id]) updates[a.id] = { unlockedAt: Date.now(), source:'admin' };
+              });
+              if(Object.keys(updates).length > 0){
+                await _fbDb.ref(`users/${MY_UID}/achievements`).update(updates);
+                Object.assign(_myAchievements, updates);
+                console.log('[admin] 모든 업적 자동 해제:', Object.keys(updates).length);
+              }
+            } catch(e){ console.warn('[admin] 업적 자동 해제 실패:', e.message); }
           }
         } catch(_){}
         

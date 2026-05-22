@@ -203,10 +203,29 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
 .topbar-timer{display:flex;gap:4px;align-items:center;font-family:'Cinzel',monospace}
 .tt-side{display:flex;gap:3px;align-items:center;padding:3px 7px;border-radius:6px;
   background:var(--panel2);border:1px solid transparent;font-size:13px;font-weight:700;
-  transition:all .15s}
+  transition:all .15s;
+  /* 폭 고정 — 숫자 변해도 컨테이너 안 흔들림 */
+  min-width:88px;justify-content:center}
+.tt-side .tt-time{
+  font-variant-numeric:tabular-nums;
+  font-feature-settings:"tnum";
+  display:inline-block;
+  min-width:62px;text-align:center
+}
 .tt-side.active{background:rgba(245,200,66,.18);border-color:var(--gold);color:var(--gold)}
 .tt-side.warn{animation:pulse 1s infinite;color:var(--red);background:rgba(255,69,58,.15);border-color:var(--red)}
 .tt-side .ti{font-size:13px;line-height:1}
+.tt-side .ti.tt-photo{
+  width:22px;height:22px;border-radius:50%;
+  background-size:cover;background-position:center;
+  border:1.5px solid var(--gold);
+  display:inline-block;flex-shrink:0
+}
+.tt-side .ti.tt-photo.fallback{
+  background:linear-gradient(135deg,#888,#444);
+  font-size:11px;color:#fff;
+  display:flex;align-items:center;justify-content:center;font-weight:800
+}
 .tt-side.w .ti{color:#fff;text-shadow:0 0 2px #000}
 .tt-side.b .ti{color:#1c1c1e;text-shadow:0 0 1px #fff,0 0 2px #fff}
 
@@ -323,73 +342,44 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
   background:var(--gold);color:#1c1c1e;font-size:22px;display:flex;align-items:center;justify-content:center;
   box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:50;cursor:pointer}
 
-/* ===== 이모지 시스템 ===== */
-.emoji-fab{position:fixed;bottom:14px;right:74px;width:50px;height:50px;border-radius:50%;
-  background:var(--panel);color:var(--gold);border:1px solid var(--gold);
+/* ===== 채팅 내 이모지 ===== */
+.chat-emoji-btn{
+  width:36px;height:36px;
+  background:var(--panel2);border:1px solid var(--border);
+  border-radius:8px;color:var(--gold);
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:50;cursor:pointer;
-  transition:transform .15s}
-.emoji-fab:hover{transform:scale(1.05)}
-.emoji-fab:active{transform:scale(.92)}
+  cursor:pointer;flex-shrink:0;
+  transition:background .12s
+}
+.chat-emoji-btn:hover{background:var(--panel)}
+.chat-emoji-btn:active{transform:scale(.93)}
 
-.emoji-panel{position:fixed;bottom:74px;right:14px;
-  background:var(--panel);border:1px solid var(--border);border-radius:14px;
-  padding:10px;z-index:55;display:none;
-  box-shadow:0 10px 30px rgba(0,0,0,.5);
-  max-width:280px}
-.emoji-panel.show{display:block}
-.emoji-panel-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.emoji-cell{
-  width:72px;height:72px;
-  background:#fff;border:1px solid var(--border);border-radius:10px;
+.chat-emoji-drawer{
+  display:none;
+  padding:8px 10px;
+  background:var(--panel2);
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  max-height:170px;overflow-y:auto
+}
+.chat-emoji-drawer.show{display:block}
+.ced-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.ced-cell{
+  aspect-ratio:1/1;
+  background:#fff;border:1px solid var(--border);border-radius:8px;
   cursor:pointer;padding:0;overflow:hidden;
   display:flex;align-items:center;justify-content:center;
   transition:transform .12s, border-color .12s
 }
-.emoji-cell:hover{transform:scale(1.05);border-color:var(--gold)}
-.emoji-cell:active{transform:scale(.93)}
-.emoji-cell img{width:100%;height:100%;object-fit:contain;pointer-events:none;display:block}
+.ced-cell:hover{transform:scale(1.06);border-color:var(--gold)}
+.ced-cell:active{transform:scale(.92)}
+.ced-cell img{width:100%;height:100%;object-fit:contain;pointer-events:none;display:block}
 
-/* 보낸/받은 이모지가 큰 사이즈로 잠시 표시되는 영역 */
-.emoji-display-area{
-  position:fixed;left:0;right:0;top:50%;
-  transform:translateY(-50%);
-  display:flex;justify-content:center;align-items:center;
-  pointer-events:none;z-index:90;
-  gap:40px
-}
-.emoji-popup{
-  width:240px;max-width:80vw;
-  animation: emojiPopup 3s ease forwards;
-  filter:drop-shadow(0 8px 24px rgba(0,0,0,.5))
-}
-.emoji-popup img{width:100%;height:auto;display:block;border-radius:14px;background:#fff;padding:6px}
-.emoji-popup.from-opp{transform:scaleX(-1)}
-.emoji-popup.from-opp img{transform:scaleX(-1)}
-
-@keyframes emojiPopup{
-  0%{transform:scale(.3) translateY(40px);opacity:0}
-  15%{transform:scale(1.1) translateY(0);opacity:1}
-  25%{transform:scale(1) translateY(0);opacity:1}
-  75%{transform:scale(1) translateY(0);opacity:1}
-  100%{transform:scale(.9) translateY(-30px);opacity:0}
-}
-.emoji-popup.from-opp{
-  animation-name: emojiPopupOpp;
-}
-@keyframes emojiPopupOpp{
-  0%{transform:scaleX(-1) scale(.3) translateY(40px);opacity:0}
-  15%{transform:scaleX(-1) scale(1.1) translateY(0);opacity:1}
-  25%{transform:scaleX(-1) scale(1) translateY(0);opacity:1}
-  75%{transform:scaleX(-1) scale(1) translateY(0);opacity:1}
-  100%{transform:scaleX(-1) scale(.9) translateY(-30px);opacity:0}
-}
-
-@media (max-width:600px){
-  .emoji-fab{bottom:14px;right:74px;width:46px;height:46px}
-  .emoji-panel{right:10px;bottom:70px;padding:8px}
-  .emoji-cell{width:64px;height:64px}
-  .emoji-popup{width:200px}
+/* 채팅 메시지 안 이미지 */
+.chat-msg-img{
+  max-width:140px;max-height:140px;
+  background:#fff;border-radius:10px;padding:4px;
+  display:block;margin:2px 0
 }
 .chat-badge{position:absolute;top:-3px;right:-3px;background:var(--red);color:#fff;font-size:10px;
   font-weight:700;padding:2px 5px;border-radius:9px;min-width:18px;text-align:center}
@@ -515,16 +505,7 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
   .side.left{display:none}
   /* 모바일 상단바 컴팩트 + 화면 위에 고정 (스크롤해도 타이머 안 사라짐) */
   .tb-mid{display:none}
-  .topbar{
-    padding:6px 10px;
-    position:sticky;
-    top:0;
-    z-index:40;
-    background:var(--panel);
-    margin-left:-4px; margin-right:-4px; padding-left:14px; padding-right:14px;
-    border-radius:0;
-    border-top:none; border-left:none; border-right:none
-  }
+  .topbar{padding:6px 10px}
   .tb-btn{padding:5px 8px;font-size:13px}
   #modeLbl{font-size:11px !important;padding:2px 6px !important}
   /* 4행 그리드: 상단바 / 보드 / 내 통계 / 내 손패 */
@@ -995,8 +976,8 @@ body.board-flipped .cell{transform:rotate(180deg)}
     <div class="tb-mid">FRONTIER</div>
     <div class="tb-right">
       <div class="topbar-timer" id="topbarTimer" style="display:none">
-        <span class="tt-side w" id="ttWhite"><span class="ti">♔</span><span class="tv" id="ttwTime">--:--</span></span>
-        <span class="tt-side b" id="ttBlack"><span class="ti">♚</span><span class="tv" id="ttbTime">--:--</span></span>
+        <span class="tt-side w" id="ttWhite"><span class="ti" id="ttwIcon">♔</span><span class="tt-time" id="ttwTime">--:--</span></span>
+        <span class="tt-side b" id="ttBlack"><span class="ti" id="ttbIcon">♚</span><span class="tt-time" id="ttbTime">--:--</span></span>
       </div>
       <div class="topbar-material" id="topbarMaterial" style="display:none">
         <div class="mat-bar-compact">
@@ -1107,21 +1088,6 @@ body.board-flipped .cell{transform:rotate(180deg)}
   💬<span class="chat-badge" id="chatBadge" style="display:none">0</span>
 </button>
 
-<!-- 이모지 FAB (P2P 게임 중에만 보임) -->
-<button class="emoji-fab" id="emojiFab" onclick="toggleEmojiPanel()" style="display:none" aria-label="이모지 보내기">
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>
-  </svg>
-</button>
-
-<!-- 이모지 패널 -->
-<div class="emoji-panel" id="emojiPanel">
-  <div class="emoji-panel-grid" id="emojiPanelGrid"></div>
-</div>
-
-<!-- 이모지 표시 영역 (받았거나 보낸 이모지가 큰 사이즈로 잠시 표시) -->
-<div class="emoji-display-area" id="emojiDisplayArea"></div>
-
 <!-- AI 사고 중 인디케이터 -->
 <div id="aiThinkingIndicator" style="display:none;position:fixed;top:60px;left:50%;transform:translateX(-50%);
   background:rgba(28,28,30,.94);color:var(--gold);padding:10px 18px;border-radius:20px;
@@ -1146,7 +1112,16 @@ body.board-flipped .cell{transform:rotate(180deg)}
     </div>
   </div>
   <div class="chat-msgs" id="chatMsgs"></div>
+  <!-- 이모지 선택 drawer (채팅 입력창 위에 펼침) -->
+  <div class="chat-emoji-drawer" id="chatEmojiDrawer">
+    <div class="ced-grid" id="cedGrid"></div>
+  </div>
   <div class="chat-input">
+    <button class="chat-emoji-btn" onclick="toggleChatEmojiDrawer()" title="이모지 보내기" aria-label="이모지">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>
+      </svg>
+    </button>
     <input type="text" id="chatInput" placeholder="메시지 입력..." maxlength="100">
     <button onclick="sendChat()">전송</button>
   </div>
@@ -1404,7 +1379,9 @@ const MY_NICK_P = Q.get('nick') || (MODE==='ai' ? '플레이어' : '나');
 const MY_TAG_P  = Q.get('tag') || '';
 let MY_ELO_P  = parseInt(Q.get('elo') || '1200');
 const MY_TITLE_NAME = Q.get('title') || '';
-const MY_TITLE_COLOR = Q.get('titleColor') || '#f5c842';// INIT_HAND must be declared BEFORE parsing _handParam to avoid ReferenceError
+const MY_TITLE_COLOR = Q.get('titleColor') || '#f5c842';
+const MY_PHOTO_URL = Q.get('photo') || '';
+// INIT_HAND must be declared BEFORE parsing _handParam to avoid ReferenceError
 const DEFAULT_HAND = {K:1, Q:1, R:2, B:2, N:2, P:8, SH:0, SN:0, JP:0};
 function parseHandStr(s){
   if(!s) return {...DEFAULT_HAND};
@@ -3968,25 +3945,101 @@ async function checkPostEloAchievements(newElo, newW){
   if(newElo >= 1800) await unlockAch('diamond_tier');
 }
 
+// 새 ELO 기준으로 현재 활성 칭호가 부적합하면 자동 해제
+async function unsetInactiveTitleIfNeeded(uid, newElo){
+  if(!_fbDb || !uid) return;
+  try {
+    const snap = await _fbDb.ref(`users/${uid}/activeTitle`).once('value');
+    const active = snap.val();
+    if(!active) return;
+    
+    let shouldUnset = false;
+    let reason = '';
+    
+    // 티어 칭호 — 최소 ELO 미만이면 해제
+    const TIER_MIN = { tier_diamond:1800, tier_platinum:1600, tier_gold:1400, tier_silver:1200 };
+    if(TIER_MIN[active] !== undefined){
+      if(newElo < TIER_MIN[active]){
+        shouldUnset = true;
+        reason = `티어 부족 (${newElo}<${TIER_MIN[active]})`;
+      }
+    }
+    
+    // 순위 칭호 — 본인 현재 랭킹이 부합하지 않으면 해제
+    if(active === 'rank_1' || active === 'rank_2' || active === 'rank_3'){
+      try {
+        // 어드민/태그없음 제외하고 랭킹 계산
+        const [lb, ad] = await Promise.all([
+          _fbDb.ref('leaderboard').once('value'),
+          _fbDb.ref('admins').once('value')
+        ]);
+        const obj = lb.val() || {};
+        const admins = ad.val() || {};
+        const arr = Object.entries(obj)
+          .filter(([u, info]) => !admins[u] && info.tag)
+          .map(([u, info]) => ({uid:u, elo: info.elo||1200}))
+          .sort((a,b)=> b.elo - a.elo);
+        const idx = arr.findIndex(x => x.uid === uid);
+        const myRank = idx === 0 ? 1 : idx === 1 ? 2 : idx === 2 ? 3 : null;
+        const required = active === 'rank_1' ? 1 : active === 'rank_2' ? 2 : 3;
+        if(myRank !== required){
+          shouldUnset = true;
+          reason = `순위 (${myRank}≠${required})`;
+        }
+      } catch(_){}
+    }
+    
+    if(shouldUnset){
+      await Promise.all([
+        _fbDb.ref(`users/${uid}/activeTitle`).remove(),
+        _fbDb.ref(`users/${uid}/activeTitleName`).remove(),
+        _fbDb.ref(`users/${uid}/activeTitleColor`).remove(),
+        _fbDb.ref(`leaderboard/${uid}/activeTitle`).remove(),
+        _fbDb.ref(`leaderboard/${uid}/activeTitleName`).remove(),
+        _fbDb.ref(`leaderboard/${uid}/activeTitleColor`).remove()
+      ]);
+      console.log('[title] 자동 해제:', active, '—', reason);
+    }
+  } catch(e){
+    console.warn('[title] 자동 해제 검사 실패:', e.message);
+  }
+}
+
 async function checkAchievements(winner, title, desc){
   if(IS_SPEC || IS_REPLAY) return;
   if(!MY_COLOR && !IS_AI && !IS_LOCAL) return;
   
   const iWon = winner === MY_COLOR;
+  const iLost = winner !== MY_COLOR && winner !== 'draw';
   
   // 승리 기반 업적
   if(iWon){
-    // 5목 / 체크메이트
+    await unlockAch('first_win');
     if(title && title.indexOf('오목') >= 0) await unlockAch('first_omok');
     if(title && title.indexOf('체크메이트') >= 0) await unlockAch('first_mate');
     
-    // 누적 승수는 ELO 갱신 후 검사 (applyEloChange가 _myInfo 업데이트). 여기서는 AI 격파만.
     if(IS_AI){
       const diff = window._aiDifficulty || 'normal';
       if(diff === 'easy') await unlockAch('ai_easy');
       else if(diff === 'normal') await unlockAch('ai_normal');
       else if(diff === 'hard') await unlockAch('ai_hard');
     }
+    
+    // 연승 카운터 ↑
+    try {
+      const cur = parseInt(localStorage.getItem('frontier_win_streak') || '0');
+      const newStreak = cur + 1;
+      localStorage.setItem('frontier_win_streak', String(newStreak));
+      if(newStreak >= 5) await unlockAch('win_streak_5');
+      if(newStreak >= 10) await unlockAch('win_streak_10');
+    } catch(_){}
+  } else if(iLost){
+    await unlockAch('first_loss');
+    // 연승 카운터 리셋
+    try { localStorage.setItem('frontier_win_streak', '0'); } catch(_){}
+  } else {
+    // 무승부 — 연승은 유지 X (리셋)
+    try { localStorage.setItem('frontier_win_streak', '0'); } catch(_){}
   }
 }
 
@@ -4046,6 +4099,8 @@ async function applyEloChangeAsHost(winner){
       if(!IS_POTION){
         try { await checkPostEloAchievements(myNewElo, upd[W_FIELD]); } catch(_){}
       }
+      // 칭호 자동 해제 검사 (티어 떨어졌거나 순위 밀려나면)
+      try { await unsetInactiveTitleIfNeeded(myUidActual, myNewElo); } catch(_){}
       console.log('[ELO host] 자기 저장 완료');
     } else {
       console.warn('[ELO host] 자기 인증 없음 — 저장 skip');
@@ -4095,6 +4150,8 @@ async function applyEloAsGuest(diff, newElo, winner){
     if(!IS_POTION){
       try { await checkPostEloAchievements(newElo, upd[W_FIELD]); } catch(_){}
     }
+    // 칭호 자동 해제 검사
+    try { await unsetInactiveTitleIfNeeded(myUidActual, newElo); } catch(_){}
     console.log('[ELO guest] 자기 저장 완료:', newElo);
   } catch(e){
     console.error('[ELO guest] 저장 실패:', e);
@@ -5239,9 +5296,6 @@ function setupConn(conn){
   document.getElementById('connectModal').classList.remove('show');
   document.getElementById('chatFab').style.display = '';
   document.getElementById('forfeitBtn').style.display = '';
-  // 이모지 FAB도 표시 (P2P 한정)
-  const emojiFab = document.getElementById('emojiFab');
-  if(emojiFab) emojiFab.style.display = 'flex';
 
   // 인사 교환 — conn이 완전히 open된 후 보내야 (PeerJS race condition 방지)
   const sendHello = () => {
@@ -5250,6 +5304,7 @@ function setupConn(conn){
         t:'HELLO',
         hostNick: MY_NICK_P, hostElo: MY_ELO_P, hostUid: MY_UID, hostTag: MY_TAG_P,
         hostTitle: MY_TITLE_NAME || '', hostTitleColor: MY_TITLE_COLOR || '',
+        hostPhoto: MY_PHOTO_URL || '',
         hand: INIT_HAND
       };
       console.log('[net] HELLO 송신 (host):', payload);
@@ -5258,7 +5313,8 @@ function setupConn(conn){
       const payload = {
         t:'HELLO',
         guestNick: MY_NICK_P, guestElo: MY_ELO_P, guestUid: MY_UID, guestTag: MY_TAG_P,
-        guestTitle: MY_TITLE_NAME || '', guestTitleColor: MY_TITLE_COLOR || ''
+        guestTitle: MY_TITLE_NAME || '', guestTitleColor: MY_TITLE_COLOR || '',
+        guestPhoto: MY_PHOTO_URL || ''
       };
       console.log('[net] HELLO 송신 (guest):', payload);
       sendToPeer(payload);
@@ -5301,8 +5357,23 @@ function onPeerMessage(data){
     }
     return;
   }
+  if(data.t === 'CHAT_EMOJI'){
+    // 상대가 보낸 이모지 — 채팅에 표시
+    if(data.emojiId){
+      addChatMsg(data.from || '상대', '', false, false, data.emojiId);
+      // 채팅 안 보고 있으면 unread badge
+      if(!document.getElementById('chatPanel').classList.contains('show')){
+        _chatUnread = (_chatUnread||0) + 1;
+        updateChatBadge();
+      }
+    }
+    return;
+  }
   if(data.t === 'EMOJI'){
-    if(data.id) displayEmoji(data.id, true);
+    // 옛 형식 호환 — CHAT_EMOJI로 처리
+    if(data.id){
+      addChatMsg('상대', '', false, false, data.id);
+    }
     return;
   }
   if(data.t === 'ELO_RESULT'){
@@ -5359,6 +5430,9 @@ function onPeerMessage(data){
       };
       console.log('[net] _gameRatingInfo 설정 (host):', _gameRatingInfo);
       _opponentUid = data.guestUid;
+      // 프로필 사진 표시 (W → 호스트 사진, B → 게스트 사진)
+      setTimerPhoto('w', MY_PHOTO_URL, MY_NICK_P);
+      setTimerPhoto('b', data.guestPhoto || '', data.guestNick || '');
       const gTag = data.guestTag ? `<span class="ingame-tag">#${escapeHtml(data.guestTag)}</span>` : '';
       const gTitle = data.guestTitle 
         ? `<span class="nick-title" style="color:${data.guestTitleColor||'#f5c842'};font-weight:800;margin-right:4px;font-size:.85em;text-shadow:0 0 4px currentColor">${escapeHtml(data.guestTitle)}</span>`
@@ -5371,6 +5445,7 @@ function onPeerMessage(data){
         t:'HELLO',
         hostNick: MY_NICK_P, hostElo: MY_ELO_P, hostUid: MY_UID, hostTag: MY_TAG_P,
         hostTitle: MY_TITLE_NAME || '', hostTitleColor: MY_TITLE_COLOR || '',
+        hostPhoto: MY_PHOTO_URL || '',
         hand: INIT_HAND
       });
       console.log('[net] HELLO 답장 송신 (host → guest)');
@@ -5381,6 +5456,9 @@ function onPeerMessage(data){
       };
       console.log('[net] _gameRatingInfo 설정 (guest):', _gameRatingInfo);
       _opponentUid = data.hostUid;
+      // 프로필 사진 표시 (W → 호스트 사진, B → 게스트 사진)
+      setTimerPhoto('w', data.hostPhoto || '', data.hostNick || '');
+      setTimerPhoto('b', MY_PHOTO_URL, MY_NICK_P);
       const hTag = data.hostTag ? `<span class="ingame-tag">#${escapeHtml(data.hostTag)}</span>` : '';
       const hTitle = data.hostTitle 
         ? `<span class="nick-title" style="color:${data.hostTitleColor||'#f5c842'};font-weight:800;margin-right:4px;font-size:.85em;text-shadow:0 0 4px currentColor">${escapeHtml(data.hostTitle)}</span>`
@@ -5638,69 +5716,35 @@ let _opponentUid = null;       // 상대 UID (차단/친구추가 시 사용)
 let _myBlockedSet = new Set(); // 내 차단 목록 UID 집합
 let _chatLog = [];
 
-// ===== 이모지 시스템 =====
+// ===== 이모지 시스템 (채팅 통합) =====
 const EMOJI_LIST = [
   { id:'checkmate', name:'체크메이트', url:'assets/emojis/checkmate.jpg' },
   { id:'hi', name:'안녕', url:'assets/emojis/hi.jpg' },
   { id:'silly', name:'헤헤', url:'assets/emojis/silly.jpg' }
 ];
 
-let _lastEmojiSent = 0; // 쿨다운용 (스팸 방지)
-
-function renderEmojiPanel(){
-  const grid = document.getElementById('emojiPanelGrid');
-  if(!grid) return;
-  grid.innerHTML = EMOJI_LIST.map(e => 
-    `<button class="emoji-cell" onclick="sendEmoji('${e.id}')" title="${escapeAttr(e.name)}">
-      <img src="${e.url}" alt="${escapeAttr(e.name)}" loading="lazy">
-    </button>`
-  ).join('');
-}
-
-window.toggleEmojiPanel = function(){
-  const panel = document.getElementById('emojiPanel');
-  if(!panel) return;
-  const isOpen = panel.classList.toggle('show');
-  if(isOpen){
-    // 채팅 패널 열려있으면 닫음
-    const chat = document.getElementById('chatPanel');
-    if(chat && chat.classList.contains('show')) chat.classList.remove('show');
-    renderEmojiPanel();
+// ===== 타이머 프로필 사진 =====
+function setTimerPhoto(color, photoUrl, nick){
+  const el = document.getElementById(color === 'w' ? 'ttwIcon' : 'ttbIcon');
+  if(!el) return;
+  if(photoUrl){
+    el.className = 'ti tt-photo';
+    el.style.backgroundImage = `url("${photoUrl}")`;
+    el.textContent = '';
+    // 이미지 로드 실패 시 fallback
+    const tester = new Image();
+    tester.onerror = () => {
+      el.classList.add('fallback');
+      el.style.backgroundImage = '';
+      el.textContent = (nick || '?').charAt(0).toUpperCase();
+    };
+    tester.src = photoUrl;
+  } else {
+    // photoUrl 없음 → 이니셜
+    el.className = 'ti tt-photo fallback';
+    el.style.backgroundImage = '';
+    el.textContent = (nick || (color === 'w' ? '♔' : '♚')).charAt(0).toUpperCase();
   }
-};
-
-window.sendEmoji = function(emojiId){
-  // 쿨다운 — 2초에 한 번만 (스팸 방지)
-  const now = Date.now();
-  if(now - _lastEmojiSent < 2000){
-    return;
-  }
-  _lastEmojiSent = now;
-  
-  // 자기 화면에 표시
-  displayEmoji(emojiId, false);
-  
-  // 상대에게 전송
-  if(IS_NET){
-    try { sendToPeer({ t:'EMOJI', id: emojiId }); } catch(_){}
-  }
-  
-  // 패널 닫기
-  document.getElementById('emojiPanel').classList.remove('show');
-};
-
-function displayEmoji(emojiId, fromOpp){
-  const e = EMOJI_LIST.find(x => x.id === emojiId);
-  if(!e) return;
-  const area = document.getElementById('emojiDisplayArea');
-  if(!area) return;
-  const popup = document.createElement('div');
-  popup.className = 'emoji-popup' + (fromOpp ? ' from-opp' : '');
-  popup.innerHTML = `<img src="${e.url}" alt="${escapeAttr(e.name)}">`;
-  area.appendChild(popup);
-  setTimeout(() => {
-    if(popup.parentNode) popup.parentNode.removeChild(popup);
-  }, 3100);
 }
 
 function toggleChat(){
@@ -5713,18 +5757,62 @@ function updateChatBadge(){
   if(_chatUnread > 0){ b.textContent = _chatUnread; b.style.display=''; }
   else b.style.display = 'none';
 }
-function addChatMsg(from, msg, mine, sys){
+function addChatMsg(from, msg, mine, sys, emojiId){
   const el = document.createElement('div');
   el.className = 'cm ' + (sys?'sys':(mine?'me':'them'));
   if(sys){ el.textContent = msg; }
+  else if(emojiId){
+    // 이모지 메시지 — 이미지로 렌더
+    const e = (typeof EMOJI_LIST !== 'undefined') ? EMOJI_LIST.find(x => x.id === emojiId) : null;
+    if(e){
+      el.innerHTML = `<span class="who">${escapeHtml(from)}</span><img class="chat-msg-img" src="${e.url}" alt="${escapeAttr(e.name)}">`;
+    } else {
+      el.innerHTML = `<span class="who">${escapeHtml(from)}</span><span style="opacity:.6">[이모지: ${escapeHtml(emojiId)}]</span>`;
+    }
+  }
   else el.innerHTML = `<span class="who">${escapeHtml(from)}</span><span>${escapeHtml(msg)}</span>`;
   document.getElementById('chatMsgs').appendChild(el);
   document.getElementById('chatMsgs').scrollTop = 1e9;
-  _chatLog.push({from, msg, sys});
+  _chatLog.push({from, msg, sys, emojiId});
   if(NET_ROLE === 'host'){
     _fbDb && _fbDb.ref('rooms/'+ROOM_CODE+'/chatLog').set(JSON.stringify(_chatLog)).catch(()=>{});
   }
 }
+
+// 이모지 drawer 토글
+let _lastEmojiSent = 0;
+window.toggleChatEmojiDrawer = function(){
+  const dr = document.getElementById('chatEmojiDrawer');
+  if(!dr) return;
+  const open = dr.classList.toggle('show');
+  if(open){
+    // 그리드 렌더
+    const grid = document.getElementById('cedGrid');
+    if(grid && typeof EMOJI_LIST !== 'undefined'){
+      grid.innerHTML = EMOJI_LIST.map(e =>
+        `<button class="ced-cell" onclick="sendChatEmoji('${e.id}')" title="${escapeAttr(e.name)}">
+          <img src="${e.url}" alt="${escapeAttr(e.name)}" loading="lazy">
+        </button>`
+      ).join('');
+    }
+  }
+};
+
+window.sendChatEmoji = function(emojiId){
+  if(IS_SPEC) return;
+  const now = Date.now();
+  if(now - _lastEmojiSent < 2000) return; // 쿨다운
+  _lastEmojiSent = now;
+  // 자기 채팅에 추가
+  addChatMsg(MY_NICK_P, '', true, false, emojiId);
+  // P2P 전송
+  if(IS_NET){
+    sendToPeer({ t:'CHAT_EMOJI', from:MY_NICK_P, emojiId });
+  }
+  // drawer 닫기
+  document.getElementById('chatEmojiDrawer').classList.remove('show');
+};
+
 function sendChat(){
   if(IS_SPEC) return;
   const inp = document.getElementById('chatInput');
@@ -6617,6 +6705,13 @@ function init(){
     document.getElementById('oppName').textContent = `AI (${DIFF==='easy'?'쉬움':DIFF==='hard'?'어려움':'보통'})${gMarker}`;
     document.getElementById('oppMeta').textContent = '흑';
     document.getElementById('modeLbl').textContent = 'AI 대전' + (AI_GENOME ? ' (학습됨)' : '');
+    // 타이머 사진: 백=본인 사진, 흑=AI 아이콘
+    setTimerPhoto('w', MY_PHOTO_URL, MY_NICK_P);
+    setTimerPhoto('b', '', 'AI');
+  } else if(IS_LOCAL){
+    // 로컬 대전: 백/흑 둘 다 본인 사진
+    setTimerPhoto('w', MY_PHOTO_URL, '백');
+    setTimerPhoto('b', MY_PHOTO_URL, '흑');
   } else if(IS_AIVAI){
     const wLbl = W_DIFF==='easy'?'쉬움':W_DIFF==='hard'?'어려움':'보통';
     const bLbl = B_DIFF==='easy'?'쉬움':B_DIFF==='hard'?'어려움':'보통';
