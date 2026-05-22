@@ -669,6 +669,15 @@ input{font-family:inherit;outline:none}
   margin-bottom:8px;
   transition:all .15s
 }
+.title-group-header{
+  font-size:11px;font-weight:800;
+  letter-spacing:2px;text-transform:uppercase;
+  color:var(--muted);
+  margin:14px 0 6px 0;
+  padding-bottom:4px;
+  border-bottom:1px solid var(--border)
+}
+.title-group-header:first-child{margin-top:0}
 .title-item.locked{opacity:.5}
 .title-item.active{
   background:linear-gradient(135deg,var(--panel2),rgba(245,200,66,.08))
@@ -2942,57 +2951,126 @@ window.startTutorial = function(){
       activeTitle = snap.val();
     } catch(_){}
     
-    const titles = [];
-    // 티어 칭호 (현재 ELO 기준 자동)
-    titles.push({
-      id: tier.id, name: tier.name, color: tier.color,
-      desc: '현재 티어 칭호', earned: true
-    });
-    // 순위 칭호
-    if(_myRanking === 1){
-      titles.push({ id:'rank_1', name:'👑 1위', color:'#ffd700', desc:'전 세계 랭킹 1위', earned:true });
-    }
-    if(_myRanking === 2){
-      titles.push({ id:'rank_2', name:'🥈 2위', color:'#c0c0c0', desc:'전 세계 랭킹 2위', earned:true });
-    }
-    if(_myRanking === 3){
-      titles.push({ id:'rank_3', name:'🥉 3위', color:'#cd7f32', desc:'전 세계 랭킹 3위', earned:true });
-    }
-    if(!_myRanking){
-      titles.push({ id:'rank_top3', name:'TOP 3', color:'#888', desc:'랭킹 1~3위 도달 시 자동 부여', earned:false });
+    // 업적 데이터 로드 (아직 안 됐을 수도)
+    if(Object.keys(_myAchievements).length === 0){
+      try { await loadAchievements(); } catch(_){}
     }
     
-    list.innerHTML = titles.map(t => {
-      const isActive = (activeTitle === t.id);
-      return `
-      <div class="title-item ${t.earned?'earned':'locked'} ${isActive?'active':''}" style="${isActive?`border-color:${t.color}`:''}">
-        <div class="title-info-row">
-          <div class="title-name" style="${t.earned?`color:${t.color}`:''}">${t.name}</div>
-          <div class="title-desc">${t.desc}</div>
-        </div>
-        ${t.earned ? `
-          <button class="title-equip-btn ${isActive?'unequip':''}" onclick="${isActive?`unequipTitle()`:`equipTitle('${t.id}','${t.name.replace(/'/g,"\\'")}','${t.color}')`}">
-            ${isActive ? '해제' : '끼우기'}
-          </button>
-        ` : '<div class="title-locked-badge">🔒</div>'}
-      </div>
-    `;
-    }).join('');
+    // 특수 칭호 (데일리 상자, 어드민 지급) 조회
+    let ownedSpecial = {};
+    try {
+      const snap = await _fbDb.ref(`users/${MY_UID}/ownedTitles`).once('value');
+      ownedSpecial = snap.val() || {};
+    } catch(_){}
+    
+    const isAdmin = !!window.IS_ADMIN;
+    const titles = [];
+    
+    // ── 그룹 1: 티어 칭호 (현재 ELO 자동) — 다섯 티어 모두 표시, 어드민이면 다 보유
+    const TIERS = [
+      { id:'tier_bronze',   name:'🥉 브론즈',    color:'#cd7f32', minElo:0 },
+      { id:'tier_silver',   name:'🥈 실버',      color:'#bbb',    minElo:1200 },
+      { id:'tier_gold',     name:'🥇 골드',      color:'#f5c842', minElo:1400 },
+      { id:'tier_platinum', name:'🔷 플래티넘',  color:'#af52de', minElo:1600 },
+      { id:'tier_diamond',  name:'💠 다이아몬드',color:'#5ac8fa', minElo:1800 }
+    ];
+    TIERS.forEach(T => {
+      const earned = isAdmin || (MY_ELO >= T.minElo);
+      titles.push({ id:T.id, name:T.name, color:T.color, desc:`ELO ${T.minElo}+`, earned, group:'티어' });
+    });
+    
+    // ── 그룹 2: 순위 칭호 — 어드민이면 1/2/3 다 보유
+    [
+      { id:'rank_1', name:'👑 1위', color:'#ffd700', need:1 },
+      { id:'rank_2', name:'🥈 2위', color:'#c0c0c0', need:2 },
+      { id:'rank_3', name:'🥉 3위', color:'#cd7f32', need:3 }
+    ].forEach(R => {
+      const earned = isAdmin || (_myRanking === R.need);
+      titles.push({ id:R.id, name:R.name, color:R.color, desc:`전체 랭킹 ${R.need}위`, earned, group:'순위' });
+    });
+    
+    // ── 그룹 3: 업적 칭호 — 각 업적이 해당 칭호 1개씩
+    ACHIEVEMENTS.forEach(a => {
+      const earned = isAdmin || !!_myAchievements[a.id];
+      const c = getAchColor(a);
+      titles.push({
+        id: 'ach_' + a.id,
+        name: a.name,
+        color: c.type === 'gradient' ? null : c.value,
+        gradient: c.type === 'gradient' ? c.value : null,
+        desc: a.desc,
+        earned,
+        group: '업적'
+      });
+    });
+    
+    // ── 그룹 4: 특수 칭호 (데일리 상자, 어드민 지급)
+    Object.entries(ownedSpecial).forEach(([name, info]) => {
+      titles.push({
+        id: 'sp_' + name,
+        name: name,
+        color: (info && info.color) || '#f5c842',
+        desc: (info && info.source === 'admin') ? '어드민 지급' : '데일리 상자 보상',
+        earned: true,
+        group: '특수'
+      });
+    });
+    
+    // 그룹별 렌더
+    const groups = ['티어','순위','업적','특수'];
+    let html = '';
+    groups.forEach(g => {
+      const inGroup = titles.filter(t => t.group === g);
+      if(inGroup.length === 0) return;
+      html += `<div class="title-group-header">${g}</div>`;
+      html += inGroup.map(t => {
+        const isActive = (activeTitle === t.id);
+        const colorStyle = t.gradient 
+          ? `background:${t.gradient};-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800`
+          : (t.earned ? `color:${t.color}` : '');
+        const equipPayload = encodeURIComponent(JSON.stringify({id:t.id, name:t.name, color: t.color || '#f5c842', gradient: t.gradient || ''}));
+        return `
+          <div class="title-item ${t.earned?'earned':'locked'} ${isActive?'active':''}" style="${isActive ? `border-color:${t.color||'#f5c842'}` : ''}">
+            <div class="title-info-row">
+              <div class="title-name" style="${colorStyle}">${escapeHtml(t.name)}</div>
+              <div class="title-desc">${escapeHtml(t.desc)}</div>
+            </div>
+            ${t.earned 
+              ? `<button class="title-equip-btn ${isActive?'unequip':''}" onclick="${isActive?'unequipTitle()':`equipTitleEnc('${equipPayload}')`}">${isActive?'해제':'끼우기'}</button>`
+              : '<div class="title-locked-badge">🔒</div>'}
+          </div>
+        `;
+      }).join('');
+    });
+    list.innerHTML = html;
   };
   
-  window.equipTitle = async function(id, name, color){
+  // 새 equipTitle — 그라데이션 지원
+  window.equipTitleEnc = function(encoded){
+    try {
+      const obj = JSON.parse(decodeURIComponent(encoded));
+      equipTitle(obj.id, obj.name, obj.color, obj.gradient || '');
+    } catch(e){ alert('파싱 실패: ' + e.message); }
+  };
+  
+  
+  window.equipTitle = async function(id, name, color, gradient){
     if(!MY_UID || !_fbDb) return;
     try {
-      await _fbDb.ref('users/'+MY_UID+'/activeTitle').set(id);
-      await _fbDb.ref('users/'+MY_UID+'/activeTitleName').set(name);
-      await _fbDb.ref('users/'+MY_UID+'/activeTitleColor').set(color);
-      // leaderboard에도 반영
-      await _fbDb.ref('leaderboard/'+MY_UID+'/activeTitle').set(id);
-      await _fbDb.ref('leaderboard/'+MY_UID+'/activeTitleName').set(name);
-      await _fbDb.ref('leaderboard/'+MY_UID+'/activeTitleColor').set(color);
+      const updates = {
+        activeTitle: id,
+        activeTitleName: name,
+        activeTitleColor: color || '#f5c842'
+      };
+      if(gradient) updates.activeTitleGradient = gradient;
+      else updates.activeTitleGradient = null;
+      
+      await _fbDb.ref('users/'+MY_UID).update(updates);
+      await _fbDb.ref('leaderboard/'+MY_UID).update(updates);
       window.MY_TITLE = id;
       window.MY_TITLE_NAME = name;
-      window.MY_TITLE_COLOR = color;
+      window.MY_TITLE_COLOR = color || '#f5c842';
+      window.MY_TITLE_GRADIENT = gradient || '';
       renderProfile();
       openTitlesModal();
     } catch(e){
@@ -3313,7 +3391,7 @@ window.startTutorial = function(){
   function appendTitleParams(params){
     if(window.MY_TITLE_NAME) params.set('title', window.MY_TITLE_NAME);
     if(window.MY_TITLE_COLOR) params.set('titleColor', window.MY_TITLE_COLOR);
-    // 프로필 사진 — Google Auth photoURL이 있으면 전달
+    if(window.MY_TITLE_GRADIENT) params.set('titleGradient', window.MY_TITLE_GRADIENT);
     if(window.MY_PHOTO_URL) params.set('photo', window.MY_PHOTO_URL);
     return params;
   }
@@ -3634,6 +3712,7 @@ window.startTutorial = function(){
         window.MY_TITLE = u.activeTitle || null;
         window.MY_TITLE_NAME = u.activeTitleName || null;
         window.MY_TITLE_COLOR = u.activeTitleColor || null;
+        window.MY_TITLE_GRADIENT = u.activeTitleGradient || '';
         authDebug('finishLogin 호출');
         await finishLogin();
       }
@@ -3686,9 +3765,14 @@ window.startTutorial = function(){
     // 활성 칭호 자동 해제 검사 (백그라운드)
     unsetInactiveTitleInLobby();
     
-    const titlePrefix = window.MY_TITLE_NAME 
-      ? `<span class="nick-title" style="color:${window.MY_TITLE_COLOR||'var(--gold)'}">${window.MY_TITLE_NAME}</span> ` 
-      : '';
+    let titlePrefix = '';
+    if(window.MY_TITLE_NAME){
+      if(window.MY_TITLE_GRADIENT){
+        titlePrefix = `<span class="nick-title" style="background:${window.MY_TITLE_GRADIENT};-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800">${escapeHtml(window.MY_TITLE_NAME)}</span> `;
+      } else {
+        titlePrefix = `<span class="nick-title" style="color:${window.MY_TITLE_COLOR||'var(--gold)'}">${escapeHtml(window.MY_TITLE_NAME)}</span> `;
+      }
+    }
     document.getElementById('avatar').textContent = MY_NICK.charAt(0).toUpperCase();
     document.getElementById('nick').innerHTML = titlePrefix + escapeHtml(MY_NICK);
     document.getElementById('elo').textContent = MY_ELO + ' ELO';
