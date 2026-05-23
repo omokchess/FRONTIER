@@ -32,6 +32,9 @@ window._pauseTimerForBlur = function _pauseTimerForBlur(){
 window._resumeTimerForBlur = function _resumeTimerForBlur(){
   if(typeof TIME_LIMIT === 'undefined' || TIME_LIMIT <= 0) return;
   if(typeof gameOver !== 'undefined' && gameOver) return;
+  // 아직 게임 timer 한 번도 정상 시작 안 됐으면 (startTimerIfNeeded 호출 전) — 재개 X
+  // 백그라운드에서 페이지 로드 후 visible될 때 잘못 시작되는 걸 방지
+  if(_wTimeLeft <= 0 && _bTimeLeft <= 0) return;
   if(!_timerInterval){
     _turnStartTime = Date.now();
     _timerInterval = setInterval(updateTimer, 100);
@@ -61,6 +64,9 @@ window.startTimerIfNeeded = function startTimerIfNeeded(){
 window.updateTimer = function updateTimer(){
   if(gameOver){ clearInterval(_timerInterval); return; }
   if(TIME_LIMIT <= 0) return;
+  // 게임 timer가 아직 정상 시작 안 됐으면 (startTimerIfNeeded 전) — 무시
+  // (백그라운드 페이지 로드 후 visible 시 visibilitychange로 잘못 시작될 경우 방어)
+  if(_wTimeLeft <= 0 && _bTimeLeft <= 0){ clearInterval(_timerInterval); _timerInterval = null; return; }
   // 현재 차례인 플레이어의 누적 경과 (이번 턴)
   const elapsedNow = (Date.now() - _turnStartTime) / 1000;
   const wDisp = turn === 'w' ? Math.max(0, _wTimeLeft - elapsedNow) : _wTimeLeft;
