@@ -1,0 +1,9 @@
+{
+  "name": "frontier-python-ai-worker",
+  "private": true,
+  "devDependencies": { "wrangler": "^4.0.0" },
+  "scripts": {
+    "dev:worker": "uvx --from workers-py pywrangler dev -c cloudflare/wrangler.jsonc",
+    "deploy:worker": "uvx --from workers-py pywrangler deploy -c cloudflare/wrangler.jsonc"
+  }
+}

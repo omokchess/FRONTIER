@@ -1608,7 +1608,9 @@ window.startAiGame = function(){
     mode:'ai',
     difficulty: window._aiDiff,
     hand: hand,
-    time: window._aiTime
+    time: window._aiTime,
+    pyai:'1',
+    aisims:'48'
   });
   if(genomeId) params.set('gid', genomeId);
   const potionEl = document.getElementById('aiPotion');
@@ -1709,7 +1711,9 @@ window.startAiVaiGame = function(){
     wdiff: window._aivaiWDiff,
     bdiff: window._aivaiBDiff,
     hand: hand,
-    time: window._aivaiTime
+    time: window._aivaiTime,
+    pyai:'1',
+    aisims:'48'
   });
   if(wGid) params.set('wgid', wGid);
   if(bGid) params.set('bgid', bGid);
@@ -2308,7 +2312,7 @@ window.startTutorial = function(){
     // 초대 노드 삭제
     try { await _fbDb.ref(`invitations/${MY_UID}/${inv.fromUid}`).remove(); } catch(_){}
     // 게스트로 방 입장
-    location.href = `FRONTIER.html?role=guest&code=${inv.roomCode}`;
+    location.href = `FRONTIER.html?role=guest&room=${inv.roomCode}`;
   };
   window.declineInvite = async function(){
     if(!_currentInvite) return;

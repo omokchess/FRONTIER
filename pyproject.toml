@@ -1,0 +1,13 @@
+[project]
+name = "frontier-python-ai"
+version = "0.1.0"
+description = "Python reinforcement-learning inference API and self-play trainer for FRONTIER"
+requires-python = ">=3.11"
+dependencies = ["fastapi>=0.115", "pydantic>=2.7", "uvicorn>=0.30"]
+
+[project.optional-dependencies]
+train = ["torch>=2.4"]
+worker = ["workers-py", "asgi"]
+
+[tool.setuptools.packages.find]
+include = ["frontier_ai*"]

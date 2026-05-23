@@ -6231,5 +6231,12 @@ function addEvLog(text){
   while(log.children.length > 200) log.removeChild(log.firstChild);
 }
 </script>
+
+<!-- Python AI Worker bridge: AI 대전 URL에 pyai=1이 있을 때 활성화 -->
+<script>
+  window.FRONTIER_AI_API = window.FRONTIER_AI_API || 'https://YOUR-FRONTIER-AI-WORKER.workers.dev';
+</script>
+<script src="js/game/python-ai-client.js"></script>
+
 </body>
 </html>
