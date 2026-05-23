@@ -10,6 +10,10 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<!-- Game modules (split from monolith FRONTIER.html) -->
+<script src="js/game/utils.js"></script>
+<script src="js/game/firebase.js"></script>
+<script src="js/game/timer.js"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -3638,18 +3642,7 @@ function postMoveCheck(r){
   }
 }
 
-let _flashTimer = null;
-function showFlash(msg, ms=2000, isCheckFlash=false){
-  const el = document.getElementById('statusFloat');
-  el.textContent = msg;
-  el.classList.add('show');
-  el.classList.toggle('check-flash', !!isCheckFlash);
-  clearTimeout(_flashTimer);
-  _flashTimer = setTimeout(()=>{
-    el.classList.remove('check-flash');
-    renderStatus();
-  }, ms);
-}
+// _flashTimer + showFlash + closeConfirm + showConfirm + escapeHtml + escapeAttr → js/game/utils.js로 이동
 
 // ===================================================================
 // 12. 게임 종료 + ELO
@@ -5110,43 +5103,7 @@ function playSnd(type){
 // ===================================================================
 // 15. 네트워크 (Firebase + PeerJS)
 // ===================================================================
-const FB_CONFIG = {
-  apiKey: "AIzaSyD_bv9vLqcMDMZgGHNLS2A94INXqkO8XX8",
-  authDomain: "ooooomok-285e6.firebaseapp.com",
-  databaseURL: "https://ooooomok-285e6-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "ooooomok-285e6",
-  storageBucket: "ooooomok-285e6.firebasestorage.app",
-  messagingSenderId: "764275385569",
-  appId: "1:764275385569:web:44cecc18de9aef4d9a43a0"
-};
-var _fbDb = null;
-var _fbAuth = null;
-var _authReady = null;
-function fbInit(){
-  if(_fbDb) return;
-  const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FB_CONFIG);
-  _fbDb = firebase.database();
-  _fbAuth = firebase.auth();
-  // 세션 영속화 — index.html에서 LOCAL persistence로 저장된 Google 세션 복원
-  _authReady = (async () => {
-    try {
-      await _fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-    } catch(_){}
-    return new Promise((resolve)=>{
-      const unsub = _fbAuth.onAuthStateChanged(u => {
-        unsub();
-        if(u && !u.isAnonymous){
-          console.log('[Auth] Google 세션 복원:', u.uid);
-          resolve(u);
-        } else {
-          console.warn('[Auth] 정상 세션 없음 — ELO 업데이트 불가');
-          resolve(null);
-        }
-      });
-      setTimeout(()=> resolve(null), 8000);
-    });
-  })();
-}
+// FB_CONFIG, _fbDb, _fbAuth, _authReady, fbInit → js/game/firebase.js로 이동
 
 let _peer = null;
 let _peerConn = null;
@@ -5833,7 +5790,7 @@ function sendChat(){
   sendToPeer({ t:'CHAT', from:MY_NICK_P, msg });
   inp.value = '';
 }
-function escapeHtml(s){return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
+// function escapeHtml → js/game/utils.js로 이동
 document.getElementById('chatInput').addEventListener('keydown', e => { if(e.key==='Enter') sendChat(); });
 
 // ===== 채팅 차단 =====
@@ -5916,127 +5873,7 @@ window.toggleBlockOpponent = async function(){
 // ===================================================================
 // 각 플레이어는 TIME_LIMIT 만큼의 총 시간을 갖고, 자기 차례에만 차감됨.
 // 한 수 완료 시 그 수를 둔 플레이어에게 TIME_INC 만큼 추가.
-let _turnStartTime = 0;           // 현재 턴 시작 시각
-let _timerInterval = null;
-let _wTimeLeft = 0;               // 백의 남은 총 시간 (초)
-let _bTimeLeft = 0;               // 흑의 남은 총 시간 (초)
-
-// 모바일/데스크탑: 백그라운드 진입 시 타이머 완전 정지 (시간 차감 X)
-// 복귀 시 turn 시각 재설정 → 백그라운드 시간이 본인 시계에 안 들어감
-// visibilitychange: 모바일 백그라운드 / 탭 전환
-// blur/focus: 데스크탑 Alt+Tab / 다른 창 클릭
-function _pauseTimerForBlur(){
-  if(typeof TIME_LIMIT === 'undefined' || TIME_LIMIT <= 0) return;
-  if(gameOver) return;
-  if(_timerInterval){
-    clearInterval(_timerInterval);
-    _timerInterval = null;
-    // pause 직전까지의 elapsed를 _wTimeLeft/_bTimeLeft에 반영
-    // (이게 없으면 복귀 시 _turnStartTime이 reset되어 사용한 시간이 사라짐)
-    const elapsedNow = (Date.now() - _turnStartTime) / 1000;
-    if(turn === 'w') _wTimeLeft = Math.max(0, _wTimeLeft - elapsedNow);
-    else _bTimeLeft = Math.max(0, _bTimeLeft - elapsedNow);
-    _turnStartTime = Date.now(); // pause 동안 0부터 시작
-  }
-}
-function _resumeTimerForBlur(){
-  if(typeof TIME_LIMIT === 'undefined' || TIME_LIMIT <= 0) return;
-  if(gameOver) return;
-  if(!_timerInterval){
-    _turnStartTime = Date.now();
-    _timerInterval = setInterval(updateTimer, 100);
-  }
-}
-document.addEventListener('visibilitychange', () => {
-  if(document.hidden) _pauseTimerForBlur();
-  else _resumeTimerForBlur();
-});
-window.addEventListener('blur', _pauseTimerForBlur);
-window.addEventListener('focus', _resumeTimerForBlur);
-
-function startTimerIfNeeded(){
-  if(TIME_LIMIT <= 0) return;
-  document.getElementById('myTimer').style.display = '';
-  document.getElementById('oppTimer').style.display = '';
-  document.getElementById('topbarTimer').style.display = '';
-  _wTimeLeft = TIME_LIMIT;
-  _bTimeLeft = TIME_LIMIT;
-  _turnStartTime = Date.now();
-  if(_timerInterval) clearInterval(_timerInterval);
-  _timerInterval = setInterval(updateTimer, 100);
-  updateTimer();
-}
-
-function updateTimer(){
-  if(gameOver){ clearInterval(_timerInterval); return; }
-  if(TIME_LIMIT <= 0) return;
-  // 현재 차례인 플레이어의 누적 경과 (이번 턴)
-  const elapsedNow = (Date.now() - _turnStartTime) / 1000;
-  const wDisp = turn === 'w' ? Math.max(0, _wTimeLeft - elapsedNow) : _wTimeLeft;
-  const bDisp = turn === 'b' ? Math.max(0, _bTimeLeft - elapsedNow) : _bTimeLeft;
-
-  const fmt = s => {
-    if(s < 0) s = 0;
-    const m = Math.floor(s / 60);
-    const sec = s - m * 60;
-    // 항상 소수점 1자리 표시 (실시간 흐름 보임)
-    return (m<10?'0':'') + m + ':' + (sec<10?'0':'') + sec.toFixed(1);
-  };
-
-  // 토픽바 듀얼 타이머
-  const ttw = document.getElementById('ttwTime'), ttb = document.getElementById('ttbTime');
-  const ttWBox = document.getElementById('ttWhite'), ttBBox = document.getElementById('ttBlack');
-  if(ttw) ttw.textContent = fmt(wDisp);
-  if(ttb) ttb.textContent = fmt(bDisp);
-  if(ttWBox){
-    ttWBox.classList.toggle('active', turn === 'w');
-    ttWBox.classList.toggle('warn', turn === 'w' && wDisp < 10);
-  }
-  if(ttBBox){
-    ttBBox.classList.toggle('active', turn === 'b');
-    ttBBox.classList.toggle('warn', turn === 'b' && bDisp < 10);
-  }
-
-  // 사이드 패널 타이머 (각 패널은 색깔별이 아니라 'MY'/'OPP' 매핑)
-  // myTimer = MY_COLOR 쪽 시간, oppTimer = opp(MY_COLOR) 쪽 시간
-  if(IS_LOCAL){
-    // 로컬: myTimer = 현재 turn 쪽 (둘이 번갈아 둠)
-    const t = document.getElementById( turn==='w'?'myTimer':'oppTimer' );
-    const o = document.getElementById( turn==='w'?'oppTimer':'myTimer' );
-    if(t){ t.textContent = fmt(turn==='w'?wDisp:bDisp); t.classList.toggle('warn',(turn==='w'?wDisp:bDisp)<10); }
-    if(o){ o.textContent = fmt(turn==='w'?bDisp:wDisp); o.classList.remove('warn'); }
-  } else {
-    // 온라인/AI: myTimer = MY_COLOR 쪽, oppTimer = 반대쪽
-    const myDisp = MY_COLOR === 'w' ? wDisp : bDisp;
-    const opDisp = MY_COLOR === 'w' ? bDisp : wDisp;
-    const myT = document.getElementById('myTimer');
-    const opT = document.getElementById('oppTimer');
-    if(myT){ myT.textContent = fmt(myDisp); myT.classList.toggle('warn', turn===MY_COLOR && myDisp < 10); }
-    if(opT){ opT.textContent = fmt(opDisp); opT.classList.toggle('warn', turn!==MY_COLOR && opDisp < 10); }
-  }
-
-  // 시간 초과 검사
-  const activeDisp = turn === 'w' ? wDisp : bDisp;
-  if(activeDisp <= 0){
-    clearInterval(_timerInterval);
-    const loser = turn;
-    endGame('⏱','시간 초과', `${loser==='w'?'백':'흑'}의 시간이 초과되었습니다.`, opp(loser));
-  }
-}
-
-// 한 수 완료 시 호출 — 그 수를 둔 플레이어의 경과 시간 차감 + 증분 추가
-function commitMoveTime(){
-  if(TIME_LIMIT <= 0) return;
-  // 누가 방금 수를 뒀는가? (turn은 이미 바뀐 상태) → opp(turn)
-  const moved = opp(turn);
-  const elapsed = (Date.now() - _turnStartTime) / 1000;
-  if(moved === 'w'){
-    _wTimeLeft = Math.max(0, _wTimeLeft - elapsed + TIME_INC);
-  } else {
-    _bTimeLeft = Math.max(0, _bTimeLeft - elapsed + TIME_INC);
-  }
-  _turnStartTime = Date.now();
-}
+// _turnStartTime, _timerInterval, _wTimeLeft, _bTimeLeft, _pauseTimerForBlur, _resumeTimerForBlur, startTimerIfNeeded, updateTimer, commitMoveTime → js/game/timer.js로 이동
 
 // 기물 점수 (재질) 계산 + 표시
 function updateMaterial(){
@@ -6241,15 +6078,7 @@ function tryGoLobbyFromEnd(){
   }
   goLobby();
 }
-function showConfirm(title, msg, onYes){
-  document.getElementById('confirmTitle').textContent = title;
-  document.getElementById('confirmMsg').textContent = msg;
-  document.getElementById('confirmModal').classList.add('show');
-  document.getElementById('confirmYes').onclick = () => {
-    closeConfirm(); onYes();
-  };
-}
-function closeConfirm(){ document.getElementById('confirmModal').classList.remove('show'); }
+// showConfirm + closeConfirm → js/game/utils.js로 이동
 
 function cleanupRoom(){
   if(!IS_NET) return;
