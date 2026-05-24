@@ -132,7 +132,21 @@ class GameState:
         }
 
     def clone(self) -> "GameState":
-        return deepcopy(self)
+        # Hand-built copy (semantically identical to deepcopy, much faster — called per pseudo-action).
+        g = GameState.__new__(GameState)
+        g.board = [[Piece(p.color, p.kind, p.attacks) if p is not None else None for p in row] for row in self.board]
+        g.hands = {"w": dict(self.hands["w"]), "b": dict(self.hands["b"])}
+        g.turn = self.turn
+        g.king_placed = dict(self.king_placed)
+        g.check_streak = dict(self.check_streak)
+        g.total_checks = dict(self.total_checks)
+        g.history = list(self.history)
+        g.last_move = None if self.last_move is None else dict(self.last_move)
+        g.terminal = self.terminal
+        g.winner = self.winner
+        g.end_reason = self.end_reason
+        g.potion = self.potion
+        return g
 
     @staticmethod
     def in_general_zone(r: int, c: int) -> bool:
