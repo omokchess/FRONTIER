@@ -1426,6 +1426,7 @@ const IS_NET   = (NET_ROLE === 'host' || NET_ROLE === 'guest');
 const IS_SPEC  = (NET_ROLE === 'spectator');
 const IS_REPLAY = (MODE === 'replay');
 const IS_POTION = (Q.get('potion') === '1');
+const IS_PEASANT = (Q.get('peasant') === '1');   // 농민 봉기 모드
 
 // ===== 물약 모드 =====
 const POTION_TYPES = {
@@ -1472,8 +1473,8 @@ const TIME_INC = parseInt(Q.get('inc') || '0') || 0;
 // 2. 기물 정의
 // ===================================================================
 const SYMBOLS = {
-  w:{K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',SH:'⬢',SN:'⊕',JP:'✦'},
-  b:{K:'♚',Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟',SH:'⬢',SN:'⊕',JP:'✦'}
+  w:{K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',SH:'⬢',SN:'⊕',JP:'✦',GK:'♚'},
+  b:{K:'♚',Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟',SH:'⬢',SN:'⊕',JP:'✦',GK:'♚'}
 };
 const PIECE_NAMES = {K:'킹',Q:'퀸',R:'룩',B:'비숍',N:'나이트',P:'폰',SH:'방패',SN:'스나이퍼',JP:'어쌔신'};
 const SPECIAL_KINDS = ['SH','SN','JP'];
@@ -1491,6 +1492,7 @@ let actionHistory = [];          // 리플레이용 액션 기록 (실제 적용
 let snapshots = [];             // undo 또는 5회 체크 초과 시 복원용
 let checkStreak = { w:0, b:0 }; // 연속 체크 (이쪽이 받은)
 let totalChecks = { w:0, b:0 }; // 총 체크 (이쪽이 건)
+let minsim = { w:0, b:0 };      // 농민 봉기: 민심 게이지 0~100 (진영당, ≥80% 기물 변형)
 let gameOver = false;
 let myRoomCode = null;          // 페이지 이탈 시 정리할 방 코드
 
@@ -1529,14 +1531,29 @@ function pieceMoves(r, c, piece){
   const col = piece.color;
 
   if(k === 'K'){
-    for(let dr=-1; dr<=1; dr++){
-      for(let dc=-1; dc<=1; dc++){
-        if(dr===0&&dc===0) continue;
-        const nr=r+dr, nc=c+dc;
-        if(!inBounds(nr,nc)) continue;
-        const t = board[nr][nc];
-        if(!t) moves.push([nr,nc]);
-        else if(t.color !== col) attacks.push([nr,nc]);
+    if(peasantActive(col)){
+      // 농민 봉기 변형: 최대 2칸 이동(5×5), 폰이 있는 칸은 제외(못 가고 못 지나감)
+      for(const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]]){
+        for(let dist=1; dist<=2; dist++){
+          const nr=r+dr*dist, nc=c+dc*dist;
+          if(!inBounds(nr,nc)) break;
+          const t = board[nr][nc];
+          if(!t){ moves.push([nr,nc]); continue; }
+          if(t.kind === 'P') break;                 // 폰 칸 제외 + 차단
+          if(t.color !== col) attacks.push([nr,nc]);
+          break;                                     // 비-폰 기물 만나면 정지
+        }
+      }
+    } else {
+      for(let dr=-1; dr<=1; dr++){
+        for(let dc=-1; dc<=1; dc++){
+          if(dr===0&&dc===0) continue;
+          const nr=r+dr, nc=c+dc;
+          if(!inBounds(nr,nc)) continue;
+          const t = board[nr][nc];
+          if(!t) moves.push([nr,nc]);
+          else if(t.color !== col) attacks.push([nr,nc]);
+        }
       }
     }
   } else if(k === 'Q' || k === 'R' || k === 'B'){
@@ -1548,7 +1565,7 @@ function pieceMoves(r, c, piece){
       while(inBounds(nr,nc)){
         const t = board[nr][nc];
         if(!t){ moves.push([nr,nc]); }
-        else { if(t.color !== col) attacks.push([nr,nc]); break; }
+        else { if(t.color !== col || (k==='Q' && peasantActive(col) && t.kind==='P')) attacks.push([nr,nc]); break; }
         nr+=dr; nc+=dc;
       }
     }
@@ -1577,6 +1594,11 @@ function pieceMoves(r, c, piece){
       if(!inBounds(nr,nc)) continue;
       const t = board[nr][nc];
       if(t && t.color !== col) attacks.push([nr,nc]);
+    }
+    // 농민 봉기 변형: 전진로(앞 1칸)에 적 킹이 있으면 잡을 수 있음 → 회색 킹으로 변신(applyAction에서 처리)
+    if(peasantActive(col) && inBounds(r+dy,c)){
+      const fk = board[r+dy][c];
+      if(fk && fk.color !== col && fk.kind === 'K') attacks.push([r+dy,c]);
     }
   } else if(k === 'SH'){
     // 방패: 앞/뒤 1칸만 이동. 인접 적은 밀기 = 공격으로 처리 (킹 체크 가능)
@@ -1615,6 +1637,17 @@ function pieceMoves(r, c, piece){
   } else if(k === 'JP'){
     // 어쌔신: 상하좌우 2칸 점프
     const offs = [[-2,0],[2,0],[0,-2],[0,2]];
+    for(const [dr,dc] of offs){
+      const nr=r+dr, nc=c+dc;
+      if(!inBounds(nr,nc)) continue;
+      const t = board[nr][nc];
+      if(!t) moves.push([nr,nc]);
+      else if(t.color !== col) attacks.push([nr,nc]);
+    }
+  } else if(k === 'GK'){
+    // 회색 킹(농민 봉기): 나이트 + 킹 이동 합침
+    const offs = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1],
+                  [-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
     for(const [dr,dc] of offs){
       const nr=r+dr, nc=c+dc;
       if(!inBounds(nr,nc)) continue;
@@ -1701,7 +1734,8 @@ function snapshotState(){
     lastMove: lastMove ? {...lastMove} : null,
     checkStreak:{...checkStreak},
     totalChecks:{...totalChecks},
-    moveHistory:[...moveHistory]
+    moveHistory:[...moveHistory],
+    minsim:{...minsim}
   };
 }
 function restoreState(s){
@@ -1713,6 +1747,16 @@ function restoreState(s){
   checkStreak = {...s.checkStreak};
   totalChecks = {...s.totalChecks};
   moveHistory = [...s.moveHistory];
+  minsim = s.minsim ? {...s.minsim} : { w:0, b:0 };
+}
+// 농민 봉기: 민심 게이지 증감 (0~100 클램프)
+function addMinsim(color, delta){
+  if(!IS_PEASANT) return;
+  minsim[color] = Math.max(0, Math.min(100, (minsim[color]||0) + delta));
+}
+// 농민 봉기: 해당 진영의 민심이 발동 임계치(80%) 이상인가
+function peasantActive(color){
+  return IS_PEASANT && (minsim[color]||0) >= 80;
 }
 
 // ===================================================================
@@ -1783,18 +1827,34 @@ function applyAction(action, opts={}){
       const isAtk  = attacks.some(([r,c]) => r===tr && c===tc);
       if(!isMove && !isAtk) return { ok:false, err:'이동 불가' };
       const target = board[tr][tc];
+      // 농민 봉기: 회색 킹을 잡으면 즉시 승리 (먼저 잡는 쪽 승)
+      if(IS_PEASANT && target && target.kind === 'GK'){
+        board[tr][tc] = p; board[fr][fc] = null;
+        lastMove = { fr, fc, tr, tc, type:'move' };
+        if(!silent) endGame('⚔️', '회색 킹 처치!', `${turn==='w'?'백':'흑'}이(가) 회색 킹을 잡아 승리했습니다!`, turn);
+        return { ok:true, winner: turn, grayKingKilled:true };
+      }
+      // 농민 봉기: 퀸이 기물을 잡으면 그 진영 민심 −5%
+      if(IS_PEASANT && target && p.kind === 'Q') addMinsim(p.color, -5);
       // 이동 (일반 캡처: 잡힌 기물은 영구 제거 — 손패 회수 X)
       if(target && IS_POTION) awardCapturePoints(target.kind, p.color);
       board[tr][tc] = p;
       board[fr][fc] = null;
-      // 폰 프로모션
-      if(p.kind === 'P'){
-        if((p.color === 'w' && tr === 0) || (p.color === 'b' && tr === 7)){
-          const promoTo = action.promote || 'Q';
-          board[tr][tc] = { color: p.color, kind: promoTo };
+      // 농민 봉기: 폰이 전진로의 적 킹을 잡으면 → 회색 킹으로 변신 + 그 진영에 룩 1개 지급
+      if(IS_PEASANT && p.kind === 'P' && target && target.kind === 'K'){
+        board[tr][tc] = { color: p.color, kind: 'GK' };
+        hands[p.color]['R'] = (hands[p.color]['R'] || 0) + 1;
+        lastMove = { fr, fc, tr, tc, type:'move', toGrayKing:true };
+      } else {
+        // 폰 프로모션
+        if(p.kind === 'P'){
+          if((p.color === 'w' && tr === 0) || (p.color === 'b' && tr === 7)){
+            const promoTo = action.promote || 'Q';
+            board[tr][tc] = { color: p.color, kind: promoTo };
+          }
         }
+        lastMove = { fr, fc, tr, tc, type:'move' };
       }
-      lastMove = { fr, fc, tr, tc, type:'move' };
     }
   } else {
     return { ok:false, err:'알 수 없는 액션' };
@@ -1811,6 +1871,7 @@ function applyAction(action, opts={}){
   let opponentInCheck = false;
   if(kingPlaced[next] && isInCheck(next)){
     opponentInCheck = true;
+    if(IS_PEASANT) addMinsim(next, 20);   // 농민 봉기: 킹이 체크당한 진영의 민심 +20%
     totalChecks[turn]++;
     checkStreak[next]++;
     // 5회 체크 초과 → 이 수 무효 (스냅샷 복원)
@@ -2510,8 +2571,8 @@ function getPieceName(kind){
 }
 function pieceGlyph(color, kind){
   const G = {
-    w:{K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',SH:'⬢',SN:'⊕',JP:'✦'},
-    b:{K:'♚',Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟',SH:'⬢',SN:'⊕',JP:'✦'}
+    w:{K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',SH:'⬢',SN:'⊕',JP:'✦',GK:'♚'},
+    b:{K:'♚',Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟',SH:'⬢',SN:'⊕',JP:'✦',GK:'♚'}
   };
   return G[color][kind] || '?';
 }
@@ -2963,6 +3024,7 @@ function renderBoard(){
         const isSpec = SPECIAL_KINDS.includes(p.kind);
         span.className = 'pc ' + p.color + (isSpec?' spec':'');
         span.textContent = SYMBOLS[p.color][p.kind];
+        if(p.kind === 'GK'){ span.style.color = '#9aa0a6'; span.style.textShadow = '0 0 8px #6b7075'; }  // 회색 킹
         cell.appendChild(span);
         // 스나이퍼 공격 카운터 (3회 후퇴)
         if(p.kind === 'SN' && p.attacks > 0){
@@ -3031,6 +3093,30 @@ function renderBoard(){
       boardEl.appendChild(cell);
     }
   }
+  if(IS_PEASANT) renderMinsim();
+}
+
+// 농민 봉기: 민심 게이지 표시 (양 진영, 80% 이상이면 빨강+🔥)
+function renderMinsim(){
+  let el = document.getElementById('minsimBar');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'minsimBar';
+    el.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:50;display:flex;gap:14px;align-items:center;background:rgba(20,20,22,.92);border:1px solid #333;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.5)';
+    document.body.appendChild(el);
+  }
+  const bar = (label, v, color) => {
+    const active = v >= 80;
+    const fill = Math.min(100, Math.max(0, v));
+    return `<div style="display:flex;align-items:center;gap:6px">
+      <span style="color:${color}">${label}</span>
+      <span style="position:relative;display:inline-block;width:90px;height:9px;background:#2a2a2e;border-radius:5px;overflow:hidden">
+        <span style="position:absolute;top:0;bottom:0;left:0;width:${fill}%;background:${active?'#ff453a':color};transition:width .3s"></span>
+      </span>
+      <span style="color:${active?'#ff453a':'#999'};min-width:38px">${Math.round(v)}%${active?' 🔥':''}</span>
+    </div>`;
+  };
+  el.innerHTML = `<span style="color:#888;font-size:11px">민심</span>` + bar('백', minsim.w||0, '#e8e8e8') + bar('흑', minsim.b||0, '#9aa0a6');
 }
 
 // 빈 칸 (r,c)로 폰이 한 칸 전진해 올 수 있다면 그 폰의 색을 반환. 없으면 null.

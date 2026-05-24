@@ -925,6 +925,11 @@ input{font-family:inherit;outline:none}
           <div class="mt">물약 모드</div>
           <div class="md">5종 물약으로 즐기는 변형 모드</div>
         </button>
+        <button class="mode mode-peasant" onclick="startPeasantGame()">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8 6 6 9 6 13a6 6 0 0 0 12 0c0-4-2-7-6-11z"/></svg></div>
+          <div class="mt">농민 봉기</div>
+          <div class="md">민심이 끓어오르면 기물이 변형되는 변형 모드</div>
+        </button>
       </div>
     </div>
 
@@ -1496,6 +1501,13 @@ function renderLocalSetup(){
     각 진영 총 기물 수: <b style="color:var(--gold)">${total}</b><br>
     총 시간: <b style="color:var(--gold)">${tlabel}</b> (체스식 누적)`;
 }
+
+window.startPeasantGame = function(){
+  // 농민 봉기: 로컬 2인 + peasant=1 (표준 기물 구성)
+  const params = new URLSearchParams({ mode:'local', hand:'K1Q1R2B2N2P8SH0SN0JP0', time:'unlimited', peasant:'1' });
+  if(typeof appendTitleParams === 'function') appendTitleParams(params);
+  location.href = 'FRONTIER.html?' + params.toString();
+};
 
 window.startLocalGame = function(){
   // hand 문자열 빌드: K1Q1R2B2N2P8SH0SN0JP0 형식
