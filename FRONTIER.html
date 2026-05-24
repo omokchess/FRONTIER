@@ -1756,7 +1756,7 @@ function addMinsim(color, delta){
 }
 // 농민 봉기: 해당 진영의 민심이 발동 임계치(80%) 이상인가
 function peasantActive(color){
-  return IS_PEASANT && (minsim[color]||0) >= 80;
+  return IS_PEASANT && (minsim[color]||0) >= 50;
 }
 
 // ===================================================================
@@ -1810,6 +1810,7 @@ function applyAction(action, opts={}){
       const target = board[tr][tc];
       // 타깃은 영구 제거 (손패 회수 X)
       if(target && IS_POTION) awardCapturePoints(target.kind, p.color);
+      if(IS_PEASANT && target) addMinsim(target.color, 10);  // 기물 잃은 쪽 민심 +10%
       board[tr][tc] = null;
       // 스나이퍼 공격 카운터 증가, 3회 도달 시 후퇴 (자기 손패로 회수)
       p.attacks = (p.attacks || 0) + 1;
@@ -1834,6 +1835,8 @@ function applyAction(action, opts={}){
         if(!silent) endGame('⚔️', '회색 킹 처치!', `${turn==='w'?'백':'흑'}이(가) 회색 킹을 잡아 승리했습니다!`, turn);
         return { ok:true, winner: turn, grayKingKilled:true };
       }
+      // 농민 봉기: 기물을 잃은 쪽 민심 +10% (봉기 고조)
+      if(IS_PEASANT && target) addMinsim(target.color, 10);
       // 농민 봉기: 퀸이 기물을 잡으면 그 진영 민심 −5%
       if(IS_PEASANT && target && p.kind === 'Q') addMinsim(p.color, -5);
       // 이동 (일반 캡처: 잡힌 기물은 영구 제거 — 손패 회수 X)
@@ -3106,7 +3109,7 @@ function renderMinsim(){
     document.body.appendChild(el);
   }
   const bar = (label, v, color) => {
-    const active = v >= 80;
+    const active = v >= 50;
     const fill = Math.min(100, Math.max(0, v));
     return `<div style="display:flex;align-items:center;gap:6px">
       <span style="color:${color}">${label}</span>
