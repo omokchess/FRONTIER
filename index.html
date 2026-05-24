@@ -1360,8 +1360,6 @@ input{font-family:inherit;outline:none}
       <h3>AI 대전 — 설정</h3>
       <div class="local-time-label" style="margin-top:0">난이도</div>
       <div class="local-times" id="aiDifficulties" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px"></div>
-      <div class="local-time-label" id="aiGenomeLabel" style="display:none">🧬 학습된 AI 사용</div>
-      <select id="aiGenomeSel" style="width:100%;padding:8px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;margin-bottom:12px;display:none"></select>
       <div class="local-time-label">기물 구성</div>
       <div class="local-pieces" id="aiPieces"></div>
       <div class="local-time-label">⏱ 1턴 시간 제한</div>
@@ -1388,10 +1386,8 @@ input{font-family:inherit;outline:none}
       <h3>⚔️ AI vs AI — 설정</h3>
       <div class="local-time-label" style="margin-top:0">백 AI 난이도</div>
       <div class="local-times" id="aivaiWDiff" style="grid-template-columns:repeat(3,1fr);margin-bottom:8px"></div>
-      <select id="aivaiWGenome" style="width:100%;padding:6px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;margin-bottom:12px;font-size:12px"></select>
       <div class="local-time-label">흑 AI 난이도</div>
       <div class="local-times" id="aivaiBDiff" style="grid-template-columns:repeat(3,1fr);margin-bottom:8px"></div>
-      <select id="aivaiBGenome" style="width:100%;padding:6px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;margin-bottom:12px;font-size:12px"></select>
       <div class="local-time-label">기물 구성</div>
       <div class="local-pieces" id="aivaiPieces"></div>
       <div class="local-time-label">⏱ 시간 제한</div>
@@ -1544,21 +1540,6 @@ function renderAiSetup(){
     `<button class="tbtn ${o.v===window._aiDiff?'on':''}" onclick="setAiDiff('${o.v}')">${o.l}</button>`
   ).join('');
 
-  // 학습된 유전자 셀렉터
-  const trainedList = getTrainedGenomesLS();
-  const genomeLabel = document.getElementById('aiGenomeLabel');
-  const genomeSel = document.getElementById('aiGenomeSel');
-  if(trainedList.length > 0){
-    genomeLabel.style.display = '';
-    genomeSel.style.display = '';
-    genomeSel.innerHTML = '<option value="">기본 휴리스틱 (학습 안 함)</option>' +
-      trainedList.map(g => `<option value="${g.id}">🧬 ${g.name}</option>`).join('');
-    if(window._aiGenomeId) genomeSel.value = window._aiGenomeId;
-  } else {
-    genomeLabel.style.display = 'none';
-    genomeSel.style.display = 'none';
-  }
-
   // 기물
   const pe = document.getElementById('aiPieces');
   pe.innerHTML = _LOCAL_PIECE_ORDER.map(k=>{
@@ -1593,17 +1574,8 @@ function renderAiSetup(){
     1턴 시간: <b style="color:var(--gold)">${tlabel}</b>`;
 }
 
-// 학습된 유전자 목록 조회 (localStorage 직접 액세스)
-function getTrainedGenomesLS(){
-  try {
-    const raw = localStorage.getItem('frontier_trained_genomes');
-    return raw ? JSON.parse(raw) : [];
-  } catch(e){ return []; }
-}
-
 window.startAiGame = function(){
   const hand = _LOCAL_PIECE_ORDER.reduce((s,k)=> s + k + (window._aiCounts[k]||0), 'K1');
-  const genomeId = document.getElementById('aiGenomeSel')?.value || '';
   const params = new URLSearchParams({
     mode:'ai',
     difficulty: window._aiDiff,
@@ -1612,7 +1584,6 @@ window.startAiGame = function(){
     pyai:'1',
     aisims:'48'
   });
-  if(genomeId) params.set('gid', genomeId);
   const potionEl = document.getElementById('aiPotion');
   if(potionEl && potionEl.checked) params.set('potion','1');
   if(typeof appendTitleParams === 'function') appendTitleParams(params);
@@ -1652,22 +1623,6 @@ function renderAiVaiSetup(){
     `<button class="tbtn ${o.v===window._aivaiBDiff?'on':''}" onclick="setAiVaiBDiff('${o.v}')">${o.l}</button>`
   ).join('');
 
-  // 학습된 유전자 셀렉터 (양쪽)
-  const trainedList = getTrainedGenomesLS();
-  const wSel = document.getElementById('aivaiWGenome');
-  const bSel = document.getElementById('aivaiBGenome');
-  if(trainedList.length > 0){
-    const opts = '<option value="">— 기본 휴리스틱 —</option>' +
-      trainedList.map(g => `<option value="${g.id}">🧬 ${g.name}</option>`).join('');
-    wSel.innerHTML = opts;
-    bSel.innerHTML = opts;
-    wSel.style.display = '';
-    bSel.style.display = '';
-  } else {
-    wSel.style.display = 'none';
-    bSel.style.display = 'none';
-  }
-
   // 기물
   const pe = document.getElementById('aivaiPieces');
   pe.innerHTML = _LOCAL_PIECE_ORDER.map(k=>{
@@ -1704,8 +1659,6 @@ function renderAiVaiSetup(){
 
 window.startAiVaiGame = function(){
   const hand = _LOCAL_PIECE_ORDER.reduce((s,k)=> s + k + (window._aivaiCounts[k]||0), 'K1');
-  const wGid = document.getElementById('aivaiWGenome')?.value || '';
-  const bGid = document.getElementById('aivaiBGenome')?.value || '';
   const params = new URLSearchParams({
     mode:'aivai',
     wdiff: window._aivaiWDiff,
@@ -1715,8 +1668,6 @@ window.startAiVaiGame = function(){
     pyai:'1',
     aisims:'48'
   });
-  if(wGid) params.set('wgid', wGid);
-  if(bGid) params.set('bgid', bGid);
   location.href = 'FRONTIER.html?' + params.toString();
 };
 
