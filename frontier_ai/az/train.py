@@ -77,30 +77,35 @@ def main() -> None:
 
     print(f"device={device} | net=ch{args.channels}x{args.blocks}b | workers={args.workers}")
     sp_kw = dict(n_sims=args.sims, max_moves=args.max_moves, temp_moves=args.temp_moves)
-    for it in range(1, args.iterations + 1):
-        t0 = time.time()
-        if args.workers > 1:
-            data, res = generate_parallel(net, cfg, args.games_per_iter, args.workers,
-                                          hand_str=args.hand, **sp_kw)
-        else:
-            data, res = generate_serial(net, device, args.games_per_iter,
-                                        hand_str=args.hand, **sp_kw)
-        buffer.extend(data)
-        t_sp = time.time() - t0
-        losses = []
-        if len(buffer) >= 64:
-            for _ in range(args.train_steps):
-                losses.append(_train_step(net, opt, buffer, args.batch_size, device))
-        t_tr = time.time() - t0 - t_sp
-        it_total = base_iter + it
-        if losses:
-            L = np.mean(losses, axis=0)
-            print(f"iter={it_total} | games={res} | buffer={len(buffer)} | "
-                  f"loss={L[0]:.4f}(p={L[1]:.4f},v={L[2]:.4f}) | selfplay={t_sp:.1f}s train={t_tr:.1f}s")
-        else:
-            print(f"iter={it_total} | games={res} | buffer={len(buffer)} | (warmup)")
-        _save(args.out, net, cfg, {"iterations": it_total, "hand": args.hand,
-                                   "channels": args.channels, "blocks": args.blocks})
+    try:
+        for it in range(1, args.iterations + 1):
+            t0 = time.time()
+            if args.workers > 1:
+                data, res = generate_parallel(net, cfg, args.games_per_iter, args.workers,
+                                              hand_str=args.hand, **sp_kw)
+            else:
+                data, res = generate_serial(net, device, args.games_per_iter,
+                                            hand_str=args.hand, **sp_kw)
+            buffer.extend(data)
+            t_sp = time.time() - t0
+            losses = []
+            if len(buffer) >= 64:
+                for _ in range(args.train_steps):
+                    losses.append(_train_step(net, opt, buffer, args.batch_size, device))
+            t_tr = time.time() - t0 - t_sp
+            it_total = base_iter + it
+            if losses:
+                L = np.mean(losses, axis=0)
+                print(f"iter={it_total} | games={res} | buffer={len(buffer)} | "
+                      f"loss={L[0]:.4f}(p={L[1]:.4f},v={L[2]:.4f}) | selfplay={t_sp:.1f}s train={t_tr:.1f}s")
+            else:
+                print(f"iter={it_total} | games={res} | buffer={len(buffer)} | (warmup)")
+            _save(args.out, net, cfg, {"iterations": it_total, "hand": args.hand,
+                                       "channels": args.channels, "blocks": args.blocks})
+    except KeyboardInterrupt:
+        print(f"\n[중단됨] 마지막으로 저장된 체크포인트(iter={base_iter}+ 완료분, {args.out})는 안전합니다.")
+        print("다시 train-az.bat 을 실행하면 그 지점부터 이어서 학습합니다.")
+        return
     print(f"saved: {args.out}")
 
 

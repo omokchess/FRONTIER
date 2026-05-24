@@ -1,6 +1,7 @@
 """Self-play data generation (MCTS), serial + CPU-parallel."""
 from __future__ import annotations
 import os
+import signal
 import tempfile
 import numpy as np
 import torch
@@ -56,6 +57,7 @@ _W: dict = {}
 
 
 def _init_worker(net_cfg, sd_path, hand_str, kw):
+    signal.signal(signal.SIGINT, signal.SIG_IGN)   # workers ignore Ctrl+C; the main process handles it
     torch.set_num_threads(1)
     net = AZNet(**net_cfg)
     net.load_state_dict(torch.load(sd_path, map_location="cpu"))
