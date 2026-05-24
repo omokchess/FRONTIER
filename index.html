@@ -2643,27 +2643,41 @@ window.startTutorial = function(){
   };
   
   // ===== 데일리 상자 보상 =====
+  // 상자 전용 칭호 (10종) — 구매 불가, 상자에서만 획득
   const REWARD_TITLES = [
     { name:'🍀 행운아', color:'#30d158' },
     { name:'🎁 데일리 마스터', color:'#bf5af2' },
     { name:'✨ 빛나는 자', color:'#f5c842' },
     { name:'🌟 별빛', color:'#5ac8fa' },
-    { name:'🎀 데일리 챔피언', color:'#ff453a' }
+    { name:'🎀 데일리 챔피언', color:'#ff453a' },
+    { name:'🔥 불꽃의 인도자', color:'#ff9500' },
+    { name:'⚡ 천둥', color:'#ffd60a' },
+    { name:'🌈 무지개 수집가', color:'#af52de' },
+    { name:'🦋 나비효과', color:'#64d2ff' },
+    { name:'👑 운명의 총아', color:'#ffd700' }
+  ];
+  // 칭호 상점 (C/코인으로 구매) — '.' 등 Firebase 키 금지문자 사용 금지
+  const SHOP_TITLES = [
+    { name:'루키', price:5, color:'#30d158' },
+    { name:'노력가', price:7, color:'#5ac8fa' },
+    { name:'구매 칭호 mk1', price:10, color:'#bbbbbb' },
+    { name:'고수!', price:17, color:'#f5c842' },
+    { name:'괴물', price:36, color:'#ff453a' }
   ];
   
   async function giveDailyBoxReward(){
     if(!MY_UID || !_fbDb) return;
-    // 보상 — 200~500 포인트 + 10% 확률로 새 칭호
-    const points = 200 + Math.floor(Math.random() * 301);
+    // 보상 — 5~10 코인(C) + 10% 확률로 새 칭호
+    const coins = 5 + Math.floor(Math.random() * 6);
     const titleRoll = Math.random() < 0.10;
     
     let newTitle = null;
     
     try {
-      // 현재 포인트 가져옴 + 증가
-      const ptSnap = await _fbDb.ref(`users/${MY_UID}/points`).once('value');
-      const curPts = ptSnap.val() || 0;
-      await _fbDb.ref(`users/${MY_UID}/points`).set(curPts + points);
+      // 현재 코인(C) 가져옴 + 증가
+      const cSnap = await _fbDb.ref(`users/${MY_UID}/coins`).once('value');
+      const curC = cSnap.val() || 0;
+      await _fbDb.ref(`users/${MY_UID}/coins`).set(curC + coins);
       
       // 칭호 — 10% 확률
       if(titleRoll){
@@ -2685,10 +2699,10 @@ window.startTutorial = function(){
     }
     
     // 보상 모달 표시
-    showDailyBoxRewardModal(points, newTitle);
+    showDailyBoxRewardModal(coins, newTitle);
   }
-  
-  function showDailyBoxRewardModal(points, title){
+
+  function showDailyBoxRewardModal(coins, title){
     // 기존 모달 있으면 제거
     const existing = document.getElementById('boxRewardModal');
     if(existing) existing.remove();
@@ -2712,10 +2726,10 @@ window.startTutorial = function(){
         
         <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px">
           <div style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:22px;font-weight:800;color:#f5c842">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><text x="12" y="16" text-anchor="middle" font-size="13" font-weight="900" fill="#1c1c1e">P</text></svg>
-            +${points}P
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><text x="12" y="16" text-anchor="middle" font-size="13" font-weight="900" fill="#1c1c1e">C</text></svg>
+            +${coins} C
           </div>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px">포인트</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">코인</div>
         </div>
         
         ${title ? `
@@ -2917,7 +2931,9 @@ window.startTutorial = function(){
       const snap = await _fbDb.ref(`users/${MY_UID}/ownedTitles`).once('value');
       ownedSpecial = snap.val() || {};
     } catch(_){}
-    
+    let myCoins = 0;
+    try { myCoins = (await _fbDb.ref(`users/${MY_UID}/coins`).once('value')).val() || 0; } catch(_){}
+
     const isAdmin = !!window.IS_ADMIN;
     const titles = [];
     
@@ -2959,8 +2975,9 @@ window.startTutorial = function(){
       });
     });
     
-    // ── 그룹 4: 특수 칭호 (데일리 상자, 어드민 지급)
+    // ── 그룹 4: 특수 칭호 (데일리 상자, 어드민 지급) — 상점 구매분(source:'shop')은 상점 그룹에서 표시
     Object.entries(ownedSpecial).forEach(([name, info]) => {
+      if(info && info.source === 'shop') return;
       titles.push({
         id: 'sp_' + name,
         name: name,
@@ -2997,9 +3014,32 @@ window.startTutorial = function(){
         `;
       }).join('');
     });
+    // ── 그룹 5: 🛒 칭호 상점 (C/코인으로 구매)
+    let shopHtml = `<div class="title-group-header">🛒 상점 · 보유 ${myCoins} C</div>`;
+    shopHtml += SHOP_TITLES.map(s => {
+      const owned = !!ownedSpecial[s.name];
+      const isActive = (activeTitle === ('sp_' + s.name));
+      const equipPayload = encodeURIComponent(JSON.stringify({id:'sp_'+s.name, name:s.name, color:s.color, gradient:''}));
+      const canBuy = myCoins >= s.price;
+      let right;
+      if(owned){
+        right = `<button class="title-equip-btn ${isActive?'unequip':''}" onclick="${isActive?'unequipTitle()':`equipTitleEnc('${equipPayload}')`}">${isActive?'해제':'끼우기'}</button>`;
+      } else {
+        right = `<button class="title-equip-btn" ${canBuy?'':'disabled'} style="${canBuy?'':'opacity:.4;cursor:not-allowed'}" onclick="${canBuy?`buyTitle('${encodeURIComponent(s.name)}',${s.price},'${s.color}')`:''}">구매 ${s.price} C</button>`;
+      }
+      return `
+        <div class="title-item ${owned?'earned':'locked'} ${isActive?'active':''}" style="${isActive ? `border-color:${s.color}` : ''}">
+          <div class="title-info-row">
+            <div class="title-name" style="color:${s.color}">${escapeHtml(s.name)}</div>
+            <div class="title-desc">${owned?'보유 중':(s.price+' C로 구매')}</div>
+          </div>
+          ${right}
+        </div>`;
+    }).join('');
+    html += shopHtml;
     list.innerHTML = html;
   };
-  
+
   // 새 equipTitle — 그라데이션 지원
   window.equipTitleEnc = function(encoded){
     try {
@@ -3052,6 +3092,21 @@ window.startTutorial = function(){
     }
   };
   
+  // 칭호 상점 구매 — C(coins) 차감 + ownedTitles 추가
+  window.buyTitle = async function(encName, price, color){
+    if(!MY_UID || !_fbDb){ alert('로그인이 필요합니다.'); return; }
+    const name = decodeURIComponent(encName);
+    try {
+      const cur = (await _fbDb.ref(`users/${MY_UID}/coins`).once('value')).val() || 0;
+      if(cur < price){ alert('코인(C)이 부족합니다.'); return; }
+      const own = (await _fbDb.ref(`users/${MY_UID}/ownedTitles/${name}`).once('value')).val();
+      if(own){ alert('이미 보유한 칭호입니다.'); return; }
+      await _fbDb.ref(`users/${MY_UID}/coins`).set(cur - price);
+      await _fbDb.ref(`users/${MY_UID}/ownedTitles/${name}`).set({ color, unlockedAt: Date.now(), source: 'shop' });
+      openTitlesModal();
+    } catch(e){ alert('구매 실패: ' + e.message); }
+  };
+
   window.closeTitlesModal = function(){
     document.getElementById('titlesModal').classList.remove('show');
   };
