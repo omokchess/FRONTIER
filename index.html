@@ -931,7 +931,7 @@ input{font-family:inherit;outline:none}
           <div class="mt">물약 모드</div>
           <div class="md">5종 물약으로 즐기는 변형 모드</div>
         </button>
-        <button class="mode mode-peasant" onclick="startPeasantGame()">
+        <button class="mode mode-peasant" onclick="openPeasantStartModal()">
           <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8 6 6 9 6 13a6 6 0 0 0 12 0c0-4-2-7-6-11z"/></svg></div>
           <div class="mt">농민 봉기</div>
           <div class="md">민심이 끓어오르면 기물이 변형되는 변형 모드</div>
@@ -1207,6 +1207,30 @@ input{font-family:inherit;outline:none}
       <div class="actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
         <button class="btn btn-ghost" onclick="closePotionStartModal()">취소</button>
         <button class="btn btn-tutorial" onclick="location.href='tutorial.html?mode=potion'" style="background:linear-gradient(135deg,rgba(191,90,242,.2),rgba(191,90,242,.08));border:1px solid rgba(191,90,242,.5);color:#d68fff">📖 튜토리얼</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 농민 봉기 시작 모달 -->
+  <div class="modal" id="peasantStartModal" onclick="if(event.target.id==='peasantStartModal') closePeasantStartModal()">
+    <div class="modal-card" style="max-width:420px;width:92%">
+      <h3 style="text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c8814f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8 6 6 9 6 13a6 6 0 0 0 12 0c0-4-2-7-6-11z"/></svg>
+        농민 봉기 시작
+      </h3>
+      <p style="font-size:13px;color:var(--muted);text-align:center;margin-bottom:14px">어떤 방식으로 플레이할까요?</p>
+      <div class="opts">
+        <div class="opt" onclick="startPeasantMode('local')">
+          <b>로컬 2인</b>
+          <span>한 기기에서 두 명이 번갈아</span>
+        </div>
+        <div class="opt" onclick="startPeasantMode('online')">
+          <b>온라인 방 만들기</b>
+          <span>온라인 친구한테 비공개 방 초대</span>
+        </div>
+      </div>
+      <div class="actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
+        <button class="btn btn-ghost" onclick="closePeasantStartModal()">취소</button>
       </div>
     </div>
   </div>
@@ -1508,6 +1532,24 @@ function renderLocalSetup(){
     총 시간: <b style="color:var(--gold)">${tlabel}</b> (체스식 누적)`;
 }
 
+window.openPeasantStartModal = function(){
+  document.getElementById('peasantStartModal').classList.add('show');
+};
+window.closePeasantStartModal = function(){
+  document.getElementById('peasantStartModal').classList.remove('show');
+};
+window.startPeasantMode = function(mode){
+  closePeasantStartModal();
+  if(mode === 'online'){
+    // 온라인 방 만들기 페이지로 + peasant 자동 활성 플래그
+    if(!MY_UID){ alert('로그인이 완료되지 않았습니다. 잠시 후 다시 시도하세요.'); return; }
+    const params = new URLSearchParams({uid:MY_UID, nick:MY_NICK, tag:MY_TAG||'', elo: getEloForMode(false), peasant:'1'});
+    if(typeof appendTitleParams === 'function') appendTitleParams(params);
+    location.href = 'create-room.html?' + params.toString();
+  } else {
+    startPeasantGame();
+  }
+};
 window.startPeasantGame = function(){
   // 농민 봉기: 로컬 2인 + peasant=1 (표준 기물 구성)
   const params = new URLSearchParams({ mode:'local', hand:'K1Q1R2B2N2P8SH0SN0JP0', time:'unlimited', peasant:'1' });
@@ -2280,8 +2322,32 @@ window.startTutorial = function(){
     document.getElementById('inviteRecvModal').classList.remove('show');
     // 초대 노드 삭제
     try { await _fbDb.ref(`invitations/${MY_UID}/${inv.fromUid}`).remove(); } catch(_){}
-    // 게스트로 방 입장
-    location.href = `FRONTIER.html?role=guest&room=${inv.roomCode}`;
+    const code = inv.roomCode;
+    if(!code){ alert('방 코드가 없는 초대입니다.'); return; }
+    // 방 설정 읽기 (hand/potion/peasant/시간 등을 URL로 전달해야 함)
+    let r;
+    try {
+      const snap = await _fbDb.ref('rooms/'+code).once('value');
+      r = snap.val();
+    } catch(e){ alert('방 정보를 가져오지 못했습니다: '+(e.message||e)); return; }
+    if(!r){ alert('해당 방이 없습니다. (이미 닫혔을 수 있습니다)'); return; }
+    if(r.started){ alert('이미 시작된 방입니다.'); return; }
+    if(r.guestUid && r.guestUid !== MY_UID){ alert('이미 다른 게스트가 입장했습니다.'); return; }
+    // 게스트 등록 (호스트가 입장을 감지하고 게임을 시작함)
+    try {
+      await _fbDb.ref('rooms/'+code).update({
+        guestUid: MY_UID, guestNick: MY_NICK, guestTag: MY_TAG||'', guestElo: getEloForMode(!!r.potion)
+      });
+    } catch(e){ alert('입장 처리 실패: '+(e.message||e)); return; }
+    const params = new URLSearchParams({
+      role:'guest', room:code, time:r.timeLimit||'unlimited', inc:r.timeInc||'0',
+      uid:MY_UID, nick:MY_NICK, tag:MY_TAG||'', elo: getEloForMode(!!r.potion),
+      hand:r.hand||'K1Q1R2B2N2P8SH0SN0JP0'
+    });
+    if(r.potion) params.set('potion','1');
+    if(r.peasant) params.set('peasant','1');
+    appendTitleParams(params);
+    location.href = 'FRONTIER.html?'+params.toString();
   };
   window.declineInvite = async function(){
     if(!_currentInvite) return;
@@ -4199,6 +4265,7 @@ window.startTutorial = function(){
       hand:r.hand||'K1Q1R2B2N2P8SH0SN0JP0'
     });
     if(r.potion) params.set('potion','1');
+    if(r.peasant) params.set('peasant','1');
     appendTitleParams(params);
     location.href = 'FRONTIER.html?'+params.toString();
   };
@@ -4212,6 +4279,7 @@ window.startTutorial = function(){
       hand:r.hand||'K1Q1R2B2N2P8SH0SN0JP0'
     });
     if(r.potion) params.set('potion','1');
+    if(r.peasant) params.set('peasant','1');
     appendTitleParams(params);
     location.href = 'FRONTIER.html?'+params.toString();
   };

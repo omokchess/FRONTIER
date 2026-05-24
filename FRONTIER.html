@@ -4859,6 +4859,7 @@ function initSpectator(){
       lastMove = s.lastMove;
       checkStreak = s.checkStreak || {w:0,b:0};
       totalChecks = s.totalChecks || {w:0,b:0};
+      minsim = s.minsim || {w:0,b:0};
       _gameRatingInfo = s.rating;
       if(_gameRatingInfo){
         document.getElementById('myName').textContent = _gameRatingInfo.whiteNick + ` (${_gameRatingInfo.whiteElo})`;

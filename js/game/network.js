@@ -227,6 +227,7 @@ window.publishGameState = function publishGameState(){
     lastMove: lastMove ? {...lastMove} : null,
     checkStreak:{...checkStreak},
     totalChecks:{...totalChecks},
+    minsim: (typeof minsim !== 'undefined' && minsim) ? {...minsim} : {w:0,b:0},
     rating: _gameRatingInfo
   };
   _fbDb.ref('rooms/'+ROOM_CODE+'/gameState').set(JSON.stringify(state)).catch(()=>{});
