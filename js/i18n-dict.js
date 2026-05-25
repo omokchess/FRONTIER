@@ -799,3 +799,8 @@ Object.assign(window.I18N_DICT.zh, {
   "👁 관전 시작": "👁 开始观战", "🃏 진영 교환!": "🃏 阵营交换！", "상대가 리매치를 거절했습니다": "对手拒绝了重赛"
 });
 
+// 종료 결과 표시 (큰 글씨)
+Object.assign(window.I18N_DICT.en, { "패배": "Defeat", "무승부": "Draw" });
+Object.assign(window.I18N_DICT.ja, { "패배": "敗北", "무승부": "引き分け" });
+Object.assign(window.I18N_DICT.zh, { "패배": "失败", "무승부": "平局" });
+

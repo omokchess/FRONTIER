@@ -807,8 +807,16 @@ function renderTycoon(){
   if(!el){
     el = document.createElement('div');
     el.id = 'tycoonBar';
-    el.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:50;display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;max-width:96vw;background:rgba(20,20,22,.94);border:1px solid #4a3a1a;border-radius:10px;padding:6px 12px;font-size:12px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.5)';
-    document.body.appendChild(el);
+    // 흐름 배치: 손패 카드 "아래"에 (모바일=보드 안 가림, 데스크탑=로고 안 가림). 고정 오버레이 X.
+    el.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;align-items:center;justify-content:center;background:rgba(20,20,22,.94);border:1px solid #4a3a1a;border-radius:10px;padding:7px 9px;margin:8px 0 4px;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.4)';
+    // 내 손패 카드 바로 다음에 삽입
+    const myHand = document.getElementById('myHand');
+    const handCard = myHand ? myHand.closest('.hand-card') : null;
+    if(handCard && handCard.parentNode){
+      handCard.parentNode.insertBefore(el, handCard.nextSibling);
+    } else {
+      (document.querySelector('.side.right') || document.body).appendChild(el);
+    }
   }
   const T = (s,p)=> (window.t ? window.t(s,p) : s);
   const goldLbl = `<span style="color:#ffd60a">💰 ${T('백')} ${gold.w||0}G</span> <span style="color:#666">·</span> <span style="color:#ffd60a">${T('흑')} ${gold.b||0}G</span> <span style="color:#888;font-size:10px">(${T('{n}G 승리',{n:TYCOON_WIN_GOLD})})</span>`;
@@ -1968,19 +1976,25 @@ function renderMinsim(){
   if(!el){
     el = document.createElement('div');
     el.id = 'minsimBar';
-    el.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:50;display:flex;gap:14px;align-items:center;background:rgba(20,20,22,.92);border:1px solid #333;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.5)';
-    document.body.appendChild(el);
+    // 흐름 배치: 내 카드의 "연속 체크" 위에 (기권/로비 버튼·로고 안 가림). 고정 오버레이 X.
+    el.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:center;background:rgba(20,20,22,.92);border:1px solid #333;border-radius:8px;padding:6px 8px;margin:6px 0;font-size:11px;font-weight:700';
+    const anchor = document.getElementById('myCheckStats');
+    if(anchor && anchor.parentNode){
+      anchor.parentNode.insertBefore(el, anchor);
+    } else {
+      (document.getElementById('myCard') || document.body).appendChild(el);
+    }
   }
   const T = (s)=> (window.t ? window.t(s) : s);
   const bar = (label, v, color) => {
     const active = v >= 50;   // ≥50% = 봉기 발동 (킹 2칸·퀸 아군폰·폰의 킹 사냥)
     const fill = Math.min(100, Math.max(0, v));
-    return `<div style="display:flex;align-items:center;gap:6px">
+    return `<div style="display:flex;align-items:center;gap:4px">
       <span style="color:${color}">${T(label)}</span>
-      <span style="position:relative;display:inline-block;width:90px;height:9px;background:#2a2a2e;border-radius:5px;overflow:hidden">
+      <span style="position:relative;display:inline-block;width:54px;height:8px;background:#2a2a2e;border-radius:5px;overflow:hidden">
         <span style="position:absolute;top:0;bottom:0;left:0;width:${fill}%;background:${active?'#ff453a':color};transition:width .3s"></span>
       </span>
-      <span style="color:${active?'#ff453a':'#999'};min-width:38px">${Math.round(v)}%${active?' 🔥'+T('봉기'):''}</span>
+      <span style="color:${active?'#ff453a':'#999'};min-width:30px">${Math.round(v)}%${active?' 🔥'+T('봉기'):''}</span>
     </div>`;
   };
   el.innerHTML = `<span style="color:#888;font-size:11px">${T('민심')}</span>` + bar('백', minsim.w||0, '#e8e8e8') + bar('흑', minsim.b||0, '#9aa0a6');
@@ -2649,7 +2663,18 @@ function endGame(emoji, title, desc, winner /* 'w'|'b'|'draw' */, fromHost){
   // 리플레이 저장 (먼저 저장하고 나머지 진행)
   saveReplayToStorage(winner, title, desc);
   document.getElementById('endIcon').textContent = emoji;
-  document.getElementById('endTitle').textContent = (window.t ? window.t(title) : title);
+  // 직관적 결과 표시: 큰 글씨로 승리!/패배/무승부, 아래 상세(어느 진영·어떻게)
+  //   · 온라인/AI: 내(MY_COLOR) 기준 승/패  · 로컬·관전·AIvAI·리플레이: '승리!'(승자는 상세에)
+  let _big;
+  if(winner === 'draw') _big = '무승부';
+  else if((IS_NET && !IS_SPEC) || IS_AI) _big = (winner === MY_COLOR) ? '승리!' : '패배';
+  else _big = '승리!';
+  const _bigColor = (_big === '패배') ? '#ff453a' : (_big === '무승부' ? '#9aa0a6' : '#f5c842');
+  const _tEl = document.getElementById('endTitle');
+  _tEl.textContent = (window.t ? window.t(_big) : _big);
+  _tEl.style.color = _bigColor;
+  _tEl.style.fontSize = '2.4em';
+  _tEl.style.fontWeight = '900';
   document.getElementById('endDesc').textContent = (window.t ? window.t(desc) : desc);
   playSnd('end');
   const eloEl = document.getElementById('endElo');
