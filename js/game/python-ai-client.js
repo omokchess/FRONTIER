@@ -8,6 +8,9 @@
   const timeoutMs = Math.max(3000, Number(q.get('aitimeout') || 15000));
   if (!enabled || !apiBase || typeof aiTurn !== 'function') return;
   const fallbackAiTurn = aiTurn;
+  // Render 무료 티어는 유휴 시 잠듦 → 게임 로드 즉시 서버를 깨워, 기물 배치하는 동안 워밍업 →
+  // 첫 AI 수부터 강한 Python AI가 준비됨 (폴백은 깨어나는 동안만 일시적).
+  try { fetch(`${apiBase}/api/health`, { method:'GET', cache:'no-store' }).catch(()=>{}); } catch(_){}
   const jsonifyBoard = () => board.map(row => row.map(p => p ? { color:p.color, kind:p.kind, ...(p.kind === 'SN' ? {attacks:p.attacks || 0} : {}) } : null));
   const statePayload = () => ({
     board: jsonifyBoard(), hands: {w:{...hands.w}, b:{...hands.b}}, turn,

@@ -835,7 +835,8 @@ function renderTycoon(){
     shop += btn(`${T('⏭스킵')} +${TYCOON_SKIP_BONUS}G`, true, 'skipTurn()');
     shop = `<span style="color:#888;font-size:10px;white-space:nowrap;margin-right:2px">${T('{c} 상점 (턴 소모 없이 구매)',{c:T(actor==='w'?'백':'흑')})}</span>` + shop;
   }
-  el.innerHTML = goldLbl + shop;
+  // 2줄: 윗줄=골드, 아랫줄=상점
+  el.innerHTML = `<div class="tyc-gold">${goldLbl}</div>` + (shop ? `<div class="tyc-shop">${shop}</div>` : '');
 }
 
 // ===== 차단 칸 검증 =====
