@@ -15,6 +15,28 @@ class EngineTest(unittest.TestCase):
         res = s.apply(Action('place','w',kind='P',r=4,c=5))
         self.assertEqual(res.winner, 'w'); self.assertEqual(res.reason, 'five_in_row')
 
+    def test_black_can_counter_with_five_while_in_check(self):
+        s = GameState.initial(parse_hand_str('K0Q0R0B0N0P1SH0SN0JP0'))
+        s.king_placed = {'w': True, 'b': True}; s.turn = 'b'
+        s.board[0][0] = Piece('w','K'); s.board[7][5] = Piece('b','K')
+        s.board[7][0] = Piece('w','R')
+        for c in range(1,5): s.board[4][c] = Piece('b','P')
+        self.assertTrue(s.is_in_check('b'))
+        res = s.apply(Action('place','b',kind='P',r=4,c=5))
+        self.assertTrue(res.ok)
+        self.assertEqual(res.winner, 'b'); self.assertEqual(res.reason, 'five_in_row')
+
+    def test_white_must_resolve_check_even_if_five_is_available(self):
+        s = GameState.initial(parse_hand_str('K0Q0R0B0N0P1SH0SN0JP0'))
+        s.king_placed = {'w': True, 'b': True}; s.turn = 'w'
+        s.board[0][5] = Piece('w','K'); s.board[7][7] = Piece('b','K')
+        s.board[0][0] = Piece('b','R')
+        for c in range(1,5): s.board[4][c] = Piece('w','P')
+        self.assertTrue(s.is_in_check('w'))
+        res = s.apply(Action('place','w',kind='P',r=4,c=5))
+        self.assertFalse(res.ok)
+        self.assertIsNone(s.board[4][5])
+
     def test_sniper_returns_after_three_shots(self):
         s = GameState.initial(parse_hand_str('K0Q0R0B0N0P0SH0SN0JP0'))
         s.king_placed = {'w': True, 'b': True}; s.turn = 'w'

@@ -286,6 +286,9 @@ class GameState:
                         return p.color
         return None
 
+    def black_counter_five(self, mover: str) -> bool:
+        return mover == "b" and self.five_in_row() == "b"
+
     def position_key(self) -> str:
         cells = []
         for row in self.board:
@@ -366,7 +369,7 @@ class GameState:
         err = self._raw_apply(action)
         if err:
             return ApplyResult(False, err)
-        if self.king_placed[mover] and self.is_in_check(mover):
+        if self.king_placed[mover] and self.is_in_check(mover) and not self.black_counter_five(mover):
             self.__dict__.update(before.__dict__)
             return ApplyResult(False, "자기 킹이 체크됨")
         nxt = opp(mover)

@@ -368,6 +368,10 @@ function checkFiveInRow(){
   return null;
 }
 
+function isBlackCounterFive(color){
+  return color === 'b' && checkFiveInRow() === 'b';
+}
+
 // ===================================================================
 // 7. 직렬화 / 스냅샷 (반복 검출 + 5회 체크 복원)
 // ===================================================================
@@ -543,7 +547,7 @@ function applyAction(action, opts={}){
   }
 
   // 자기 킹 체크 노출 금지
-  if(kingPlaced[turn] && isInCheck(turn)){
+  if(kingPlaced[turn] && isInCheck(turn) && !isBlackCounterFive(turn)){
     restoreState(snap);
     return { ok:false, err:'자기 킹이 체크됨' };
   }
@@ -4552,4 +4556,3 @@ function init(){
   }
 }
 init();
-
