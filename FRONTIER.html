@@ -1428,9 +1428,10 @@ const IS_AIVAI = (MODE === 'aivai');
 const IS_NET   = (NET_ROLE === 'host' || NET_ROLE === 'guest');
 const IS_SPEC  = (NET_ROLE === 'spectator');
 const IS_REPLAY = (MODE === 'replay');
-const IS_POTION = (Q.get('potion') === '1');
-const IS_PEASANT = (Q.get('peasant') === '1');   // 농민 봉기 모드
-const IS_TYCOON = (Q.get('tycoon') === '1');     // 타이쿤 모드 (골드 경제)
+// 변형 모드는 상호 배타 — 동시에 여러 개가 켜지면 우선순위(타이쿤 > 농민봉기 > 물약)로 하나만 적용
+const IS_TYCOON = (Q.get('tycoon') === '1');                                   // 타이쿤 (골드 경제)
+const IS_PEASANT = (Q.get('peasant') === '1') && !IS_TYCOON;                   // 농민 봉기
+const IS_POTION  = (Q.get('potion') === '1') && !IS_TYCOON && !IS_PEASANT;     // 물약 모드
 
 // ===== 타이쿤 모드 상수 =====
 const TYCOON_TURN_INCOME = 5;   // 매 턴 시작 시 골드 수입

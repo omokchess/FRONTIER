@@ -483,6 +483,20 @@ if(Q.get('tycoon') === '1'){
   const cb = document.getElementById('tycoonMode');
   if(cb) cb.checked = true;
 }
+
+// 변형 모드는 상호 배타 — 하나를 켜면 나머지는 자동 해제
+const _MODE_BOXES = ['potionMode','peasantMode','tycoonMode'];
+_MODE_BOXES.forEach(id=>{
+  const cb = document.getElementById(id);
+  if(!cb) return;
+  cb.addEventListener('change', ()=>{
+    if(cb.checked){
+      _MODE_BOXES.forEach(other=>{
+        if(other !== id){ const o = document.getElementById(other); if(o) o.checked = false; }
+      });
+    }
+  });
+});
 </script>
 </body>
 </html>
