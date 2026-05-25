@@ -219,12 +219,13 @@ def main() -> None:
         for it in range(1, args.iterations + 1):
             t0 = time.time()
             selfplay_net = best_net if arena_enabled else net
+            selfplay_seed = (base_iter + it) * 1_000_003
             if args.workers > 1:
                 data, res = generate_parallel(selfplay_net, cfg, args.games_per_iter, args.workers,
-                                              hand_str=args.hand, **sp_kw)
+                                              hand_str=args.hand, seed_start=selfplay_seed, **sp_kw)
             else:
                 data, res = generate_serial(selfplay_net, device, args.games_per_iter,
-                                            hand_str=args.hand, **sp_kw)
+                                            hand_str=args.hand, seed_start=selfplay_seed, **sp_kw)
             buffer.extend(data)
             _trim_replay(buffer, args.buffer)
             t_sp = time.time() - t0
