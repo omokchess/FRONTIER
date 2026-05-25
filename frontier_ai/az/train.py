@@ -19,6 +19,7 @@ from .encoding import index_to_action
 from .mcts import MCTS, choose
 from .net import AZNet, pick_device
 from .selfplay import generate_parallel, generate_serial, make_evaluator
+from .stats import counts_view, format_move_stats, format_reason_stats, new_result_stats, record_result
 from .tactics import tactical_action
 
 
@@ -107,7 +108,7 @@ def _trim_replay(buffer: list, maxlen: int) -> None:
 
 
 def _arena_game(candidate, best, device, hand: dict[str, int], n_sims: int,
-                max_moves: int, candidate_white: bool) -> str | None:
+                max_moves: int, candidate_white: bool) -> dict:
     evaluators = {
         "candidate": make_evaluator(candidate, device),
         "best": make_evaluator(best, device),
@@ -128,19 +129,21 @@ def _arena_game(candidate, best, device, hand: dict[str, int], n_sims: int,
         action = index_to_action(choose(root, temperature=1e-9), state.turn)
         state.apply(action)
         moves += 1
+    reason = state.end_reason if state.terminal else "max_moves"
     if state.winner not in ("w", "b"):
-        return None
-    return "candidate" if (state.winner == "w") == candidate_white else "best"
+        return {"winner": None, "reason": reason, "moves": moves}
+    winner = "candidate" if (state.winner == "w") == candidate_white else "best"
+    return {"winner": winner, "reason": reason, "moves": moves}
 
 
 def _arena(candidate, best, device, hand: dict[str, int], games: int,
            n_sims: int, max_moves: int) -> dict[str, int]:
     candidate.eval()
     best.eval()
-    result = {"candidate": 0, "best": 0, "draw": 0}
+    result = new_result_stats(("candidate", "best"))
     for i in range(games):
-        winner = _arena_game(candidate, best, device, hand, n_sims, max_moves, candidate_white=(i % 2 == 0))
-        result[winner or "draw"] += 1
+        outcome = _arena_game(candidate, best, device, hand, n_sims, max_moves, candidate_white=(i % 2 == 0))
+        record_result(result, outcome["winner"], outcome["reason"], outcome["moves"])
     return result
 
 
@@ -241,11 +244,17 @@ def main() -> None:
 
             if losses:
                 L = np.mean(losses, axis=0)
-                print(f"iter={last_iter} | games={res} | buffer={len(buffer)} | "
+                print(f"iter={last_iter} | games={counts_view(res, ('w', 'b', 'draw'))} | "
+                      f"ends={format_reason_stats(res, ('w', 'b', 'draw'))} | "
+                      f"moves={format_move_stats(res, ('w', 'b', 'draw'))} | "
+                      f"buffer={len(buffer)} | "
                       f"loss={L[0]:.4f}(p={L[1]:.4f},v={L[2]:.4f}) | "
                       f"selfplay={t_sp:.1f}s train={t_tr:.1f}s")
             else:
-                print(f"iter={last_iter} | games={res} | buffer={len(buffer)} | (warmup)")
+                print(f"iter={last_iter} | games={counts_view(res, ('w', 'b', 'draw'))} | "
+                      f"ends={format_reason_stats(res, ('w', 'b', 'draw'))} | "
+                      f"moves={format_move_stats(res, ('w', 'b', 'draw'))} | "
+                      f"buffer={len(buffer)} | (warmup)")
 
             checkpoint_path = args.candidate_out if arena_enabled else args.out
             _save(checkpoint_path, net, cfg, meta)
@@ -260,7 +269,10 @@ def main() -> None:
                 arena = _arena(net, best_net, device, hand, args.arena_games, args.arena_sims, args.max_moves)
                 score = (arena["candidate"] + 0.5 * arena["draw"]) / max(1, args.arena_games)
                 accepted = score >= args.arena_threshold
-                print(f"arena iter={last_iter} | {arena} | score={score:.3f} "
+                print(f"arena iter={last_iter} | {counts_view(arena, ('candidate', 'best', 'draw'))} | "
+                      f"ends={format_reason_stats(arena, ('candidate', 'best', 'draw'))} | "
+                      f"moves={format_move_stats(arena, ('candidate', 'best', 'draw'))} | "
+                      f"score={score:.3f} "
                       f"threshold={args.arena_threshold:.3f} | "
                       f"{'accepted' if accepted else 'rejected'} | time={time.time()-ts:.1f}s")
                 if accepted:

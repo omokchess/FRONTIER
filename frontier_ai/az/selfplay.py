@@ -9,6 +9,7 @@ from ..game import GameState, parse_hand_str
 from .encoding import POLICY_SIZE, action_to_index, encode_planes, index_to_action
 from .net import AZNet, infer_batch
 from .mcts import MCTS, visit_policy, choose
+from .stats import new_result_stats, record_result
 from .tactics import tactical_action
 
 
@@ -48,17 +49,23 @@ def play_game(net, device, hand, n_sims=64, max_moves=200, temp_moves=12, c_puct
         z = {"w": -1.0, "b": 1.0}
     else:
         z = {"w": 0.0, "b": 0.0}
-    return [(pl, pi, z[mv]) for (pl, pi, mv) in samples], state.winner, moves
+    reason = state.end_reason if state.terminal else "max_moves"
+    winner = state.winner if state.winner in ("w", "b") else None
+    return [(pl, pi, z[mv]) for (pl, pi, mv) in samples], {
+        "winner": winner,
+        "reason": reason,
+        "moves": moves,
+    }
 
 
 def generate_serial(net, device, n_games, hand_str="K1Q1R2B2N2P8SH0SN0JP0", seed_start=None, **kw):
     hand = parse_hand_str(hand_str)
-    data, results = [], {"w": 0, "b": 0, "draw": 0}
+    data, results = [], new_result_stats(("w", "b"))
     for i in range(n_games):
         seed = None if seed_start is None else (int(seed_start) + i) % (2 ** 32)
-        samples, winner, _ = play_game(net, device, hand, seed=seed, **kw)
+        samples, outcome = play_game(net, device, hand, seed=seed, **kw)
         data.extend(samples)
-        results[winner if winner in ("w", "b") else "draw"] += 1
+        record_result(results, outcome["winner"], outcome["reason"], outcome["moves"])
     return data, results
 
 
@@ -76,21 +83,20 @@ def _init_worker(net_cfg, sd_path, hand_str, kw):
 
 
 def _play_worker(seed):
-    samples, winner, _ = play_game(_W["net"], _W["device"], _W["hand"], seed=seed, **_W["kw"])
-    return samples, winner
+    return play_game(_W["net"], _W["device"], _W["hand"], seed=seed, **_W["kw"])
 
 
 def generate_parallel(net, net_cfg, n_games, n_workers, hand_str="K1Q1R2B2N2P8SH0SN0JP0", seed_start=None, **kw):
     import multiprocessing as mp
     sd_path = os.path.join(tempfile.gettempdir(), "frontier_az_selfplay_net.pt")
     torch.save(net.state_dict(), sd_path)
-    data, results = [], {"w": 0, "b": 0, "draw": 0}
+    data, results = [], new_result_stats(("w", "b"))
     if seed_start is None:
         seed_start = int.from_bytes(os.urandom(8), "little")
     seeds = [(int(seed_start) + i) % (2 ** 32) for i in range(n_games)]
     ctx = mp.get_context("spawn")
     with ctx.Pool(n_workers, initializer=_init_worker, initargs=(net_cfg, sd_path, hand_str, kw)) as pool:
-        for samples, winner in pool.imap_unordered(_play_worker, seeds):
+        for samples, outcome in pool.imap_unordered(_play_worker, seeds):
             data.extend(samples)
-            results[winner if winner in ("w", "b") else "draw"] += 1
+            record_result(results, outcome["winner"], outcome["reason"], outcome["moves"])
     return data, results
