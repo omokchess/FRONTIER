@@ -807,13 +807,12 @@ function renderTycoon(){
   if(!el){
     el = document.createElement('div');
     el.id = 'tycoonBar';
-    // 흐름 배치: 손패 카드 "아래"에 (모바일=보드 안 가림, 데스크탑=로고 안 가림). 고정 오버레이 X.
-    el.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;align-items:center;justify-content:center;background:rgba(20,20,22,.94);border:1px solid #4a3a1a;border-radius:10px;padding:7px 9px;margin:8px 0 4px;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.4)';
-    // 내 손패 카드 바로 다음에 삽입
+    // 위치/스타일은 CSS(#tycoonBar)가 담당 — 데스크탑은 fixed(상단바 아래), 모바일은 손패 아래 흐름 배치.
+    // 모바일 흐름 배치를 위해 손패 카드 안(손패 목록 다음)에 삽입.
     const myHand = document.getElementById('myHand');
     const handCard = myHand ? myHand.closest('.hand-card') : null;
-    if(handCard && handCard.parentNode){
-      handCard.parentNode.insertBefore(el, handCard.nextSibling);
+    if(handCard){
+      handCard.appendChild(el);
     } else {
       (document.querySelector('.side.right') || document.body).appendChild(el);
     }
@@ -834,7 +833,7 @@ function renderTycoon(){
     shop += btn(snUpgraded[actor] ? T('저격강화 ✓') : `${T('저격강화')} ${TYCOON_SN_UPGRADE_COST}G`, !snUpgraded[actor] && g >= TYCOON_SN_UPGRADE_COST, 'upgradeSniper()');
     shop += btn(`${T('⬆폰승급')} ${TYCOON_PROMO_COST}G`, g >= TYCOON_PROMO_COST, 'startTycoonPromote()');
     shop += btn(`${T('⏭스킵')} +${TYCOON_SKIP_BONUS}G`, true, 'skipTurn()');
-    shop = `<span style="color:#888;font-size:10px;width:100%;text-align:center">${T('{c} 상점 (턴 소모 없이 구매)',{c:T(actor==='w'?'백':'흑')})}</span>` + shop;
+    shop = `<span style="color:#888;font-size:10px;white-space:nowrap;margin-right:2px">${T('{c} 상점 (턴 소모 없이 구매)',{c:T(actor==='w'?'백':'흑')})}</span>` + shop;
   }
   el.innerHTML = goldLbl + shop;
 }
@@ -1976,11 +1975,10 @@ function renderMinsim(){
   if(!el){
     el = document.createElement('div');
     el.id = 'minsimBar';
-    // 흐름 배치: 내 카드의 "연속 체크" 위에 (기권/로비 버튼·로고 안 가림). 고정 오버레이 X.
-    el.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:center;background:rgba(20,20,22,.92);border:1px solid #333;border-radius:8px;padding:6px 8px;margin:6px 0;font-size:11px;font-weight:700';
+    // 위치/스타일은 CSS(#minsimBar)가 담당 — 데스크탑은 fixed(상단바 아래), 모바일은 연속체크 위 흐름 배치.
     const anchor = document.getElementById('myCheckStats');
     if(anchor && anchor.parentNode){
-      anchor.parentNode.insertBefore(el, anchor);
+      anchor.parentNode.insertBefore(el, anchor);   // 연속 체크 위
     } else {
       (document.getElementById('myCard') || document.body).appendChild(el);
     }
