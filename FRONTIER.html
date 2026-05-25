@@ -1492,7 +1492,7 @@ let actionHistory = [];          // 리플레이용 액션 기록 (실제 적용
 let snapshots = [];             // undo 또는 5회 체크 초과 시 복원용
 let checkStreak = { w:0, b:0 }; // 연속 체크 (이쪽이 받은)
 let totalChecks = { w:0, b:0 }; // 총 체크 (이쪽이 건)
-let minsim = { w:0, b:0 };      // 농민 봉기: 민심 게이지 0~100 (진영당, ≥80% 기물 변형)
+let minsim = { w:0, b:0 };      // 농민 봉기: 민심 게이지 0~100 (진영당, ≥50% 봉기 발동)
 let gameOver = false;
 let myRoomCode = null;          // 페이지 이탈 시 정리할 방 코드
 
@@ -5022,6 +5022,7 @@ function doRematch(){
   actionHistory = [];
   checkStreak = { w:0, b:0 };
   totalChecks = { w:0, b:0 };
+  minsim = { w:0, b:0 };   // 농민 봉기: 민심 게이지 초기화
   gameOver = false;
   SEL = null;
   HIGHLIGHTS = [];
@@ -5256,6 +5257,7 @@ function initReplay(){
   moveHistory = [];
   checkStreak = { w:0, b:0 };
   totalChecks = { w:0, b:0 };
+  minsim = { w:0, b:0 };   // 농민 봉기: 민심 게이지 초기화
   gameOver = false;
 
   document.body.classList.add('replay-mode');
@@ -5395,6 +5397,7 @@ function replayResetState(){
   moveHistory = [];
   checkStreak = { w:0, b:0 };
   totalChecks = { w:0, b:0 };
+  minsim = { w:0, b:0 };   // 농민 봉기: 민심 게이지 초기화
   gameOver = false;
 }
 
