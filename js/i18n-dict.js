@@ -804,3 +804,17 @@ Object.assign(window.I18N_DICT.en, { "패배": "Defeat", "무승부": "Draw" });
 Object.assign(window.I18N_DICT.ja, { "패배": "敗北", "무승부": "引き分け" });
 Object.assign(window.I18N_DICT.zh, { "패배": "失败", "무승부": "平局" });
 
+// Python AI 폴백 알림
+Object.assign(window.I18N_DICT.en, {
+  "AI 서버 응답 지연 — 내장 AI로 진행": "AI server is slow — using built-in AI",
+  "AI 서버 연결 실패 — 내장 AI로 진행": "AI server unreachable — using built-in AI"
+});
+Object.assign(window.I18N_DICT.ja, {
+  "AI 서버 응답 지연 — 내장 AI로 진행": "AIサーバーの応答が遅延 — 内蔵AIで進行",
+  "AI 서버 연결 실패 — 내장 AI로 진행": "AIサーバーに接続失敗 — 内蔵AIで進行"
+});
+Object.assign(window.I18N_DICT.zh, {
+  "AI 서버 응답 지연 — 내장 AI로 진행": "AI服务器响应延迟 — 使用内置AI",
+  "AI 서버 연결 실패 — 내장 AI로 진행": "AI服务器连接失败 — 使用内置AI"
+});
+
