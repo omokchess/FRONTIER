@@ -10,6 +10,9 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<!-- 다국어(i18n): 사전 먼저, 그다음 엔진 -->
+<script src="js/i18n-dict.js"></script>
+<script src="js/i18n.js"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -28,6 +31,13 @@ input{font-family:inherit;outline:none}
 /* 헤더 */
 .head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
 .brand{display:flex;align-items:baseline;gap:14px}
+/* 언어 선택기 */
+.lang-switch{margin-left:auto}
+.lang-select{background:var(--panel2,#1a1a1e);color:var(--text,#eee);border:1px solid var(--border,#333);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.lang-select:hover{border-color:var(--gold,#f5c842)}
+.lang-btns{display:flex;gap:6px;flex-wrap:wrap}
+.lang-btns button{background:var(--panel2,#1a1a1e);color:var(--muted,#999);border:1px solid var(--border,#333);border-radius:8px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.lang-btns button.on{border-color:var(--gold,#f5c842);color:var(--gold,#f5c842);background:rgba(245,200,66,.1)}
 .logo{font-family:'Cinzel',serif;font-weight:800;font-size:38px;letter-spacing:6px;color:var(--gold);
   text-shadow:0 2px 0 #8a6c12, 0 4px 18px rgba(245,200,66,.25)}
 .tagline{color:var(--muted);font-size:13px;letter-spacing:1px}
@@ -883,6 +893,7 @@ input{font-family:inherit;outline:none}
       <div class="logo">FRONTIER</div>
       <div class="tagline">체스 × 오목 하이브리드</div>
     </div>
+    <div data-lang-switch class="lang-switch" title="언어 / Language"></div>
     <div class="profile" id="profile">
       <div class="avatar" id="avatar">?</div>
       <div class="pinfo">
@@ -1016,6 +1027,11 @@ input{font-family:inherit;outline:none}
         <!-- 계정 섹션 (익명 / Google) -->
         <div class="account-section" id="accountSection">
           <!-- 동적으로 채워짐 -->
+        </div>
+        <!-- 언어 설정 -->
+        <div class="account-section">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:700">🌐 언어 / Language</div>
+          <div data-lang-switch></div>
         </div>
         <div class="big-social">
           <a class="social-btn discord" href="https://discord.gg/DpnhvexpE" target="_blank" rel="noopener" title="Discord 서버 참가">
