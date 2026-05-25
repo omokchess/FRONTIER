@@ -1533,6 +1533,8 @@ const _LOCAL_TIME_OPTS = [
   {v:'600',l:'10분'},{v:'1800',l:'30분'},{v:'3600',l:'1시간'},
   {v:'unlimited',l:'제한없음'}
 ];
+const _AI_TIME_OPTS = _LOCAL_TIME_OPTS.filter(o => !['1800','3600','unlimited'].includes(o.v));
+const PYTHON_AI_TIMEOUT_MS = '120000';
 
 window.openLocalModal = function(){
   renderLocalSetup();
@@ -1649,7 +1651,7 @@ window.startLocalGame = function(){
 
 // ----- AI 모드 (난이도 + 기물 + 시간) -----
 window._aiCounts = {Q:1, R:2, B:2, N:2, P:8, SH:1, SN:0, JP:0};
-window._aiTime = 'unlimited';
+window._aiTime = '300';
 window._aiDiff = 'normal';
 
 window.openAiModal = function(){
@@ -1697,12 +1699,12 @@ function renderAiSetup(){
   }).join('');
 
   // 시간
-  document.getElementById('aiTimes').innerHTML = _LOCAL_TIME_OPTS.map(o=>
+  document.getElementById('aiTimes').innerHTML = _AI_TIME_OPTS.map(o=>
     `<button class="tbtn ${o.v===window._aiTime?'on':''}" onclick="setAiTime('${o.v}')">${o.l}</button>`
   ).join('');
 
   const total = 1 + Object.values(window._aiCounts).reduce((a,b)=>a+b,0);
-  const tlabel = _LOCAL_TIME_OPTS.find(o=>o.v===window._aiTime)?.l || '제한없음';
+  const tlabel = _AI_TIME_OPTS.find(o=>o.v===window._aiTime)?.l || '5분';
   const dlabel = diffOpts.find(o=>o.v===window._aiDiff)?.l || '보통';
   document.getElementById('aiSummary').innerHTML = `
     난이도: <b style="color:var(--gold)">${dlabel}</b> ·
@@ -1718,7 +1720,8 @@ window.startAiGame = function(){
     hand: hand,
     time: window._aiTime,
     pyai:'1',
-    aisims:'48'
+    aisims:'48',
+    aitimeout: PYTHON_AI_TIMEOUT_MS
   });
   const potionEl = document.getElementById('aiPotion');
   if(potionEl && potionEl.checked) params.set('potion','1');
@@ -1730,7 +1733,7 @@ window.startAiGame = function(){
 window._aivaiWDiff = 'hard';
 window._aivaiBDiff = 'hard';
 window._aivaiCounts = {Q:1, R:2, B:2, N:2, P:8, SH:1, SN:0, JP:0};
-window._aivaiTime = 'unlimited';
+window._aivaiTime = '300';
 
 window.openAiVaiModal = function(){
   renderAiVaiSetup();
@@ -1780,12 +1783,12 @@ function renderAiVaiSetup(){
   }).join('');
 
   // 시간
-  document.getElementById('aivaiTimes').innerHTML = _LOCAL_TIME_OPTS.map(o=>
+  document.getElementById('aivaiTimes').innerHTML = _AI_TIME_OPTS.map(o=>
     `<button class="tbtn ${o.v===window._aivaiTime?'on':''}" onclick="setAiVaiTime('${o.v}')">${o.l}</button>`
   ).join('');
 
   const total = 1 + Object.values(window._aivaiCounts).reduce((a,b)=>a+b,0);
-  const tlabel = _LOCAL_TIME_OPTS.find(o=>o.v===window._aivaiTime)?.l || '제한없음';
+  const tlabel = _AI_TIME_OPTS.find(o=>o.v===window._aivaiTime)?.l || '5분';
   const wlbl = diffOpts.find(o=>o.v===window._aivaiWDiff)?.l || '어려움';
   const blbl = diffOpts.find(o=>o.v===window._aivaiBDiff)?.l || '어려움';
   document.getElementById('aivaiSummary').innerHTML = `
@@ -1802,7 +1805,8 @@ window.startAiVaiGame = function(){
     hand: hand,
     time: window._aivaiTime,
     pyai:'1',
-    aisims:'48'
+    aisims:'48',
+    aitimeout: PYTHON_AI_TIMEOUT_MS
   });
   location.href = 'FRONTIER.html?' + params.toString();
 };
