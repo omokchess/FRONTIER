@@ -6,9 +6,10 @@ import tempfile
 import numpy as np
 import torch
 from ..game import GameState, parse_hand_str
-from .encoding import encode_planes, index_to_action
+from .encoding import POLICY_SIZE, action_to_index, encode_planes, index_to_action
 from .net import AZNet, infer_batch
 from .mcts import MCTS, visit_policy, choose
+from .tactics import tactical_action
 
 
 def make_evaluator(net: AZNet, device):
@@ -27,6 +28,14 @@ def play_game(net, device, hand, n_sims=64, max_moves=200, temp_moves=12, c_puct
     samples = []                       # (planes, pi_target, mover)
     moves = 0
     while not state.terminal and moves < max_moves:
+        forced, _ = tactical_action(state)
+        if forced is not None:
+            pi = np.zeros(POLICY_SIZE, dtype=np.float32)
+            pi[action_to_index(forced)] = 1.0
+            samples.append((encode_planes(state, state.turn), pi, state.turn))
+            state.apply(forced)
+            moves += 1
+            continue
         root = mcts.run(state, n_sims, add_noise=True)
         pi = visit_policy(root, temperature=1.0)             # target = visit-count distribution
         samples.append((encode_planes(state, state.turn), pi, state.turn))

@@ -6,6 +6,7 @@ import onnxruntime as ort
 from ..game import GameState
 from .encoding import encode_planes, index_to_action
 from .mcts import MCTS, choose
+from .tactics import tactical_action
 
 
 class AZPlayer:
@@ -19,6 +20,9 @@ class AZPlayer:
         return policy[0], float(np.reshape(value, -1)[0])
 
     def choose_action(self, state: GameState, simulations: int = 64, c_puct: float = 1.5):
+        forced, reason = tactical_action(state)
+        if forced is not None:
+            return forced, {"simulations": 0, "forced": reason, "engine": "alphazero"}
         mcts = MCTS(self._evaluate, c_puct=c_puct)
         root = mcts.run(state.clone(), simulations, add_noise=False)
         if not root.N:
