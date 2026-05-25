@@ -1877,7 +1877,7 @@ function applyAction(action, opts={}){
       if(IS_PEASANT && target && target.kind === 'GK'){
         board[tr][tc] = p; board[fr][fc] = null;
         lastMove = { fr, fc, tr, tc, type:'move' };
-        if(!silent) endGame('⚔️', '회색 킹 처치!', `${turn==='w'?'백':'흑'}이(가) 회색 킹을 잡아 승리했습니다!`, turn);
+        if(!silent) endGame('⚔️', '회색 킹 처치!', (window.t ? window.t('{c}이(가) 회색 킹을 잡아 승리했습니다!', {c:window.t(turn==='w'?'백':'흑')}) : `${turn==='w'?'백':'흑'}이(가) 회색 킹을 잡아 승리했습니다!`), turn);
         return { ok:true, winner: turn, grayKingKilled:true };
       }
       // 농민 봉기: 기물을 잃은 쪽 민심 +10% (봉기 고조)
@@ -1945,7 +1945,7 @@ function applyAction(action, opts={}){
       if(!silent){
         const winnerColor = next;
         endGame('🚫', '반칙패!',
-          `${turn==='w'?'백':'흑'}이 3회 연속 체크로 자멸했습니다.`, winnerColor);
+          (window.t ? window.t('{c}이 3회 연속 체크로 자멸했습니다.', {c:window.t(turn==='w'?'백':'흑')}) : `${turn==='w'?'백':'흑'}이 3회 연속 체크로 자멸했습니다.`), winnerColor);
       }
       return { ok:true, suicide:true, winner: next };
     }
@@ -2115,7 +2115,7 @@ function buyPiece(kind){
   hands[actor][kind] = (hands[actor][kind]||0) + 1;
   if(IS_NET) sendToPeer({ t:'TYCOON_BUY', color:actor, kind });
   if(NET_ROLE === 'host') publishGameState();
-  showFlash(`🛒 ${PIECE_NAMES[kind]||kind} 구매 (-${price}G)`, 1400);
+  showFlash((window.t ? window.t('🛒 {p} 구매 (-{g}G)', {p:window.t(PIECE_NAMES[kind]||kind), g:price}) : `🛒 ${PIECE_NAMES[kind]||kind} 구매 (-${price}G)`), 1400);
   renderAll();
 }
 
@@ -2129,7 +2129,7 @@ function upgradeSniper(){
   snUpgraded[actor] = true;
   if(IS_NET) sendToPeer({ t:'TYCOON_UPGRADE', color:actor });
   if(NET_ROLE === 'host') publishGameState();
-  showFlash('🎯 스나이퍼 사거리 강화! (모든 방향 ' + TYCOON_SN_RANGE + '칸)');
+  showFlash((window.t ? window.t('🎯 스나이퍼 사거리 강화! (모든 방향 {n}칸)', {n:TYCOON_SN_RANGE}) : '🎯 스나이퍼 사거리 강화! (모든 방향 ' + TYCOON_SN_RANGE + '칸)'));
   renderAll();
 }
 
@@ -2146,7 +2146,7 @@ function startTycoonPromote(){
   if((gold[actor]||0) < TYCOON_PROMO_COST){ showFlash('💰 골드 부족'); return; }
   _tycoonPromote = true;
   HIGHLIGHTS = []; SEL = null;
-  showFlash(`⬆ 승급할 폰을 클릭하세요 (${TYCOON_PROMO_AGE}턴 이상 생존)`, 2600);
+  showFlash((window.t ? window.t('⬆ 승급할 폰을 클릭하세요 ({n}턴 이상 생존)', {n:TYCOON_PROMO_AGE}) : `⬆ 승급할 폰을 클릭하세요 (${TYCOON_PROMO_AGE}턴 이상 생존)`), 2600);
   renderAll();
 }
 
@@ -2156,7 +2156,7 @@ function tryTycoonPromote(r, c){
   const p = board[r][c];
   if(!p || p.color !== actor || p.kind !== 'P'){ showFlash('자기 폰을 선택하세요'); return false; }
   if((p.age||0) < TYCOON_PROMO_AGE){
-    showFlash(`${TYCOON_PROMO_AGE}턴 이상 생존한 폰만 승급 가능 (현재 ${p.age||0}턴)`); return false;
+    showFlash((window.t ? window.t('{a}턴 이상 생존한 폰만 승급 가능 (현재 {b}턴)', {a:TYCOON_PROMO_AGE, b:(p.age||0)}) : `${TYCOON_PROMO_AGE}턴 이상 생존한 폰만 승급 가능 (현재 ${p.age||0}턴)`)); return false;
   }
   if((gold[actor]||0) < TYCOON_PROMO_COST){ showFlash('💰 골드 부족'); return false; }
   promptPromotion(actor).then(promo => {
@@ -2184,7 +2184,8 @@ function renderTycoon(){
     el.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:50;display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;max-width:96vw;background:rgba(20,20,22,.94);border:1px solid #4a3a1a;border-radius:10px;padding:6px 12px;font-size:12px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.5)';
     document.body.appendChild(el);
   }
-  const goldLbl = `<span style="color:#ffd60a">💰 백 ${gold.w||0}G</span> <span style="color:#666">·</span> <span style="color:#ffd60a">흑 ${gold.b||0}G</span> <span style="color:#888;font-size:10px">(${TYCOON_WIN_GOLD}G 승리)</span>`;
+  const T = (s,p)=> (window.t ? window.t(s,p) : s);
+  const goldLbl = `<span style="color:#ffd60a">💰 ${T('백')} ${gold.w||0}G</span> <span style="color:#666">·</span> <span style="color:#ffd60a">${T('흑')} ${gold.b||0}G</span> <span style="color:#888;font-size:10px">(${T('{n}G 승리',{n:TYCOON_WIN_GOLD})})</span>`;
   let shop = '';
   if(tycoonCanAct()){
     const actor = tycoonActor();
@@ -2194,12 +2195,12 @@ function renderTycoon(){
     shop = order.map(k => {
       const price = TYCOON_PRICES[k];
       const snLocked = (k==='SN' && (tycoonTurn[actor]||0) < TYCOON_SN_MIN_TURN);
-      return btn(`${PIECE_NAMES[k]||k} ${price}G`, g >= price && !snLocked, `buyPiece('${k}')`);
+      return btn(`${T(PIECE_NAMES[k]||k)} ${price}G`, g >= price && !snLocked, `buyPiece('${k}')`);
     }).join('');
-    shop += btn(snUpgraded[actor] ? '저격강화 ✓' : `저격강화 ${TYCOON_SN_UPGRADE_COST}G`, !snUpgraded[actor] && g >= TYCOON_SN_UPGRADE_COST, 'upgradeSniper()');
-    shop += btn(`⬆폰승급 ${TYCOON_PROMO_COST}G`, g >= TYCOON_PROMO_COST, 'startTycoonPromote()');
-    shop += btn(`⏭스킵 +${TYCOON_SKIP_BONUS}G`, true, 'skipTurn()');
-    shop = `<span style="color:#888;font-size:10px;width:100%;text-align:center">${actor==='w'?'백':'흑'} 상점 (턴 소모 없이 구매)</span>` + shop;
+    shop += btn(snUpgraded[actor] ? T('저격강화 ✓') : `${T('저격강화')} ${TYCOON_SN_UPGRADE_COST}G`, !snUpgraded[actor] && g >= TYCOON_SN_UPGRADE_COST, 'upgradeSniper()');
+    shop += btn(`${T('⬆폰승급')} ${TYCOON_PROMO_COST}G`, g >= TYCOON_PROMO_COST, 'startTycoonPromote()');
+    shop += btn(`${T('⏭스킵')} +${TYCOON_SKIP_BONUS}G`, true, 'skipTurn()');
+    shop = `<span style="color:#888;font-size:10px;width:100%;text-align:center">${T('{c} 상점 (턴 소모 없이 구매)',{c:T(actor==='w'?'백':'흑')})}</span>` + shop;
   }
   el.innerHTML = goldLbl + shop;
 }
@@ -3009,7 +3010,7 @@ function finalizeAfterMove(opponentInCheck, snap, silent=false){
   if(IS_PEASANT && !silent){
     const hunted = resolvePeasantKingHunt();
     for(const col of hunted){
-      showFlash(`🔥 ${col==='w'?'백':'흑'} 킹이 봉기한 농민에게 처치되어 회색 킹이 되었습니다!`, 3500);
+      showFlash((window.t ? window.t('🔥 {c} 킹이 봉기한 농민에게 처치되어 회색 킹이 되었습니다!', {c:window.t(col==='w'?'백':'흑')}) : `🔥 ${col==='w'?'백':'흑'} 킹이 봉기한 농민에게 처치되어 회색 킹이 되었습니다!`), 3500);
     }
   }
 
@@ -3344,18 +3345,19 @@ function renderMinsim(){
     el.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:50;display:flex;gap:14px;align-items:center;background:rgba(20,20,22,.92);border:1px solid #333;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.5)';
     document.body.appendChild(el);
   }
+  const T = (s)=> (window.t ? window.t(s) : s);
   const bar = (label, v, color) => {
     const active = v >= 50;   // ≥50% = 봉기 발동 (킹 2칸·퀸 아군폰·폰의 킹 사냥)
     const fill = Math.min(100, Math.max(0, v));
     return `<div style="display:flex;align-items:center;gap:6px">
-      <span style="color:${color}">${label}</span>
+      <span style="color:${color}">${T(label)}</span>
       <span style="position:relative;display:inline-block;width:90px;height:9px;background:#2a2a2e;border-radius:5px;overflow:hidden">
         <span style="position:absolute;top:0;bottom:0;left:0;width:${fill}%;background:${active?'#ff453a':color};transition:width .3s"></span>
       </span>
-      <span style="color:${active?'#ff453a':'#999'};min-width:38px">${Math.round(v)}%${active?' 🔥봉기':''}</span>
+      <span style="color:${active?'#ff453a':'#999'};min-width:38px">${Math.round(v)}%${active?' 🔥'+T('봉기'):''}</span>
     </div>`;
   };
-  el.innerHTML = `<span style="color:#888;font-size:11px">민심</span>` + bar('백', minsim.w||0, '#e8e8e8') + bar('흑', minsim.b||0, '#9aa0a6');
+  el.innerHTML = `<span style="color:#888;font-size:11px">${T('민심')}</span>` + bar('백', minsim.w||0, '#e8e8e8') + bar('흑', minsim.b||0, '#9aa0a6');
 }
 
 // 빈 칸 (r,c)로 폰이 한 칸 전진해 올 수 있다면 그 폰의 색을 반환. 없으면 null.
@@ -3926,12 +3928,13 @@ function submitAction(action){
 }
 
 function postMoveCheck(r){
+  const T = (s,p)=> (window.t ? window.t(s,p) : s);
   if(r.fiveWin){
-    endGame('🏆','오목 승리!', `${r.fiveWin==='w'?'백':'흑'}이 5목을 완성했습니다.`, r.fiveWin);
+    endGame('🏆','오목 승리!', T('{c}이 5목을 완성했습니다.', {c:T(r.fiveWin==='w'?'백':'흑')}), r.fiveWin);
     return;
   }
   if(r.checkmate){
-    endGame('👑','체크메이트!', `${r.checkmate==='w'?'백':'흑'}의 승리.`, r.checkmate);
+    endGame('👑','체크메이트!', T('{c}의 승리.', {c:T(r.checkmate==='w'?'백':'흑')}), r.checkmate);
     return;
   }
   if(r.stalemate){
@@ -3943,18 +3946,18 @@ function postMoveCheck(r){
     return;
   }
   if(r.tycoonWin){
-    endGame('💰','타이쿤 승리!', `${r.tycoonWin==='w'?'백':'흑'}이(가) ${TYCOON_WIN_GOLD}G를 모아 승리했습니다!`, r.tycoonWin);
+    endGame('💰','타이쿤 승리!', T('{c}이(가) {n}G를 모아 승리했습니다!', {c:T(r.tycoonWin==='w'?'백':'흑'), n:TYCOON_WIN_GOLD}), r.tycoonWin);
     return;
   }
   // 체크 알림 — 강조 표시 + 위험 단계 메시지
   if(isInCheck(turn)){
     const givenStreak = checkStreak[turn];      // = 체크한 쪽이 가한 연속 (turn이 받는 = opp이 가함)
     const givenTotal  = totalChecks[opp(turn)]; // 체크한 쪽이 가한 총
-    const checkedColor = turn==='w'?'백':'흑';        // 체크 받은 쪽
-    const giverColor   = turn==='w'?'흑':'백';        // 체크 건 쪽
-    let msg = `⚠ ${checkedColor} 체크! ${giverColor}이 가한 연속 ${givenStreak}/3 · 총 ${givenTotal}/5`;
-    if(givenStreak === 2) msg = `🚨 ${giverColor} 2연속 체크! 한 번 더 = ${giverColor} 자멸`;
-    if(givenTotal === 5) msg = `⛔ ${giverColor} 총 체크 한도 도달 (${givenTotal}/5) — 추가 체크 시 무효`;
+    const checkedColor = T(turn==='w'?'백':'흑');        // 체크 받은 쪽
+    const giverColor   = T(turn==='w'?'흑':'백');        // 체크 건 쪽
+    let msg = T('⚠ {cc} 체크! {gc}이 가한 연속 {s}/3 · 총 {t}/5', {cc:checkedColor, gc:giverColor, s:givenStreak, t:givenTotal});
+    if(givenStreak === 2) msg = T('🚨 {gc} 2연속 체크! 한 번 더 = {gc} 자멸', {gc:giverColor});
+    if(givenTotal === 5) msg = T('⛔ {gc} 총 체크 한도 도달 ({t}/5) — 추가 체크 시 무효', {t:givenTotal});
     showFlash(msg, 2800, true);
   }
 }
@@ -4020,8 +4023,8 @@ function endGame(emoji, title, desc, winner /* 'w'|'b'|'draw' */, fromHost){
   // 리플레이 저장 (먼저 저장하고 나머지 진행)
   saveReplayToStorage(winner, title, desc);
   document.getElementById('endIcon').textContent = emoji;
-  document.getElementById('endTitle').textContent = title;
-  document.getElementById('endDesc').textContent = desc;
+  document.getElementById('endTitle').textContent = (window.t ? window.t(title) : title);
+  document.getElementById('endDesc').textContent = (window.t ? window.t(desc) : desc);
   playSnd('end');
   const eloEl = document.getElementById('endElo');
   eloEl.style.display = 'none';
@@ -4962,7 +4965,7 @@ function onPeerMessage(data){
   } else if(data.t === 'FORFEIT'){
     if(!gameOver){
       const winner = MY_COLOR;
-      endGame('🏳','상대 기권', `${data.from || '상대'}가 기권했습니다.`, winner);
+      endGame('🏳','상대 기권', (window.t ? window.t('{n}가 기권했습니다.', {n:data.from || window.t('상대')}) : `${data.from || '상대'}가 기권했습니다.`), winner);
     }
   } else if(data.t === 'END'){
     // 다른 쪽에서 종료 시 동기화 (이미 종료됐을 수 있음)

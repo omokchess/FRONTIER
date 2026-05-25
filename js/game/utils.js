@@ -21,7 +21,7 @@ let _flashTimer = null;
 window.showFlash = function(msg, ms = 2000, isCheckFlash = false){
   const el = document.getElementById('statusFloat');
   if(!el) return;
-  el.textContent = msg;
+  el.textContent = (window.t ? window.t(msg) : msg);
   el.classList.add('show');
   el.classList.toggle('check-flash', !!isCheckFlash);
   clearTimeout(_flashTimer);
@@ -32,8 +32,8 @@ window.showFlash = function(msg, ms = 2000, isCheckFlash = false){
 };
 
 window.showConfirm = function(title, msg, onYes){
-  document.getElementById('confirmTitle').textContent = title;
-  document.getElementById('confirmMsg').textContent = msg;
+  document.getElementById('confirmTitle').textContent = (window.t ? window.t(title) : title);
+  document.getElementById('confirmMsg').textContent = (window.t ? window.t(msg) : msg);
   document.getElementById('confirmModal').classList.add('show');
   document.getElementById('confirmYes').onclick = () => {
     closeConfirm();
