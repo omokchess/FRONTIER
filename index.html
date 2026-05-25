@@ -738,6 +738,12 @@ input{font-family:inherit;outline:none}
 .mode.mode-peasant .mt{color:#c8814f}
 .mode.mode-peasant .icon{background:linear-gradient(135deg,#a0522d,#6b3410)}
 .mode.mode-peasant .icon svg{color:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
+/* 모드 카드 — 타이쿤 (골드) */
+.mode.mode-tycoon{border-color:rgba(245,200,66,.5);background:linear-gradient(135deg, var(--panel), rgba(245,200,66,.10))}
+.mode.mode-tycoon:hover{border-color:#f5c842;box-shadow:0 0 0 1px #f5c842, 0 0 14px rgba(245,200,66,.3)}
+.mode.mode-tycoon .mt{color:#f5c842}
+.mode.mode-tycoon .icon{background:linear-gradient(135deg,#f5c842,#b8860b)}
+.mode.mode-tycoon .icon svg{color:#3a2e00;filter:drop-shadow(0 1px 1px rgba(255,255,255,.2))}
 
 /* 방 목록 모달 */
 .room-list-modal{max-width:720px;width:92%;max-height:80vh;overflow-y:auto}
@@ -935,6 +941,11 @@ input{font-family:inherit;outline:none}
           <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8 6 6 9 6 13a6 6 0 0 0 12 0c0-4-2-7-6-11z"/></svg></div>
           <div class="mt">농민 봉기</div>
           <div class="md">민심이 끓어오르면 기물이 변형되는 변형 모드</div>
+        </button>
+        <button class="mode mode-tycoon" onclick="openTycoonStartModal()">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.5 9a2.5 2 0 0 0-2.5-1.5c-1.5 0-2.5.8-2.5 2s1 1.7 2.5 2 2.5.8 2.5 2-1 2-2.5 2a2.5 2 0 0 1-2.5-1.5"/><path d="M12 6v1.5M12 16.5V18"/></svg></div>
+          <div class="mt">타이쿤</div>
+          <div class="md">골드로 기물을 사고 50G를 모으면 승리하는 경제 모드</div>
         </button>
       </div>
     </div>
@@ -1231,6 +1242,30 @@ input{font-family:inherit;outline:none}
       </div>
       <div class="actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
         <button class="btn btn-ghost" onclick="closePeasantStartModal()">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 타이쿤 시작 모달 -->
+  <div class="modal" id="tycoonStartModal" onclick="if(event.target.id==='tycoonStartModal') closeTycoonStartModal()">
+    <div class="modal-card" style="max-width:420px;width:92%">
+      <h3 style="text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f5c842" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.5 9a2.5 2 0 0 0-2.5-1.5c-1.5 0-2.5.8-2.5 2s1 1.7 2.5 2 2.5.8 2.5 2-1 2-2.5 2a2.5 2 0 0 1-2.5-1.5"/><path d="M12 6v1.5M12 16.5V18"/></svg>
+        타이쿤 시작
+      </h3>
+      <p style="font-size:13px;color:var(--muted);text-align:center;margin-bottom:14px">매 턴 +5G로 기물을 사고, 50G 선점 또는 오목/체크메이트로 승리!</p>
+      <div class="opts">
+        <div class="opt" onclick="startTycoonMode('local')">
+          <b>로컬 2인</b>
+          <span>한 기기에서 두 명이 번갈아</span>
+        </div>
+        <div class="opt" onclick="startTycoonMode('online')">
+          <b>온라인 방 만들기</b>
+          <span>온라인 친구한테 비공개 방 초대</span>
+        </div>
+      </div>
+      <div class="actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
+        <button class="btn btn-ghost" onclick="closeTycoonStartModal()">취소</button>
       </div>
     </div>
   </div>
@@ -1553,6 +1588,31 @@ window.startPeasantMode = function(mode){
 window.startPeasantGame = function(){
   // 농민 봉기: 로컬 2인 + peasant=1 (표준 기물 구성)
   const params = new URLSearchParams({ mode:'local', hand:'K1Q1R2B2N2P8SH0SN0JP0', time:'unlimited', peasant:'1' });
+  if(typeof appendTitleParams === 'function') appendTitleParams(params);
+  location.href = 'FRONTIER.html?' + params.toString();
+};
+
+window.openTycoonStartModal = function(){
+  document.getElementById('tycoonStartModal').classList.add('show');
+};
+window.closeTycoonStartModal = function(){
+  document.getElementById('tycoonStartModal').classList.remove('show');
+};
+window.startTycoonMode = function(mode){
+  closeTycoonStartModal();
+  if(mode === 'online'){
+    // 온라인 방 만들기 페이지로 + tycoon 자동 활성 플래그
+    if(!MY_UID){ alert('로그인이 완료되지 않았습니다. 잠시 후 다시 시도하세요.'); return; }
+    const params = new URLSearchParams({uid:MY_UID, nick:MY_NICK, tag:MY_TAG||'', elo: getEloForMode(false), tycoon:'1'});
+    if(typeof appendTitleParams === 'function') appendTitleParams(params);
+    location.href = 'create-room.html?' + params.toString();
+  } else {
+    startTycoonGame();
+  }
+};
+window.startTycoonGame = function(){
+  // 타이쿤: 로컬 2인 + tycoon=1 (손패는 FRONTIER.html에서 킹만으로 강제 초기화됨)
+  const params = new URLSearchParams({ mode:'local', time:'unlimited', tycoon:'1' });
   if(typeof appendTitleParams === 'function') appendTitleParams(params);
   location.href = 'FRONTIER.html?' + params.toString();
 };
@@ -2346,6 +2406,7 @@ window.startTutorial = function(){
     });
     if(r.potion) params.set('potion','1');
     if(r.peasant) params.set('peasant','1');
+    if(r.tycoon) params.set('tycoon','1');
     appendTitleParams(params);
     location.href = 'FRONTIER.html?'+params.toString();
   };
@@ -4266,6 +4327,7 @@ window.startTutorial = function(){
     });
     if(r.potion) params.set('potion','1');
     if(r.peasant) params.set('peasant','1');
+    if(r.tycoon) params.set('tycoon','1');
     appendTitleParams(params);
     location.href = 'FRONTIER.html?'+params.toString();
   };
@@ -4280,6 +4342,7 @@ window.startTutorial = function(){
     });
     if(r.potion) params.set('potion','1');
     if(r.peasant) params.set('peasant','1');
+    if(r.tycoon) params.set('tycoon','1');
     appendTitleParams(params);
     location.href = 'FRONTIER.html?'+params.toString();
   };

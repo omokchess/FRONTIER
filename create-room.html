@@ -169,6 +169,16 @@ input,textarea{font-family:inherit;outline:none}
         </div>
       </label>
 
+      <!-- 타이쿤 모드 -->
+      <h3 style="margin-top:14px">💰 타이쿤</h3>
+      <label style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;cursor:pointer;margin-bottom:8px">
+        <input type="checkbox" id="tycoonMode" style="width:18px;height:18px;accent-color:#f5c842">
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:13px">타이쿤 활성화</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">매 턴 +5G로 기물 구매·턴 스킵·스나이퍼 강화·폰 승급. 50G 선점 또는 오목/체크메이트로 승리. (킹만 기본 지급)</div>
+        </div>
+      </label>
+
       <div class="subtitle" style="margin-top:8px">현재 설정 요약</div>
       <div style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:18px" id="summary"></div>
       <button class="btn btn-gold" onclick="createRoom()" id="createBtn">방 만들기</button>
@@ -376,6 +386,7 @@ async function createRoom(){
     hand: buildHandStr(),
     potion: document.getElementById('potionMode').checked,
     peasant: document.getElementById('peasantMode').checked,
+    tycoon: document.getElementById('tycoonMode').checked,
     timeLimit: SEL_TIME,
     timeInc: SEL_INC,
     createdAt: Date.now(),
@@ -417,6 +428,7 @@ async function createRoom(){
         });
         if(data.potion) params.set('potion','1');
         if(data.peasant) params.set('peasant','1');
+        if(data.tycoon) params.set('tycoon','1');
         if(MY_TITLE_NAME) params.set('title', MY_TITLE_NAME);
         if(MY_TITLE_COLOR) params.set('titleColor', MY_TITLE_COLOR);
         // 즉시 이동
@@ -461,6 +473,11 @@ if(Q.get('potion') === '1'){
 // URL에 peasant=1이면 자동 체크
 if(Q.get('peasant') === '1'){
   const cb = document.getElementById('peasantMode');
+  if(cb) cb.checked = true;
+}
+// URL에 tycoon=1이면 자동 체크
+if(Q.get('tycoon') === '1'){
+  const cb = document.getElementById('tycoonMode');
   if(cb) cb.checked = true;
 }
 </script>

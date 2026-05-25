@@ -1427,6 +1427,20 @@ const IS_SPEC  = (NET_ROLE === 'spectator');
 const IS_REPLAY = (MODE === 'replay');
 const IS_POTION = (Q.get('potion') === '1');
 const IS_PEASANT = (Q.get('peasant') === '1');   // 농민 봉기 모드
+const IS_TYCOON = (Q.get('tycoon') === '1');     // 타이쿤 모드 (골드 경제)
+
+// ===== 타이쿤 모드 상수 =====
+const TYCOON_TURN_INCOME = 5;   // 매 턴 시작 시 골드 수입
+const TYCOON_SKIP_BONUS  = 5;   // 턴 스킵 시 추가 골드 (스킵 턴 = 수입 5 + 보너스 5 = 10)
+const TYCOON_WIN_GOLD    = 50;  // 골드 승리 임계치
+const TYCOON_SN_RANGE    = 8;   // 사거리 강화 후 스나이퍼 사거리(모든 방향)
+const TYCOON_SN_UPGRADE_COST = 5;  // 스나이퍼 사거리 강화 비용 (진영당 1회)
+const TYCOON_PROMO_COST  = 5;   // 폰 승급 비용
+const TYCOON_PROMO_AGE   = 3;   // 승급 가능 폰의 최소 생존 턴 수
+// 구매 가격 (킹은 기본 지급, 퀸은 구매 불가 — 승급으로만 획득)
+const TYCOON_PRICES = { P:5, SN:5, B:10, R:10, N:10, JP:10, SH:10 };
+const TYCOON_SN_MIN_TURN = 2;   // 스나이퍼는 그 진영의 2번째 턴부터 구매 가능
+const TYCOON_HAND = { K:1, Q:0, R:0, B:0, N:0, P:0, SH:0, SN:0, JP:0 };  // 시작 손패: 킹만
 
 // ===== 물약 모드 =====
 const POTION_TYPES = {
@@ -1483,7 +1497,7 @@ const SPECIAL_KINDS = ['SH','SN','JP'];
 // 3. 게임 상태
 // ===================================================================
 let board = makeEmptyBoard();
-let hands = { w:{...INIT_HAND}, b:{...INIT_HAND} };
+let hands = IS_TYCOON ? { w:{...TYCOON_HAND}, b:{...TYCOON_HAND} } : { w:{...INIT_HAND}, b:{...INIT_HAND} };
 let turn = 'w';                 // 현재 차례
 let kingPlaced = { w:false, b:false };  // 킹 배치 여부
 let lastMove = null;            // {fr, fc, tr, tc} 강조용
@@ -1493,6 +1507,9 @@ let snapshots = [];             // undo 또는 5회 체크 초과 시 복원용
 let checkStreak = { w:0, b:0 }; // 연속 체크 (이쪽이 받은)
 let totalChecks = { w:0, b:0 }; // 총 체크 (이쪽이 건)
 let minsim = { w:0, b:0 };      // 농민 봉기: 민심 게이지 0~100 (진영당, ≥50% 봉기 발동)
+let gold = { w:0, b:0 };        // 타이쿤: 진영별 골드
+let snUpgraded = { w:false, b:false };  // 타이쿤: 스나이퍼 사거리 강화 여부 (진영당)
+let tycoonTurn = { w:0, b:0 };  // 타이쿤: 진영별 진행 턴 수 (스나이퍼 2턴 제한용)
 let gameOver = false;
 let myRoomCode = null;          // 페이지 이탈 시 정리할 방 코드
 
@@ -1616,7 +1633,13 @@ function pieceMoves(r, c, piece){
     }
   } else if(k === 'SN'){
     // 스나이퍼: 이동 불가. 십자 4칸 / 대각 3칸 시야의 적을 저격. 시야가 막히면 정지.
-    const dirs = [
+    // 타이쿤 사거리 강화 시: 모든 방향 TYCOON_SN_RANGE(8)칸.
+    const up = IS_TYCOON && snUpgraded[col];
+    const R8 = TYCOON_SN_RANGE;
+    const dirs = up ? [
+      [-1,0,R8],[1,0,R8],[0,-1,R8],[0,1,R8],
+      [-1,-1,R8],[-1,1,R8],[1,-1,R8],[1,1,R8]
+    ] : [
       [-1, 0, 4],[ 1, 0, 4],[ 0,-1, 4],[ 0, 1, 4],   // 십자 4방향: 4칸
       [-1,-1, 3],[-1, 1, 3],[ 1,-1, 3],[ 1, 1, 3]    // 대각 4방향: 3칸
     ];
@@ -1739,7 +1762,10 @@ function snapshotState(){
     checkStreak:{...checkStreak},
     totalChecks:{...totalChecks},
     moveHistory:[...moveHistory],
-    minsim:{...minsim}
+    minsim:{...minsim},
+    gold:{...gold},
+    snUpgraded:{...snUpgraded},
+    tycoonTurn:{...tycoonTurn}
   };
 }
 function restoreState(s){
@@ -1752,6 +1778,9 @@ function restoreState(s){
   totalChecks = {...s.totalChecks};
   moveHistory = [...s.moveHistory];
   minsim = s.minsim ? {...s.minsim} : { w:0, b:0 };
+  gold = s.gold ? {...s.gold} : { w:0, b:0 };
+  snUpgraded = s.snUpgraded ? {...s.snUpgraded} : { w:false, b:false };
+  tycoonTurn = s.tycoonTurn ? {...s.tycoonTurn} : { w:0, b:0 };
 }
 // 농민 봉기: 민심 게이지 증감 (0~100 클램프)
 function addMinsim(color, delta){
@@ -1872,6 +1901,14 @@ function applyAction(action, opts={}){
         lastMove = { fr, fc, tr, tc, type:'move' };
       }
     }
+  } else if(action.type === 'skip'){
+    // 타이쿤: 턴 스킵 (+5G 보너스 후 턴 넘김)
+    if(!IS_TYCOON) return { ok:false, err:'스킵 불가' };
+    if(!kingPlaced.w || !kingPlaced.b) return { ok:false, err:'킹 미배치' };
+    if(isInCheck(turn)) return { ok:false, err:'체크 중에는 스킵 불가' };
+    gold[turn] = (gold[turn]||0) + TYCOON_SKIP_BONUS;
+    lastMove = { fr:-1, fc:-1, tr:-1, tc:-1, type:'skip' };
+    return finalizeAfterMove(false, snap, silent);
   } else {
     return { ok:false, err:'알 수 없는 액션' };
   }
@@ -2019,6 +2056,149 @@ function initPotionMode(){
   if(IS_LOCAL) syncLocalInventory();
   renderPotionUI();
   updatePointsUI();
+}
+
+// ===================================================================
+// 타이쿤 모드 (골드 경제)
+// ===================================================================
+let _tycoonPromote = false;   // 폰 승급 선택 대기 상태
+
+function initTycoonMode(){
+  if(!IS_TYCOON) return;
+  gold = { w:0, b:0 };
+  snUpgraded = { w:false, b:false };
+  tycoonTurn = { w:0, b:0 };
+  _tycoonPromote = false;
+  handleTycoonIncome('w');   // 백 첫 턴 수입
+  renderTycoon();
+}
+
+// 어느 색이 지금 상점/스킵을 조작하는가 (로컬은 현재 턴, 그 외엔 내 색)
+function tycoonActor(){ return IS_LOCAL ? turn : MY_COLOR; }
+// 지금 타이쿤 액션(구매/스킵/승급)을 할 수 있는가
+function tycoonCanAct(){
+  return IS_TYCOON && !gameOver && !IS_SPEC && !IS_REPLAY
+      && turn === tycoonActor() && isMyTurnLocked();
+}
+
+// 해당 색의 폰 나이(생존 턴 수) +1
+function agePawns(color){
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    const p = board[r][c];
+    if(p && p.color === color && p.kind === 'P') p.age = (p.age||0) + 1;
+  }
+}
+
+// 턴 시작 수입: +5G, 턴 카운트 +1, 폰 나이 +1
+function handleTycoonIncome(color){
+  if(!IS_TYCOON) return;
+  tycoonTurn[color] = (tycoonTurn[color]||0) + 1;
+  gold[color] = (gold[color]||0) + TYCOON_TURN_INCOME;
+  agePawns(color);
+  renderTycoon();
+}
+
+// 기물 구매 (골드 차감 → 손패 추가). 턴을 소모하지 않는 자유 행동.
+function buyPiece(kind){
+  if(!tycoonCanAct()) return;
+  const actor = tycoonActor();
+  const price = TYCOON_PRICES[kind];
+  if(price == null){ showFlash('구매할 수 없는 기물'); return; }
+  if(kind === 'SN' && (tycoonTurn[actor]||0) < TYCOON_SN_MIN_TURN){
+    showFlash('🎯 스나이퍼는 2번째 턴부터 구매 가능'); return;
+  }
+  if((gold[actor]||0) < price){ showFlash('💰 골드 부족'); return; }
+  gold[actor] -= price;
+  hands[actor][kind] = (hands[actor][kind]||0) + 1;
+  if(IS_NET) sendToPeer({ t:'TYCOON_BUY', color:actor, kind });
+  if(NET_ROLE === 'host') publishGameState();
+  showFlash(`🛒 ${PIECE_NAMES[kind]||kind} 구매 (-${price}G)`, 1400);
+  renderAll();
+}
+
+// 스나이퍼 사거리 강화 (진영당 1회)
+function upgradeSniper(){
+  if(!tycoonCanAct()) return;
+  const actor = tycoonActor();
+  if(snUpgraded[actor]){ showFlash('이미 강화됨'); return; }
+  if((gold[actor]||0) < TYCOON_SN_UPGRADE_COST){ showFlash('💰 골드 부족'); return; }
+  gold[actor] -= TYCOON_SN_UPGRADE_COST;
+  snUpgraded[actor] = true;
+  if(IS_NET) sendToPeer({ t:'TYCOON_UPGRADE', color:actor });
+  if(NET_ROLE === 'host') publishGameState();
+  showFlash('🎯 스나이퍼 사거리 강화! (모든 방향 ' + TYCOON_SN_RANGE + '칸)');
+  renderAll();
+}
+
+// 턴 스킵 (+5G 보너스 후 턴 넘김) — 턴 소모 액션
+function skipTurn(){
+  if(!tycoonCanAct()) return;
+  submitAction({ type:'skip' });
+}
+
+// 폰 승급 모드 진입 (이후 폰 클릭 → tryTycoonPromote)
+function startTycoonPromote(){
+  if(!tycoonCanAct()) return;
+  const actor = tycoonActor();
+  if((gold[actor]||0) < TYCOON_PROMO_COST){ showFlash('💰 골드 부족'); return; }
+  _tycoonPromote = true;
+  HIGHLIGHTS = []; SEL = null;
+  showFlash(`⬆ 승급할 폰을 클릭하세요 (${TYCOON_PROMO_AGE}턴 이상 생존)`, 2600);
+  renderAll();
+}
+
+// (r,c)의 폰을 승급 시도. 성공하면 true.
+function tryTycoonPromote(r, c){
+  const actor = tycoonActor();
+  const p = board[r][c];
+  if(!p || p.color !== actor || p.kind !== 'P'){ showFlash('자기 폰을 선택하세요'); return false; }
+  if((p.age||0) < TYCOON_PROMO_AGE){
+    showFlash(`${TYCOON_PROMO_AGE}턴 이상 생존한 폰만 승급 가능 (현재 ${p.age||0}턴)`); return false;
+  }
+  if((gold[actor]||0) < TYCOON_PROMO_COST){ showFlash('💰 골드 부족'); return false; }
+  promptPromotion(actor).then(promo => {
+    if(!tycoonCanAct()) return;
+    if((gold[actor]||0) < TYCOON_PROMO_COST) return;
+    const cur = board[r][c];
+    if(!cur || cur.color !== actor || cur.kind !== 'P') return;   // 그새 바뀌었으면 취소
+    gold[actor] -= TYCOON_PROMO_COST;
+    board[r][c] = { color: actor, kind: promo };
+    if(IS_NET) sendToPeer({ t:'TYCOON_PROMOTE', color:actor, r, c, promo });
+    if(NET_ROLE === 'host') publishGameState();
+    showFlash('⬆ 폰 승급 완료!');
+    renderAll();
+  });
+  return true;
+}
+
+// 타이쿤 상단 바 (골드 + 상점/스킵/승급 버튼) — minsimBar 처럼 동적 주입
+function renderTycoon(){
+  if(!IS_TYCOON) return;
+  let el = document.getElementById('tycoonBar');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'tycoonBar';
+    el.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:50;display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;max-width:96vw;background:rgba(20,20,22,.94);border:1px solid #4a3a1a;border-radius:10px;padding:6px 12px;font-size:12px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.5)';
+    document.body.appendChild(el);
+  }
+  const goldLbl = `<span style="color:#ffd60a">💰 백 ${gold.w||0}G</span> <span style="color:#666">·</span> <span style="color:#ffd60a">흑 ${gold.b||0}G</span> <span style="color:#888;font-size:10px">(${TYCOON_WIN_GOLD}G 승리)</span>`;
+  let shop = '';
+  if(tycoonCanAct()){
+    const actor = tycoonActor();
+    const g = gold[actor]||0;
+    const btn = (label, enabled, onclick) => `<button ${enabled?`onclick="${onclick}"`:'disabled'} style="padding:4px 7px;border-radius:6px;border:1px solid ${enabled?'#6a5a2a':'#2e2e2e'};background:${enabled?'#2a2410':'#191919'};color:${enabled?'#ffd60a':'#555'};font-size:11px;cursor:${enabled?'pointer':'default'}">${label}</button>`;
+    const order = ['P','SN','B','R','N','JP','SH'];
+    shop = order.map(k => {
+      const price = TYCOON_PRICES[k];
+      const snLocked = (k==='SN' && (tycoonTurn[actor]||0) < TYCOON_SN_MIN_TURN);
+      return btn(`${PIECE_NAMES[k]||k} ${price}G`, g >= price && !snLocked, `buyPiece('${k}')`);
+    }).join('');
+    shop += btn(snUpgraded[actor] ? '저격강화 ✓' : `저격강화 ${TYCOON_SN_UPGRADE_COST}G`, !snUpgraded[actor] && g >= TYCOON_SN_UPGRADE_COST, 'upgradeSniper()');
+    shop += btn(`⬆폰승급 ${TYCOON_PROMO_COST}G`, g >= TYCOON_PROMO_COST, 'startTycoonPromote()');
+    shop += btn(`⏭스킵 +${TYCOON_SKIP_BONUS}G`, true, 'skipTurn()');
+    shop = `<span style="color:#888;font-size:10px;width:100%;text-align:center">${actor==='w'?'백':'흑'} 상점 (턴 소모 없이 구매)</span>` + shop;
+  }
+  el.innerHTML = goldLbl + shop;
 }
 
 // ===== 차단 칸 검증 =====
@@ -2830,6 +3010,13 @@ function finalizeAfterMove(opponentInCheck, snap, silent=false){
     }
   }
 
+  // 타이쿤: 새 턴 색에 골드 수입 +5G, 폰 나이 +1, 50G 선점 승리 체크 (silent 제외)
+  if(IS_TYCOON && !silent){
+    handleTycoonIncome(turn);
+    if((gold.w||0) >= TYCOON_WIN_GOLD) return { ok:true, tycoonWin:'w' };
+    if((gold.b||0) >= TYCOON_WIN_GOLD) return { ok:true, tycoonWin:'b' };
+  }
+
   // 물약 모드: 새 턴 색에 물약 자동 지급 + 차단 칸 감소 (silent 검증 호출은 제외)
   if(IS_POTION && !silent){
     handlePotionTurnStart(turn);
@@ -3142,6 +3329,7 @@ function renderBoard(){
     }
   }
   if(IS_PEASANT) renderMinsim();
+  if(IS_TYCOON) renderTycoon();
 }
 
 // 농민 봉기: 민심 게이지 표시 (양 진영, 80% 이상이면 빨강+🔥)
@@ -3426,6 +3614,14 @@ function onCellClick(e){
   // 차단 물약 사용 중이면 가로채기
   if(_pendingBlockPotion && IS_POTION){
     if(tryBlockCellClick(r, c)) return;
+  }
+
+  // 타이쿤 폰 승급 모드: 클릭한 폰을 승급
+  if(IS_TYCOON && _tycoonPromote){
+    _tycoonPromote = false;
+    tryTycoonPromote(r, c);
+    SEL = null; HIGHLIGHTS = []; renderAll();
+    return;
   }
 
   // 손패 배치 모드
@@ -3741,6 +3937,10 @@ function postMoveCheck(r){
   }
   if(r.repetition){
     endGame('🔁','3수 동형','동일 형국이 3번 반복되어 무승부.', 'draw');
+    return;
+  }
+  if(r.tycoonWin){
+    endGame('💰','타이쿤 승리!', `${r.tycoonWin==='w'?'백':'흑'}이(가) ${TYCOON_WIN_GOLD}G를 모아 승리했습니다!`, r.tycoonWin);
     return;
   }
   // 체크 알림 — 강조 표시 + 위험 단계 메시지
@@ -4773,6 +4973,24 @@ function onPeerMessage(data){
       goLobby();
     }, 1500);
   }
+  // ===== 타이쿤 모드 메시지 (상대의 자유 행동: 구매/강화/승급 동기화) =====
+  else if(data.t === 'TYCOON_BUY'){
+    const price = (typeof TYCOON_PRICES !== 'undefined' && TYCOON_PRICES[data.kind]) || 0;
+    gold[data.color] = (gold[data.color]||0) - price;
+    hands[data.color][data.kind] = (hands[data.color][data.kind]||0) + 1;
+    if(NET_ROLE === 'host') publishGameState();
+    renderAll();
+  } else if(data.t === 'TYCOON_UPGRADE'){
+    gold[data.color] = (gold[data.color]||0) - TYCOON_SN_UPGRADE_COST;
+    snUpgraded[data.color] = true;
+    if(NET_ROLE === 'host') publishGameState();
+    renderAll();
+  } else if(data.t === 'TYCOON_PROMOTE'){
+    gold[data.color] = (gold[data.color]||0) - TYCOON_PROMO_COST;
+    if(board[data.r] && board[data.r][data.c]) board[data.r][data.c] = { color: data.color, kind: data.promo };
+    if(NET_ROLE === 'host') publishGameState();
+    renderAll();
+  }
   // ===== 물약 모드 메시지 =====
   else if(data.t === 'POTION_USED'){
     // 상대가 물약 1개 사용 — 상대 인벤 카운트 -1
@@ -4905,6 +5123,9 @@ function initSpectator(){
       checkStreak = s.checkStreak || {w:0,b:0};
       totalChecks = s.totalChecks || {w:0,b:0};
       minsim = s.minsim || {w:0,b:0};
+      gold = s.gold || {w:0,b:0};
+      snUpgraded = s.snUpgraded || {w:false,b:false};
+      tycoonTurn = s.tycoonTurn || {w:0,b:0};
       _gameRatingInfo = s.rating;
       if(_gameRatingInfo){
         document.getElementById('myName').textContent = _gameRatingInfo.whiteNick + ` (${_gameRatingInfo.whiteElo})`;
@@ -5014,7 +5235,7 @@ function rematchReply(accept){
 function doRematch(){
   // 상태 초기화
   board = makeEmptyBoard();
-  hands = { w:{...INIT_HAND}, b:{...INIT_HAND} };
+  hands = IS_TYCOON ? { w:{...TYCOON_HAND}, b:{...TYCOON_HAND} } : { w:{...INIT_HAND}, b:{...INIT_HAND} };
   turn = 'w';
   kingPlaced = { w:false, b:false };
   lastMove = null;
@@ -5023,6 +5244,9 @@ function doRematch(){
   checkStreak = { w:0, b:0 };
   totalChecks = { w:0, b:0 };
   minsim = { w:0, b:0 };   // 농민 봉기: 민심 게이지 초기화
+  gold = { w:0, b:0 };     // 타이쿤: 골드 초기화
+  snUpgraded = { w:false, b:false };
+  tycoonTurn = { w:0, b:0 };
   gameOver = false;
   SEL = null;
   HIGHLIGHTS = [];
@@ -5258,6 +5482,9 @@ function initReplay(){
   checkStreak = { w:0, b:0 };
   totalChecks = { w:0, b:0 };
   minsim = { w:0, b:0 };   // 농민 봉기: 민심 게이지 초기화
+  gold = { w:0, b:0 };     // 타이쿤: 골드 초기화
+  snUpgraded = { w:false, b:false };
+  tycoonTurn = { w:0, b:0 };
   gameOver = false;
 
   document.body.classList.add('replay-mode');
@@ -5398,6 +5625,9 @@ function replayResetState(){
   checkStreak = { w:0, b:0 };
   totalChecks = { w:0, b:0 };
   minsim = { w:0, b:0 };   // 농민 봉기: 민심 게이지 초기화
+  gold = { w:0, b:0 };     // 타이쿤: 골드 초기화
+  snUpgraded = { w:false, b:false };
+  tycoonTurn = { w:0, b:0 };
   gameOver = false;
 }
 
@@ -5651,6 +5881,10 @@ function init(){
   if(IS_POTION){
     initPotionMode();
     setTimeout(() => showFlash('🧪 물약 모드 ON', 2000), 600);
+  }
+  if(IS_TYCOON){
+    initTycoonMode();
+    setTimeout(() => showFlash('💰 타이쿤 모드 ON — 매 턴 +5G, 50G 선점 시 승리', 2600), 600);
   }
 
   netInit();

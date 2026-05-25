@@ -228,6 +228,9 @@ window.publishGameState = function publishGameState(){
     checkStreak:{...checkStreak},
     totalChecks:{...totalChecks},
     minsim: (typeof minsim !== 'undefined' && minsim) ? {...minsim} : {w:0,b:0},
+    gold: (typeof gold !== 'undefined' && gold) ? {...gold} : {w:0,b:0},
+    snUpgraded: (typeof snUpgraded !== 'undefined' && snUpgraded) ? {...snUpgraded} : {w:false,b:false},
+    tycoonTurn: (typeof tycoonTurn !== 'undefined' && tycoonTurn) ? {...tycoonTurn} : {w:0,b:0},
     rating: _gameRatingInfo
   };
   _fbDb.ref('rooms/'+ROOM_CODE+'/gameState').set(JSON.stringify(state)).catch(()=>{});
