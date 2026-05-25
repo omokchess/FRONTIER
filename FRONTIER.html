@@ -1659,7 +1659,7 @@ function pieceMoves(r, c, piece){
 
 // 단순히 "그 칸을 공격할 수 있는가"만 체크 (체크 판정용)
 // skipPawnKingEat=true 이면, (tr,tc)의 킹을 "먹을 수 있는" 폰의 공격은 체크로 치지 않음
-// (농민 봉기 100%: 폰의 킹 위협은 체크가 아니라 자동 처치로 해소되므로)
+// (농민 봉기 ≥50%: 폰의 킹 위협은 체크가 아니라 자동 처치로 해소되므로)
 function canAttack(byColor, tr, tc, skipPawnKingEat){
   for(let r=0;r<8;r++){
     for(let c=0;c<8;c++){
@@ -1758,21 +1758,17 @@ function addMinsim(color, delta){
   if(!IS_PEASANT) return;
   minsim[color] = Math.max(0, Math.min(100, (minsim[color]||0) + delta));
 }
-// 농민 봉기: 해당 진영의 민심이 발동 임계치(50%) 이상인가 (킹 2칸 이동·퀸의 아군 폰 처치)
+// 농민 봉기: 해당 진영의 민심이 발동 임계치(50%) 이상인가 (봉기 발동: 킹 2칸 이동·퀸의 아군 폰 처치·폰의 킹 사냥)
 function peasantActive(color){
   return IS_PEASANT && (minsim[color]||0) >= 50;
 }
-// 농민 봉기: 해당 진영의 민심이 가득(100%) 찼는가 → 폰의 킹 사냥(봉기) 발동
-function peasantFull(color){
-  return IS_PEASANT && (minsim[color]||0) >= 100;
-}
-// 농민 봉기: pawnColor의 폰이 kingColor의 킹을 먹을 수 있는가
-//   · 한 진영만 100%: 그 진영의 폰이 "자기 진영의 킹"을 먹을 수 있음 (봉기)
-//   · 두 진영 모두 100%: 어떤 폰이든 어떤 킹이든 먹을 수 있음 (대혼란)
+// 농민 봉기: pawnColor의 폰이 kingColor의 킹을 먹을 수 있는가 (봉기 임계치 50% 기준)
+//   · 한 진영만 ≥50%: 그 진영의 폰이 "자기 진영의 킹"을 먹을 수 있음 (봉기)
+//   · 두 진영 모두 ≥50%: 어떤 폰이든 어떤 킹이든 먹을 수 있음 (대혼란)
 function pawnCanEatKing(pawnColor, kingColor){
   if(!IS_PEASANT) return false;
-  if(peasantFull('w') && peasantFull('b')) return true;
-  if(pawnColor === kingColor && peasantFull(kingColor)) return true;
+  if(peasantActive('w') && peasantActive('b')) return true;
+  if(pawnColor === kingColor && peasantActive(kingColor)) return true;
   return false;
 }
 
@@ -2798,7 +2794,7 @@ function renderTimer(){
   // 타이머 즉시 갱신용 — 실제 함수는 별도 있음. 그게 자동 갱신.
 }
 
-// 농민 봉기: 봉기 게이지가 가득(100%) 찬 진영의 폰이, 전진 대각 사정거리 안의 (먹을 수 있는) 킹을
+// 농민 봉기: 봉기 게이지가 임계치(≥50%) 찬 진영의 폰이, 전진 대각 사정거리 안의 (먹을 수 있는) 킹을
 //            자동으로 처치 → 그 킹은 "회색 킹"으로 전복되고, 봉기한 진영(폰의 색)에 룩 +1.
 //            처치된 킹의 색 목록을 반환(없으면 빈 배열). 회색 킹 처치=승리 규칙은 기존대로 유지.
 function resolvePeasantKingHunt(){
@@ -2826,7 +2822,7 @@ function finalizeAfterMove(opponentInCheck, snap, silent=false){
   // 차례 넘김
   turn = opp(turn);
 
-  // 농민 봉기: 봉기(100%) 폰의 자동 킹 사냥 (silent 합법성 검증 호출은 제외)
+  // 농민 봉기: 봉기(≥50%) 폰의 자동 킹 사냥 (silent 합법성 검증 호출은 제외)
   if(IS_PEASANT && !silent){
     const hunted = resolvePeasantKingHunt();
     for(const col of hunted){
@@ -3158,17 +3154,14 @@ function renderMinsim(){
     document.body.appendChild(el);
   }
   const bar = (label, v, color) => {
-    const active = v >= 50;
-    const full = v >= 100;
+    const active = v >= 50;   // ≥50% = 봉기 발동 (킹 2칸·퀸 아군폰·폰의 킹 사냥)
     const fill = Math.min(100, Math.max(0, v));
-    const barColor = full ? '#ffd60a' : (active ? '#ff453a' : color);
-    const txtColor = full ? '#ffd60a' : (active ? '#ff453a' : '#999');
     return `<div style="display:flex;align-items:center;gap:6px">
       <span style="color:${color}">${label}</span>
       <span style="position:relative;display:inline-block;width:90px;height:9px;background:#2a2a2e;border-radius:5px;overflow:hidden">
-        <span style="position:absolute;top:0;bottom:0;left:0;width:${fill}%;background:${barColor};transition:width .3s"></span>
+        <span style="position:absolute;top:0;bottom:0;left:0;width:${fill}%;background:${active?'#ff453a':color};transition:width .3s"></span>
       </span>
-      <span style="color:${txtColor};min-width:38px">${Math.round(v)}%${full?' 👑봉기':(active?' 🔥':'')}</span>
+      <span style="color:${active?'#ff453a':'#999'};min-width:38px">${Math.round(v)}%${active?' 🔥봉기':''}</span>
     </div>`;
   };
   el.innerHTML = `<span style="color:#888;font-size:11px">민심</span>` + bar('백', minsim.w||0, '#e8e8e8') + bar('흑', minsim.b||0, '#9aa0a6');
