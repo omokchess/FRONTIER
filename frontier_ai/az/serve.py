@@ -5,7 +5,7 @@ import numpy as np
 import onnxruntime as ort
 from ..game import GameState
 from .encoding import encode_planes, index_to_action
-from .mcts import MCTS, choose
+from .mcts import MCTS, choose, non_threefold_indices
 from .tactics import tactical_action
 
 
@@ -27,7 +27,8 @@ class AZPlayer:
         root = mcts.run(state.clone(), simulations, add_noise=False)
         if not root.N:
             return None, {"legal": 0, "engine": "alphazero"}
-        idx = choose(root, temperature=1e-9)                               # argmax visits for play
+        allowed, avoided = non_threefold_indices(root)
+        idx = choose(root, temperature=1e-9, allowed=allowed)              # argmax visits for play
         action = index_to_action(idx, state.turn)
         if action.type == "move":
             p = state.board[action.fr][action.fc]
@@ -36,4 +37,5 @@ class AZPlayer:
                 action = replace(action, promote="Q")
         q = root.W[idx] / root.N[idx] if root.N[idx] > 0 else 0.0
         return action, {"simulations": simulations, "visits": int(root.N[idx]),
-                        "value": round(q, 5), "engine": "alphazero"}
+                        "value": round(q, 5), "avoid_3fold": int(avoided),
+                        "engine": "alphazero"}

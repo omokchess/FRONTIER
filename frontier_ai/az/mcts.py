@@ -104,12 +104,37 @@ class MCTS:
         return root
 
 
-def visit_policy(root: Node, temperature: float = 1.0) -> np.ndarray:
+def _filtered_indices(root: Node, allowed: set[int] | None = None) -> list[int]:
+    idxs = list(root.N.keys())
+    if allowed is None:
+        return idxs
+    filtered = [i for i in idxs if i in allowed]
+    return filtered or idxs
+
+
+def non_threefold_indices(root: Node) -> tuple[set[int] | None, int]:
+    """Return root actions that do not immediately end in a threefold draw."""
+    safe: set[int] = set()
+    avoided = 0
+    for idx in root.N:
+        state = root.state.clone()
+        result = state.apply(index_to_action(idx, root.state.turn), check_terminal=False)
+        is_threefold_draw = result.ok and state.terminal and state.winner is None and state.end_reason == "threefold"
+        if is_threefold_draw:
+            avoided += 1
+        else:
+            safe.add(idx)
+    if not safe or not avoided:
+        return None, 0
+    return safe, avoided
+
+
+def visit_policy(root: Node, temperature: float = 1.0, allowed: set[int] | None = None) -> np.ndarray:
     """Training target: visit-count distribution over the full policy space."""
     pi = np.zeros(POLICY_SIZE, dtype=np.float32)
     if not root.N:
         return pi
-    idxs = list(root.N.keys())
+    idxs = _filtered_indices(root, allowed)
     counts = np.array([root.N[i] for i in idxs], dtype=np.float64)
     if counts.sum() == 0:
         counts = counts + 1.0
@@ -124,9 +149,9 @@ def visit_policy(root: Node, temperature: float = 1.0) -> np.ndarray:
     return pi
 
 
-def choose(root: Node, temperature: float = 1.0, rng=None) -> int:
+def choose(root: Node, temperature: float = 1.0, rng=None, allowed: set[int] | None = None) -> int:
     """Pick an action index from root visit counts (sample if temperature>0, else argmax)."""
-    idxs = list(root.N.keys())
+    idxs = _filtered_indices(root, allowed)
     counts = np.array([root.N[i] for i in idxs], dtype=np.float64)
     if temperature <= 1e-6:
         return int(idxs[int(counts.argmax())])

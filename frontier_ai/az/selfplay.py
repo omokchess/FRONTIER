@@ -8,7 +8,7 @@ import torch
 from ..game import GameState, parse_hand_str
 from .encoding import POLICY_SIZE, action_to_index, encode_planes, index_to_action
 from .net import AZNet, infer_batch
-from .mcts import MCTS, visit_policy, choose
+from .mcts import MCTS, choose, non_threefold_indices, visit_policy
 from .stats import new_result_stats, record_result
 from .tactics import tactical_action
 
@@ -28,6 +28,7 @@ def play_game(net, device, hand, n_sims=64, max_moves=200, temp_moves=12, c_puct
     state = GameState.initial(hand)
     samples = []                       # (planes, pi_target, mover)
     moves = 0
+    avoided_3fold = 0
     while not state.terminal and moves < max_moves:
         forced, _ = tactical_action(state)
         if forced is not None:
@@ -38,10 +39,12 @@ def play_game(net, device, hand, n_sims=64, max_moves=200, temp_moves=12, c_puct
             moves += 1
             continue
         root = mcts.run(state, n_sims, add_noise=True)
-        pi = visit_policy(root, temperature=1.0)             # target = visit-count distribution
+        allowed, avoided = non_threefold_indices(root)
+        avoided_3fold += avoided
+        pi = visit_policy(root, temperature=1.0, allowed=allowed)  # target = visit-count distribution
         samples.append((encode_planes(state, state.turn), pi, state.turn))
         temp = 1.0 if moves < temp_moves else 1e-9           # explore early, greedy late
-        state.apply(index_to_action(choose(root, temperature=temp), state.turn))
+        state.apply(index_to_action(choose(root, temperature=temp, allowed=allowed), state.turn))
         moves += 1
     if state.winner == "w":
         z = {"w": 1.0, "b": -1.0}
@@ -55,6 +58,7 @@ def play_game(net, device, hand, n_sims=64, max_moves=200, temp_moves=12, c_puct
         "winner": winner,
         "reason": reason,
         "moves": moves,
+        "avoided_3fold": avoided_3fold,
     }
 
 
@@ -66,6 +70,7 @@ def generate_serial(net, device, n_games, hand_str="K1Q1R2B2N2P8SH0SN0JP0", seed
         samples, outcome = play_game(net, device, hand, seed=seed, **kw)
         data.extend(samples)
         record_result(results, outcome["winner"], outcome["reason"], outcome["moves"])
+        results["avoid_3fold"] = results.get("avoid_3fold", 0) + int(outcome.get("avoided_3fold", 0))
     return data, results
 
 
@@ -99,4 +104,5 @@ def generate_parallel(net, net_cfg, n_games, n_workers, hand_str="K1Q1R2B2N2P8SH
         for samples, outcome in pool.imap_unordered(_play_worker, seeds):
             data.extend(samples)
             record_result(results, outcome["winner"], outcome["reason"], outcome["moves"])
+            results["avoid_3fold"] = results.get("avoid_3fold", 0) + int(outcome.get("avoided_3fold", 0))
     return data, results

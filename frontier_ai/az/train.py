@@ -16,7 +16,7 @@ import torch.nn.functional as F
 
 from ..game import GameState, parse_hand_str
 from .encoding import index_to_action
-from .mcts import MCTS, choose
+from .mcts import MCTS, choose, non_threefold_indices
 from .net import AZNet, pick_device
 from .selfplay import generate_parallel, generate_serial, make_evaluator
 from .stats import (
@@ -126,6 +126,7 @@ def _arena_game(candidate, best, device, hand: dict[str, int], n_sims: int,
     }
     state = GameState.initial(hand)
     moves = 0
+    avoided_3fold = 0
     while not state.terminal and moves < max_moves:
         forced, _ = tactical_action(state)
         if forced is not None:
@@ -137,15 +138,17 @@ def _arena_game(candidate, best, device, hand: dict[str, int], n_sims: int,
         root = MCTS(evaluator, dirichlet_frac=noise_frac).run(state.clone(), n_sims, add_noise=noise_frac > 0)
         if not root.N:
             break
+        allowed, avoided = non_threefold_indices(root)
+        avoided_3fold += avoided
         temperature = 1.0 if moves < temp_moves else 1e-9
-        action = index_to_action(choose(root, temperature=temperature, rng=rng), state.turn)
+        action = index_to_action(choose(root, temperature=temperature, rng=rng, allowed=allowed), state.turn)
         state.apply(action)
         moves += 1
     reason = state.end_reason if state.terminal else "max_moves"
     if state.winner not in ("w", "b"):
-        return {"winner": None, "reason": reason, "moves": moves}
+        return {"winner": None, "reason": reason, "moves": moves, "avoided_3fold": avoided_3fold}
     winner = "candidate" if (state.winner == "w") == candidate_white else "best"
-    return {"winner": winner, "reason": reason, "moves": moves}
+    return {"winner": winner, "reason": reason, "moves": moves, "avoided_3fold": avoided_3fold}
 
 
 def _arena(candidate, best, device, hand: dict[str, int], games: int,
@@ -166,8 +169,12 @@ def _arena(candidate, best, device, hand: dict[str, int], games: int,
                               temp_moves=temp_moves,
                               noise_frac=noise_frac)
         record_result(result, outcome["winner"], outcome["reason"], outcome["moves"])
+        result["avoid_3fold"] = result.get("avoid_3fold", 0) + int(outcome.get("avoided_3fold", 0))
         side_key = "candidate_white" if candidate_white else "candidate_black"
         record_result(result["by_side"][side_key], outcome["winner"], outcome["reason"], outcome["moves"])
+        result["by_side"][side_key]["avoid_3fold"] = (
+            result["by_side"][side_key].get("avoid_3fold", 0) + int(outcome.get("avoided_3fold", 0))
+        )
     return result
 
 
@@ -274,6 +281,7 @@ def main() -> None:
                 print(f"iter={last_iter} | games={counts_view(res, ('w', 'b', 'draw'))} | "
                       f"ends={format_reason_stats(res, ('w', 'b', 'draw'))} | "
                       f"moves={format_move_stats(res, ('w', 'b', 'draw'))} | "
+                      f"avoid3={int(res.get('avoid_3fold', 0))} | "
                       f"buffer={len(buffer)} | "
                       f"loss={L[0]:.4f}(p={L[1]:.4f},v={L[2]:.4f}) | "
                       f"selfplay={t_sp:.1f}s train={t_tr:.1f}s")
@@ -281,6 +289,7 @@ def main() -> None:
                 print(f"iter={last_iter} | games={counts_view(res, ('w', 'b', 'draw'))} | "
                       f"ends={format_reason_stats(res, ('w', 'b', 'draw'))} | "
                       f"moves={format_move_stats(res, ('w', 'b', 'draw'))} | "
+                      f"avoid3={int(res.get('avoid_3fold', 0))} | "
                       f"buffer={len(buffer)} | (warmup)")
 
             checkpoint_path = args.candidate_out if arena_enabled else args.out
@@ -303,6 +312,7 @@ def main() -> None:
                       f"sides={format_group_counts(arena.get('by_side', {}), (('candidate_white', 'candW'), ('candidate_black', 'candB')), ('candidate', 'best', 'draw'))} | "
                       f"ends={format_reason_stats(arena, ('candidate', 'best', 'draw'))} | "
                       f"moves={format_move_stats(arena, ('candidate', 'best', 'draw'))} | "
+                      f"avoid3={int(arena.get('avoid_3fold', 0))} | "
                       f"score={score:.3f} "
                       f"threshold={args.arena_threshold:.3f} | "
                       f"{'accepted' if accepted else 'rejected'} | time={time.time()-ts:.1f}s")
