@@ -44,6 +44,9 @@ window.checkPostEloAchievements = async function checkPostEloAchievements(newElo
 window.unsetInactiveTitleIfNeeded = async function unsetInactiveTitleIfNeeded(uid, newElo){
   if(!_fbDb || !uid) return;
   try {
+    const adminSnap = await _fbDb.ref(`admins/${uid}`).once('value');
+    if(adminSnap.val() === true) return;
+
     const snap = await _fbDb.ref(`users/${uid}/activeTitle`).once('value');
     const active = snap.val();
     if(!active) return;
@@ -85,14 +88,11 @@ window.unsetInactiveTitleIfNeeded = async function unsetInactiveTitleIfNeeded(ui
     }
     
     if(shouldUnset){
-      await Promise.all([
-        _fbDb.ref(`users/${uid}/activeTitle`).remove(),
-        _fbDb.ref(`users/${uid}/activeTitleName`).remove(),
-        _fbDb.ref(`users/${uid}/activeTitleColor`).remove(),
-        _fbDb.ref(`leaderboard/${uid}/activeTitle`).remove(),
-        _fbDb.ref(`leaderboard/${uid}/activeTitleName`).remove(),
-        _fbDb.ref(`leaderboard/${uid}/activeTitleColor`).remove()
-      ]);
+      const fields = ['activeTitle', 'activeTitleName', 'activeTitleColor', 'activeTitleGradient'];
+      await Promise.all(fields.flatMap(field => [
+        _fbDb.ref(`users/${uid}/${field}`).remove(),
+        _fbDb.ref(`leaderboard/${uid}/${field}`).remove()
+      ]));
       console.log('[title] 자동 해제:', active, '—', reason);
     }
   } catch(e){
@@ -376,6 +376,7 @@ window.applyEloChange = async function applyEloChange(winner){
     if(!IS_POTION){
       try { await checkPostEloAchievements(newElo, upd[W_FIELD]); } catch(_){}
     }
+    try { await unsetInactiveTitleIfNeeded(myInfo.uid, newElo); } catch(_){}
   }catch(e){
     console.error('[ELO] 업데이트 실패',e);
     throw e;

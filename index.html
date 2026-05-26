@@ -2707,11 +2707,87 @@ window.startTutorial = function(){
     return d.toISOString().slice(0, 10);
   }
 
+  function currentAuthUid(){
+    const user = _fbAuth && _fbAuth.currentUser;
+    return user && !user.isAnonymous ? user.uid : MY_UID;
+  }
+
+  async function unlockLobbyAchievement(id, source='lobby'){
+    const uid = currentAuthUid();
+    if(!uid || !_fbDb) return false;
+    try {
+      const ref = _fbDb.ref(`users/${uid}/achievements/${id}`);
+      const snap = await ref.once('value');
+      if(!snap.exists()){
+        const value = { unlockedAt: Date.now(), source };
+        await ref.set(value);
+        _myAchievements[id] = value;
+      } else if(!_myAchievements[id]){
+        _myAchievements[id] = snap.val() || { unlockedAt: Date.now(), source };
+      }
+      return true;
+    } catch(e){
+      console.warn('[Ach] lobby unlock 실패:', id, e.message);
+      return false;
+    }
+  }
+
+  function normalizeStreak(raw){
+    return {
+      current: Math.max(0, parseInt(raw && raw.current, 10) || 0),
+      last: (raw && typeof raw.last === 'string') ? raw.last : null,
+      longest: Math.max(0, parseInt(raw && raw.longest, 10) || 0)
+    };
+  }
+
+  function pickNewestStreak(a, b){
+    const x = normalizeStreak(a);
+    const y = normalizeStreak(b);
+    if(!x.last) return y;
+    if(!y.last) return x;
+    if(y.last > x.last) return y;
+    if(x.last > y.last) return x;
+    return y.current > x.current ? y : x;
+  }
+
+  async function saveDailyStreak(uid, data){
+    try { localStorage.setItem('frontier_streak', JSON.stringify(data)); } catch(_){}
+    if(!uid || !_fbDb) return;
+    try {
+      await _fbDb.ref(`users/${uid}/dailyStreak`).set({...data, updatedAt: Date.now()});
+    } catch(e){
+      console.warn('[Daily] streak 서버 저장 실패:', e.message);
+    }
+  }
+
+  async function unlockDailyStreakAchievements(current){
+    const pairs = [
+      [3, 'streak_3'],
+      [7, 'streak_7'],
+      [30, 'streak_30'],
+      [100, 'streak_100'],
+      [365, 'streak_365']
+    ];
+    for(const [need, id] of pairs){
+      if(current >= need) await unlockLobbyAchievement(id, 'daily_streak');
+    }
+  }
+
   // 데일리스트릭 초기화/갱신
-  function updateDailyStreak(){
-    let data;
-    try { data = JSON.parse(localStorage.getItem('frontier_streak') || 'null'); } catch(_){}
-    if(!data) data = { current:0, last:null, longest:0 };
+  async function updateDailyStreak(){
+    let localData;
+    try { localData = JSON.parse(localStorage.getItem('frontier_streak') || 'null'); } catch(_){}
+    const uid = currentAuthUid();
+    let remoteData = null;
+    if(uid && _fbDb){
+      try {
+        const snap = await _fbDb.ref(`users/${uid}/dailyStreak`).once('value');
+        remoteData = snap.val();
+      } catch(e){
+        console.warn('[Daily] streak 서버 조회 실패:', e.message);
+      }
+    }
+    const data = pickNewestStreak(localData, remoteData);
     const today = getTodayDateStr();
     const yesterday = getYesterdayDateStr();
     if(data.last === today){
@@ -2726,15 +2802,8 @@ window.startTutorial = function(){
       data.last = today;
     }
     if(data.current > (data.longest||0)) data.longest = data.current;
-    try { localStorage.setItem('frontier_streak', JSON.stringify(data)); } catch(_){}
-    // 업적 트리거
-    if(MY_UID && _fbDb){
-      if(data.current >= 3) _fbDb.ref(`users/${MY_UID}/achievements/streak_3`).set({unlockedAt:Date.now()}).catch(()=>{});
-      if(data.current >= 7) _fbDb.ref(`users/${MY_UID}/achievements/streak_7`).set({unlockedAt:Date.now()}).catch(()=>{});
-      if(data.current >= 30) _fbDb.ref(`users/${MY_UID}/achievements/streak_30`).set({unlockedAt:Date.now()}).catch(()=>{});
-      if(data.current >= 100) _fbDb.ref(`users/${MY_UID}/achievements/streak_100`).set({unlockedAt:Date.now()}).catch(()=>{});
-      if(data.current >= 365) _fbDb.ref(`users/${MY_UID}/achievements/streak_365`).set({unlockedAt:Date.now()}).catch(()=>{});
-    }
+    await saveDailyStreak(uid, data);
+    await unlockDailyStreakAchievements(data.current || 0);
     return data;
   }
 
@@ -2790,8 +2859,8 @@ window.startTutorial = function(){
       // 업적: 첫 퀘스트 완료, 3개 모두 완료
       if(MY_UID && _fbDb){
         const completedCount = data.quests.filter(q => q.completed).length;
-        if(completedCount >= 1) _fbDb.ref(`users/${MY_UID}/achievements/quest_first`).set({unlockedAt:Date.now()}).catch(()=>{});
-        if(completedCount >= 3) _fbDb.ref(`users/${MY_UID}/achievements/quest_all`).set({unlockedAt:Date.now()}).catch(()=>{});
+        if(completedCount >= 1) unlockLobbyAchievement('quest_first', 'quest');
+        if(completedCount >= 3) unlockLobbyAchievement('quest_all', 'quest');
         
         // 🎁 데일리 상자 보상 — 3개 모두 완료 시 (오늘 보상 이미 받았는지 체크)
         if(completedCount >= 3 && !data.rewardClaimed){
@@ -2923,10 +2992,10 @@ window.startTutorial = function(){
     s.last = today;
     try { localStorage.setItem('frontier_quest_streak', JSON.stringify(s)); } catch(_){}
     if(MY_UID && _fbDb){
-      if(s.current >= 7)   _fbDb.ref(`users/${MY_UID}/achievements/quest_streak_7`).set({unlockedAt:Date.now()}).catch(()=>{});
-      if(s.current >= 30)  _fbDb.ref(`users/${MY_UID}/achievements/quest_streak_30`).set({unlockedAt:Date.now()}).catch(()=>{});
-      if(s.current >= 100) _fbDb.ref(`users/${MY_UID}/achievements/quest_streak_100`).set({unlockedAt:Date.now()}).catch(()=>{});
-      if(s.current >= 365) _fbDb.ref(`users/${MY_UID}/achievements/quest_streak_365`).set({unlockedAt:Date.now()}).catch(()=>{});
+      if(s.current >= 7)   unlockLobbyAchievement('quest_streak_7', 'quest_streak');
+      if(s.current >= 30)  unlockLobbyAchievement('quest_streak_30', 'quest_streak');
+      if(s.current >= 100) unlockLobbyAchievement('quest_streak_100', 'quest_streak');
+      if(s.current >= 365) unlockLobbyAchievement('quest_streak_365', 'quest_streak');
     }
   }
 
@@ -3035,12 +3104,30 @@ window.startTutorial = function(){
   }
   
   let _myRanking = null; // 1~3 또는 null
+  let _adminStatusLoaded = false;
+
+  async function ensureAdminStatus(){
+    if(_adminStatusLoaded) return !!window.IS_ADMIN;
+    window.IS_ADMIN = false;
+    if(!MY_UID || !_fbDb){
+      return false;
+    }
+    try {
+      const adminSnap = await _fbDb.ref('admins/'+MY_UID).once('value');
+      window.IS_ADMIN = adminSnap.val() === true;
+    } catch(e){
+      console.warn('[admin] 상태 조회 실패:', e.message);
+      window.IS_ADMIN = false;
+    }
+    _adminStatusLoaded = true;
+    return !!window.IS_ADMIN;
+  }
 
   async function loadMyRanking(){
     if(!MY_UID || !_fbDb) return null;
     try {
       // 본인이 어드민이면 랭킹 제외
-      if(window.IS_ADMIN) return null;
+      if(await ensureAdminStatus()) return null;
       // 본인 태그 없으면 랭킹 제외
       if(!MY_TAG) return null;
       
@@ -3099,7 +3186,7 @@ window.startTutorial = function(){
     let myCoins = 0;
     try { myCoins = (await _fbDb.ref(`users/${MY_UID}/coins`).once('value')).val() || 0; } catch(_){}
 
-    const isAdmin = !!window.IS_ADMIN;
+    const isAdmin = await ensureAdminStatus();
     const titles = [];
     
     // ── 그룹 1: 티어 칭호 (현재 ELO 자동) — 다섯 티어 모두 표시, 어드민이면 다 보유
@@ -3231,27 +3318,34 @@ window.startTutorial = function(){
       window.MY_TITLE_NAME = name;
       window.MY_TITLE_COLOR = color || '#f5c842';
       window.MY_TITLE_GRADIENT = gradient || '';
-      renderProfile();
-      openTitlesModal();
+      await renderProfile();
+      await openTitlesModal();
     } catch(e){
       alert('칭호 끼우기 실패: ' + e.message);
     }
   };
   
+  async function clearActiveTitleInLobby(uid=MY_UID){
+    if(!uid || !_fbDb) return;
+    const fields = ['activeTitle', 'activeTitleName', 'activeTitleColor', 'activeTitleGradient'];
+    const refs = [];
+    fields.forEach(field => {
+      refs.push(_fbDb.ref(`users/${uid}/${field}`).remove());
+      refs.push(_fbDb.ref(`leaderboard/${uid}/${field}`).remove());
+    });
+    await Promise.all(refs);
+    window.MY_TITLE = null;
+    window.MY_TITLE_NAME = null;
+    window.MY_TITLE_COLOR = null;
+    window.MY_TITLE_GRADIENT = '';
+  }
+
   window.unequipTitle = async function(){
     if(!MY_UID || !_fbDb) return;
     try {
-      await _fbDb.ref('users/'+MY_UID+'/activeTitle').remove();
-      await _fbDb.ref('users/'+MY_UID+'/activeTitleName').remove();
-      await _fbDb.ref('users/'+MY_UID+'/activeTitleColor').remove();
-      await _fbDb.ref('leaderboard/'+MY_UID+'/activeTitle').remove();
-      await _fbDb.ref('leaderboard/'+MY_UID+'/activeTitleName').remove();
-      await _fbDb.ref('leaderboard/'+MY_UID+'/activeTitleColor').remove();
-      window.MY_TITLE = null;
-      window.MY_TITLE_NAME = null;
-      window.MY_TITLE_COLOR = null;
-      renderProfile();
-      openTitlesModal();
+      await clearActiveTitleInLobby(MY_UID);
+      await renderProfile();
+      await openTitlesModal();
     } catch(e){
       alert('칭호 해제 실패: ' + e.message);
     }
@@ -3751,7 +3845,7 @@ window.startTutorial = function(){
     window.MY_ELO = MY_ELO;
     // 다음 새로고침 때 게이트 깜빡임 방지
     try { localStorage.setItem('frontier_logged_in', '1'); } catch(_){}
-    renderProfile();
+    await renderProfile();
     renderFriends();
     renderBlocked();
     startInviteListener();
@@ -3759,7 +3853,7 @@ window.startTutorial = function(){
     startFriendAcceptedListener();
     watchRooms();
     try {
-      updateDailyStreak();
+      await updateDailyStreak();
       renderQuestCardBadge();
     } catch(e){ console.warn('[Daily] init 실패:', e); }
     hideLoginGate();
@@ -3908,37 +4002,51 @@ window.startTutorial = function(){
       const active = snap.val();
       if(!active) return;
       // 어드민은 해제 X (모든 칭호 자동 보유)
-      if(window.IS_ADMIN) return;
+      if(await ensureAdminStatus()) return;
       
       let shouldUnset = false;
-      const TIER_MIN = { tier_diamond:1800, tier_platinum:1600, tier_gold:1400, tier_silver:1200 };
+      let reason = '';
+      const TIER_MIN = { tier_diamond:1800, tier_platinum:1600, tier_gold:1400, tier_silver:1200, tier_bronze:0 };
       if(TIER_MIN[active] !== undefined && MY_ELO < TIER_MIN[active]){
         shouldUnset = true;
+        reason = `tier ${MY_ELO}<${TIER_MIN[active]}`;
       }
       if(active === 'rank_1' || active === 'rank_2' || active === 'rank_3'){
         const r = await loadMyRanking();
         const req = active === 'rank_1' ? 1 : active === 'rank_2' ? 2 : 3;
-        if(r !== req) shouldUnset = true;
+        if(r !== req){
+          shouldUnset = true;
+          reason = `rank ${r || '-'}!=${req}`;
+        }
+      }
+      if(active.startsWith('ach_')){
+        const achId = active.slice(4);
+        if(Object.keys(_myAchievements).length === 0){
+          await loadAchievements();
+        }
+        if(!_myAchievements[achId]){
+          shouldUnset = true;
+          reason = `achievement ${achId} missing`;
+        }
+      }
+      if(active.startsWith('sp_')){
+        const titleName = active.slice(3);
+        const ownSnap = await _fbDb.ref(`users/${MY_UID}/ownedTitles/${titleName}`).once('value');
+        if(!ownSnap.exists()){
+          shouldUnset = true;
+          reason = `owned title ${titleName} missing`;
+        }
       }
       if(shouldUnset){
-        await Promise.all([
-          _fbDb.ref(`users/${MY_UID}/activeTitle`).remove(),
-          _fbDb.ref(`users/${MY_UID}/activeTitleName`).remove(),
-          _fbDb.ref(`users/${MY_UID}/activeTitleColor`).remove(),
-          _fbDb.ref(`leaderboard/${MY_UID}/activeTitle`).remove(),
-          _fbDb.ref(`leaderboard/${MY_UID}/activeTitleName`).remove(),
-          _fbDb.ref(`leaderboard/${MY_UID}/activeTitleColor`).remove()
-        ]);
-        window.MY_TITLE_NAME = '';
-        window.MY_TITLE_COLOR = '';
-        console.log('[title] 로비에서 자동 해제:', active);
+        await clearActiveTitleInLobby(MY_UID);
+        console.log('[title] 로비에서 자동 해제:', active, reason);
       }
     } catch(e){ console.warn('[title] 자동 해제 실패:', e.message); }
   }
   
   async function renderProfile(){
-    // 활성 칭호 자동 해제 검사 (백그라운드)
-    unsetInactiveTitleInLobby();
+    await ensureAdminStatus();
+    await unsetInactiveTitleInLobby();
     
     let titlePrefix = '';
     if(window.MY_TITLE_NAME){
@@ -4007,27 +4115,22 @@ window.startTutorial = function(){
     const acctEl = document.getElementById('accountSection');
     if(acctEl){
       if(MY_PROVIDER === 'google'){
-        // 관리자 여부 확인
         let adminHtml = '';
-        try {
-          const adminSnap = await _fbDb.ref('admins/'+MY_UID).once('value');
-          if(adminSnap.val() === true){
-            window.IS_ADMIN = true;
-            adminHtml = '<button class="acct-btn" onclick="openAdminModal()" style="background:linear-gradient(135deg,rgba(245,200,66,.25),rgba(255,149,0,.15));border:1px solid rgba(245,200,66,.5);color:#f5c842;margin-right:6px;cursor:pointer">관리자</button>';
-            // 어드민 자동 — 모든 업적 unlock
-            try {
-              const updates = {};
-              ACHIEVEMENTS.forEach(a => {
-                if(!_myAchievements[a.id]) updates[a.id] = { unlockedAt: Date.now(), source:'admin' };
-              });
-              if(Object.keys(updates).length > 0){
-                await _fbDb.ref(`users/${MY_UID}/achievements`).update(updates);
-                Object.assign(_myAchievements, updates);
-                console.log('[admin] 모든 업적 자동 해제:', Object.keys(updates).length);
-              }
-            } catch(e){ console.warn('[admin] 업적 자동 해제 실패:', e.message); }
-          }
-        } catch(_){}
+        if(window.IS_ADMIN){
+          adminHtml = '<button class="acct-btn" onclick="openAdminModal()" style="background:linear-gradient(135deg,rgba(245,200,66,.25),rgba(255,149,0,.15));border:1px solid rgba(245,200,66,.5);color:#f5c842;margin-right:6px;cursor:pointer">관리자</button>';
+          // 어드민 자동 — 모든 업적 unlock
+          try {
+            const updates = {};
+            ACHIEVEMENTS.forEach(a => {
+              if(!_myAchievements[a.id]) updates[a.id] = { unlockedAt: Date.now(), source:'admin' };
+            });
+            if(Object.keys(updates).length > 0){
+              await _fbDb.ref(`users/${MY_UID}/achievements`).update(updates);
+              Object.assign(_myAchievements, updates);
+              console.log('[admin] 모든 업적 자동 해제:', Object.keys(updates).length);
+            }
+          } catch(e){ console.warn('[admin] 업적 자동 해제 실패:', e.message); }
+        }
         
         acctEl.innerHTML = `
           <div class="acct-status acct-linked">
