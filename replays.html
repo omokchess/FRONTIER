@@ -223,7 +223,7 @@ function renderList(){
         </div>
         <div class="rc-result ${result.cls}">
           <span>🏆 ${result.text}</span>
-          <span style="color:var(--muted);font-size:11px">${escapeHtml(r.endTitle || '')}</span>
+          <span style="color:var(--muted);font-size:11px">${escapeHtml(r.endReason || r.endTitle || '')}</span>
         </div>
         <div class="rc-meta">
           <span>🎯 ${r.moveCount||0}수</span>

@@ -2474,6 +2474,7 @@ function saveReplayToStorage(winner, endTitle, endDesc){
       myColor: (IS_LOCAL || IS_AIVAI) ? null : MY_COLOR,
       winner: winner || 'draw',
       endTitle: endTitle || '',
+      endReason: getEndCauseLabel(winner, endTitle),
       endDesc: endDesc || '',
       moveCount: actionHistory.length
     };
@@ -2641,6 +2642,58 @@ window.addEventListener('beforeunload', e => {
   }
 });
 
+function getEndCauseKind(title){
+  const raw = String(title || '').replace(/[!！]/g, '').trim();
+  if(!raw) return '';
+  if(raw.includes('오목')) return 'omok';
+  if(raw.includes('체크메이트')) return 'mate';
+  if(raw.includes('스테일메이트')) return 'stalemate';
+  if(raw.includes('3수')) return 'threefold';
+  if(raw.includes('타이쿤')) return 'tycoon';
+  if(raw.includes('회색 킹')) return 'gray_king';
+  if(raw.includes('반칙')) return 'foul';
+  if(raw.includes('기권')) return 'forfeit';
+  if(raw.includes('연결')) return 'disconnect';
+  if(raw.includes('방 종료')) return 'room_closed';
+  return 'other';
+}
+
+function getEndCauseBase(title){
+  const kind = getEndCauseKind(title);
+  if(kind === 'omok') return '오목';
+  if(kind === 'mate') return '체크메이트';
+  if(kind === 'stalemate') return '스테일메이트';
+  if(kind === 'threefold') return '3수 동형';
+  if(kind === 'tycoon') return '타이쿤';
+  if(kind === 'gray_king') return '회색 킹 처치';
+  if(kind === 'foul') return '반칙';
+  if(kind === 'forfeit') return '기권';
+  if(kind === 'disconnect') return '연결 끊김';
+  if(kind === 'room_closed') return '방 종료';
+  return String(title || '').replace(/[!！]/g, '').trim();
+}
+
+function getEndCauseLabel(winner, title){
+  const base = getEndCauseBase(title);
+  if(!base) return '';
+  const kind = getEndCauseKind(title);
+  if(winner === 'draw') return `${base} 무승부`;
+  if(!winner) return base;
+
+  const playerPerspective = ((IS_NET && !IS_SPEC) || IS_AI) && MY_COLOR;
+  if(playerPerspective){
+    const resultWord = winner === MY_COLOR ? '승리' : '패배';
+    if(kind === 'foul') return winner === MY_COLOR ? '상대 반칙 승리' : '반칙 패배';
+    if(kind === 'forfeit') return winner === MY_COLOR ? '상대 기권 승리' : '기권 패배';
+    if(kind === 'disconnect') return winner === MY_COLOR ? '상대 연결 끊김 승리' : '연결 끊김 패배';
+    return `${base} ${resultWord}`;
+  }
+
+  const winnerColor = winner === 'w' ? '백' : winner === 'b' ? '흑' : '';
+  return winnerColor ? `${winnerColor} ${base} 승리` : base;
+}
+window.getEndCauseLabel = getEndCauseLabel;
+
 function endGame(emoji, title, desc, winner /* 'w'|'b'|'draw' */, fromHost){
   if(gameOver) return;
   
@@ -2678,6 +2731,15 @@ function endGame(emoji, title, desc, winner /* 'w'|'b'|'draw' */, fromHost){
   _tEl.style.color = _bigColor;
   _tEl.style.fontSize = '2.4em';
   _tEl.style.fontWeight = '900';
+  const _reasonEl = document.getElementById('endReason');
+  if(_reasonEl){
+    const _reasonText = getEndCauseLabel(winner, title);
+    _reasonEl.textContent = _reasonText ? (window.t ? window.t(_reasonText) : _reasonText) : '';
+    _reasonEl.className = 'end-reason';
+    if(winner === 'draw' || !winner) _reasonEl.classList.add('draw');
+    else if(((IS_NET && !IS_SPEC) || IS_AI) && winner !== MY_COLOR) _reasonEl.classList.add('loss');
+    _reasonEl.style.display = _reasonText ? 'block' : 'none';
+  }
   document.getElementById('endDesc').textContent = (window.t ? window.t(desc) : desc);
   playSnd('end');
   const eloEl = document.getElementById('endElo');
@@ -4168,7 +4230,8 @@ function initReplay(){
 
   // 결과 표시
   const winnerStr = _replayMeta.winner === 'w' ? '백 승' : _replayMeta.winner === 'b' ? '흑 승' : '무승부';
-  const resultText = _replayMeta.endTitle ? `${_replayMeta.endTitle} (${winnerStr})` : winnerStr;
+  const resultCause = _replayMeta.endReason || _replayMeta.endTitle || '';
+  const resultText = resultCause ? `${resultCause} (${winnerStr})` : winnerStr;
 
   // 리플레이 컨트롤 표시
   const bar = document.getElementById('replayBar');

@@ -421,6 +421,9 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
 .modal-card h2{font-size:22px;margin-bottom:8px}
 .modal-card .icon{font-size:54px;margin-bottom:10px}
 .modal-card p{color:var(--muted);font-size:14px;line-height:1.6;margin-bottom:14px}
+.end-reason{display:none;width:max-content;max-width:100%;margin:0 auto 10px;padding:6px 10px;border-radius:8px;background:rgba(245,200,66,.12);border:1px solid rgba(245,200,66,.38);color:var(--gold);font-size:13px;font-weight:800}
+.end-reason.loss{background:rgba(255,69,58,.12);border-color:rgba(255,69,58,.36);color:var(--red)}
+.end-reason.draw{background:rgba(154,160,166,.12);border-color:rgba(154,160,166,.32);color:#c7cbd1}
 .modal-card .actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;
   position:sticky;bottom:0;background:var(--panel);
   padding:12px 24px;margin:12px -24px -24px;
@@ -1254,6 +1257,7 @@ body.board-flipped .cell{transform:rotate(180deg)}
   <div class="modal-card">
     <div class="icon" id="endIcon">🏆</div>
     <h2 id="endTitle">승리!</h2>
+    <div class="end-reason" id="endReason"></div>
     <p id="endDesc">—</p>
     <div id="endElo" style="display:none"></div>
     <div class="actions">

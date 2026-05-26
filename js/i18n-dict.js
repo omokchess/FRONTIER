@@ -804,6 +804,35 @@ Object.assign(window.I18N_DICT.en, { "패배": "Defeat", "무승부": "Draw" });
 Object.assign(window.I18N_DICT.ja, { "패배": "敗北", "무승부": "引き分け" });
 Object.assign(window.I18N_DICT.zh, { "패배": "失败", "무승부": "平局" });
 
+// 종료 원인 표시
+Object.assign(window.I18N_DICT.en, {
+  "오목 승리": "Gomoku Win", "오목 패배": "Gomoku Loss",
+  "체크메이트 승리": "Checkmate Win", "체크메이트 패배": "Checkmate Loss",
+  "스테일메이트 무승부": "Stalemate Draw", "3수 동형 무승부": "Threefold Draw",
+  "타이쿤 승리": "Tycoon Win", "타이쿤 패배": "Tycoon Loss",
+  "상대 반칙 승리": "Opponent Foul Win", "반칙 패배": "Foul Loss",
+  "상대 기권 승리": "Opponent Forfeit Win", "기권 패배": "Forfeit Loss",
+  "상대 연결 끊김 승리": "Disconnect Win", "연결 끊김 패배": "Disconnect Loss"
+});
+Object.assign(window.I18N_DICT.ja, {
+  "오목 승리": "五目勝ち", "오목 패배": "五目負け",
+  "체크메이트 승리": "チェックメイト勝ち", "체크메이트 패배": "チェックメイト負け",
+  "스테일메이트 무승부": "ステイルメイト引き分け", "3수 동형 무승부": "三回同形引き分け",
+  "타이쿤 승리": "タイクーン勝利", "타이쿤 패배": "タイクーン敗北",
+  "상대 반칙 승리": "相手反則勝ち", "반칙 패배": "反則負け",
+  "상대 기권 승리": "相手投了勝ち", "기권 패배": "投了負け",
+  "상대 연결 끊김 승리": "相手切断勝ち", "연결 끊김 패배": "切断負け"
+});
+Object.assign(window.I18N_DICT.zh, {
+  "오목 승리": "五子连珠胜利", "오목 패배": "五子连珠失败",
+  "체크메이트 승리": "将杀胜利", "체크메이트 패배": "将杀失败",
+  "스테일메이트 무승부": "逼和", "3수 동형 무승부": "三次同形平局",
+  "타이쿤 승리": "大亨胜利", "타이쿤 패배": "大亨失败",
+  "상대 반칙 승리": "对手犯规胜利", "반칙 패배": "犯规失败",
+  "상대 기권 승리": "对手认输胜利", "기권 패배": "认输失败",
+  "상대 연결 끊김 승리": "对手断线胜利", "연결 끊김 패배": "断线失败"
+});
+
 // Python AI 폴백 알림
 Object.assign(window.I18N_DICT.en, {
   "AI 서버 응답 지연 — 내장 AI로 진행": "AI server is slow — using built-in AI",
