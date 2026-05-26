@@ -76,3 +76,13 @@ def format_move_stats(stats: dict, labels: Iterable[str]) -> str:
     min_moves = move_stats.get("min")
     max_moves = int(move_stats.get("max", 0))
     return f"avg={total / games:.1f} min={int(min_moves or 0)} max={max_moves}"
+
+
+def format_group_counts(groups: dict, group_labels: Iterable[tuple[str, str]], labels: Iterable[str]) -> str:
+    chunks = []
+    for key, title in group_labels:
+        group = groups.get(key)
+        if not group:
+            continue
+        chunks.append(f"{title}={counts_view(group, labels)}")
+    return " ".join(chunks) if chunks else "-"

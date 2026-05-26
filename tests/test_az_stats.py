@@ -1,6 +1,13 @@
 import unittest
 
-from frontier_ai.az.stats import counts_view, format_move_stats, format_reason_stats, new_result_stats, record_result
+from frontier_ai.az.stats import (
+    counts_view,
+    format_group_counts,
+    format_move_stats,
+    format_reason_stats,
+    new_result_stats,
+    record_result,
+)
 
 
 class AZStatsTest(unittest.TestCase):
@@ -17,6 +24,21 @@ class AZStatsTest(unittest.TestCase):
         self.assertEqual(format_reason_stats(stats, ("w", "b", "draw")),
                          "w[five:1,mate:1] b[mate:1] draw[3fold:1,stale:1]")
         self.assertEqual(format_move_stats(stats, ("w", "b", "draw")), "avg=56.2 min=37 max=88")
+
+    def test_formats_group_counts(self):
+        white = new_result_stats(("candidate", "best"))
+        black = new_result_stats(("candidate", "best"))
+        record_result(white, "candidate", "checkmate", 42)
+        record_result(black, None, "threefold", 91)
+
+        self.assertEqual(
+            format_group_counts(
+                {"candidate_white": white, "candidate_black": black},
+                (("candidate_white", "candW"), ("candidate_black", "candB")),
+                ("candidate", "best", "draw"),
+            ),
+            "candW={'candidate': 1, 'best': 0, 'draw': 0} candB={'candidate': 0, 'best': 0, 'draw': 1}",
+        )
 
 
 if __name__ == "__main__":

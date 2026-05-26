@@ -19,7 +19,14 @@ from .encoding import index_to_action
 from .mcts import MCTS, choose
 from .net import AZNet, pick_device
 from .selfplay import generate_parallel, generate_serial, make_evaluator
-from .stats import counts_view, format_move_stats, format_reason_stats, new_result_stats, record_result
+from .stats import (
+    counts_view,
+    format_group_counts,
+    format_move_stats,
+    format_reason_stats,
+    new_result_stats,
+    record_result,
+)
 from .tactics import tactical_action
 
 
@@ -108,7 +115,11 @@ def _trim_replay(buffer: list, maxlen: int) -> None:
 
 
 def _arena_game(candidate, best, device, hand: dict[str, int], n_sims: int,
-                max_moves: int, candidate_white: bool) -> dict:
+                max_moves: int, candidate_white: bool, seed: int,
+                temp_moves: int, noise_frac: float) -> dict:
+    rng = np.random.default_rng(seed)
+    if noise_frac > 0:
+        np.random.seed(seed % (2 ** 32))
     evaluators = {
         "candidate": make_evaluator(candidate, device),
         "best": make_evaluator(best, device),
@@ -123,10 +134,11 @@ def _arena_game(candidate, best, device, hand: dict[str, int], n_sims: int,
             continue
         candidate_to_move = (state.turn == "w") == candidate_white
         evaluator = evaluators["candidate" if candidate_to_move else "best"]
-        root = MCTS(evaluator).run(state.clone(), n_sims, add_noise=False)
+        root = MCTS(evaluator, dirichlet_frac=noise_frac).run(state.clone(), n_sims, add_noise=noise_frac > 0)
         if not root.N:
             break
-        action = index_to_action(choose(root, temperature=1e-9), state.turn)
+        temperature = 1.0 if moves < temp_moves else 1e-9
+        action = index_to_action(choose(root, temperature=temperature, rng=rng), state.turn)
         state.apply(action)
         moves += 1
     reason = state.end_reason if state.terminal else "max_moves"
@@ -137,13 +149,25 @@ def _arena_game(candidate, best, device, hand: dict[str, int], n_sims: int,
 
 
 def _arena(candidate, best, device, hand: dict[str, int], games: int,
-           n_sims: int, max_moves: int) -> dict[str, int]:
+           n_sims: int, max_moves: int, seed_start: int,
+           temp_moves: int, noise_frac: float) -> dict[str, int]:
     candidate.eval()
     best.eval()
     result = new_result_stats(("candidate", "best"))
+    result["by_side"] = {
+        "candidate_white": new_result_stats(("candidate", "best")),
+        "candidate_black": new_result_stats(("candidate", "best")),
+    }
     for i in range(games):
-        outcome = _arena_game(candidate, best, device, hand, n_sims, max_moves, candidate_white=(i % 2 == 0))
+        candidate_white = i % 2 == 0
+        outcome = _arena_game(candidate, best, device, hand, n_sims, max_moves,
+                              candidate_white=candidate_white,
+                              seed=(int(seed_start) + i) % (2 ** 32),
+                              temp_moves=temp_moves,
+                              noise_frac=noise_frac)
         record_result(result, outcome["winner"], outcome["reason"], outcome["moves"])
+        side_key = "candidate_white" if candidate_white else "candidate_black"
+        record_result(result["by_side"][side_key], outcome["winner"], outcome["reason"], outcome["moves"])
     return result
 
 
@@ -171,6 +195,8 @@ def main() -> None:
     p.add_argument("--arena-games", type=int, default=24)
     p.add_argument("--arena-sims", type=int, default=32)
     p.add_argument("--arena-threshold", type=float, default=0.55)
+    p.add_argument("--arena-temp-moves", type=int, default=4)
+    p.add_argument("--arena-noise-frac", type=float, default=0.15)
     p.add_argument("--resume", action="store_true")
     args = p.parse_args()
     best_out = args.best_out or args.out
@@ -212,7 +238,8 @@ def main() -> None:
     print(f"device={device} | net=ch{args.channels}x{args.blocks}b | workers={args.workers}")
     if arena_enabled:
         print(f"arena=on every={args.arena_every} games={args.arena_games} "
-              f"sims={args.arena_sims} threshold={args.arena_threshold:.3f}")
+              f"sims={args.arena_sims} threshold={args.arena_threshold:.3f} "
+              f"temp_moves={args.arena_temp_moves} noise={args.arena_noise_frac:.2f}")
         print(f"best={best_out} | candidate={args.candidate_out}")
     print(f"replay={args.replay_path or 'off'} | replay_samples={len(buffer)} | max={args.buffer}")
 
@@ -266,10 +293,14 @@ def main() -> None:
 
             if arena_enabled and it % args.arena_every == 0:
                 ts = time.time()
-                arena = _arena(net, best_net, device, hand, args.arena_games, args.arena_sims, args.max_moves)
+                arena_seed = (last_iter * 9_176 + args.arena_games * 131) % (2 ** 32)
+                arena = _arena(net, best_net, device, hand, args.arena_games, args.arena_sims,
+                               args.max_moves, arena_seed, max(0, args.arena_temp_moves),
+                               min(1.0, max(0.0, args.arena_noise_frac)))
                 score = (arena["candidate"] + 0.5 * arena["draw"]) / max(1, args.arena_games)
                 accepted = score >= args.arena_threshold
                 print(f"arena iter={last_iter} | {counts_view(arena, ('candidate', 'best', 'draw'))} | "
+                      f"sides={format_group_counts(arena.get('by_side', {}), (('candidate_white', 'candW'), ('candidate_black', 'candB')), ('candidate', 'best', 'draw'))} | "
                       f"ends={format_reason_stats(arena, ('candidate', 'best', 'draw'))} | "
                       f"moves={format_move_stats(arena, ('candidate', 'best', 'draw'))} | "
                       f"score={score:.3f} "
