@@ -83,6 +83,23 @@ def _load_if_compatible(path: str, net, cfg: dict, device, label: str) -> int:
     return iterations
 
 
+def _init_from_checkpoint(path: str, nets: list, cfg: dict, device) -> int:
+    if not path:
+        return 0
+    if not os.path.exists(path):
+        print(f"warning: init checkpoint not found: {path}")
+        return 0
+    ckpt = torch.load(path, map_location=device)
+    if ckpt.get("cfg") != cfg:
+        print(f"warning: init structure mismatch; ignoring {path}")
+        return 0
+    for net in nets:
+        net.load_state_dict(ckpt["state_dict"])
+    iterations = int(ckpt.get("meta", {}).get("iterations", 0))
+    print(f"initialized from {path} (iterations={iterations})")
+    return iterations
+
+
 def _copy_weights(dst, src) -> None:
     dst.load_state_dict(src.state_dict())
 
@@ -204,6 +221,10 @@ def main() -> None:
     p.add_argument("--arena-threshold", type=float, default=0.55)
     p.add_argument("--arena-temp-moves", type=int, default=4)
     p.add_argument("--arena-noise-frac", type=float, default=0.15)
+    p.add_argument("--threefold-contempt", type=float, default=0.0,
+                   help="value target penalty for the side that makes a threefold draw")
+    p.add_argument("--init-from", default="",
+                   help="warm-start from this checkpoint when the requested output checkpoint is absent")
     p.add_argument("--resume", action="store_true")
     args = p.parse_args()
     best_out = args.best_out or args.out
@@ -218,6 +239,7 @@ def main() -> None:
     hand = parse_hand_str(args.hand)
     arena_enabled = args.arena_every > 0 and args.arena_games > 0
 
+    loaded_checkpoint = False
     if args.resume:
         if arena_enabled:
             best_iter = _load_if_compatible(best_out, best_net, cfg, device, "best")
@@ -229,16 +251,26 @@ def main() -> None:
             if not best_iter and candidate_iter:
                 _copy_weights(best_net, net)
             base_iter = max(best_iter, candidate_iter)
+            loaded_checkpoint = bool(best_iter or candidate_iter)
         else:
             base_iter = _load_if_compatible(args.out, net, cfg, device, "latest")
             _copy_weights(best_net, net)
+            loaded_checkpoint = bool(base_iter)
+        if not loaded_checkpoint and args.init_from:
+            base_iter = _init_from_checkpoint(args.init_from, [net, best_net], cfg, device)
+            loaded_checkpoint = bool(base_iter)
         buffer = _load_replay(args.replay_path, args.buffer)
     else:
-        _copy_weights(best_net, net)
+        if args.init_from:
+            base_iter = _init_from_checkpoint(args.init_from, [net, best_net], cfg, device)
+            loaded_checkpoint = bool(base_iter)
+        if not loaded_checkpoint:
+            _copy_weights(best_net, net)
     if arena_enabled and not os.path.exists(best_out):
         _save_many([best_out, args.out], best_net, cfg, {
             "iterations": base_iter, "hand": args.hand,
             "channels": args.channels, "blocks": args.blocks,
+            "threefold_contempt": args.threefold_contempt,
             "accepted": True,
         })
 
@@ -249,8 +281,11 @@ def main() -> None:
               f"temp_moves={args.arena_temp_moves} noise={args.arena_noise_frac:.2f}")
         print(f"best={best_out} | candidate={args.candidate_out}")
     print(f"replay={args.replay_path or 'off'} | replay_samples={len(buffer)} | max={args.buffer}")
+    if args.threefold_contempt > 0:
+        print(f"target_shaping=threefold_contempt:{args.threefold_contempt:.3f}")
 
-    sp_kw = dict(n_sims=args.sims, max_moves=args.max_moves, temp_moves=args.temp_moves)
+    sp_kw = dict(n_sims=args.sims, max_moves=args.max_moves, temp_moves=args.temp_moves,
+                 threefold_contempt=args.threefold_contempt)
     last_iter = base_iter
     try:
         for it in range(1, args.iterations + 1):
@@ -274,7 +309,8 @@ def main() -> None:
             t_tr = time.time() - t0 - t_sp
             last_iter = base_iter + it
             meta = {"iterations": last_iter, "hand": args.hand,
-                    "channels": args.channels, "blocks": args.blocks}
+                    "channels": args.channels, "blocks": args.blocks,
+                    "threefold_contempt": args.threefold_contempt}
 
             if losses:
                 L = np.mean(losses, axis=0)
@@ -328,7 +364,8 @@ def main() -> None:
     except KeyboardInterrupt:
         checkpoint_path = args.candidate_out if arena_enabled else args.out
         _save(checkpoint_path, net, cfg, {"iterations": last_iter, "hand": args.hand,
-                                          "channels": args.channels, "blocks": args.blocks})
+                                          "channels": args.channels, "blocks": args.blocks,
+                                          "threefold_contempt": args.threefold_contempt})
         _save_replay(args.replay_path, buffer)
         print(f"\nInterrupted. Saved checkpoint: {checkpoint_path}")
         if arena_enabled:

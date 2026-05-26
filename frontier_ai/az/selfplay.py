@@ -9,6 +9,7 @@ from ..game import GameState, parse_hand_str
 from .encoding import POLICY_SIZE, action_to_index, encode_planes, index_to_action
 from .net import AZNet, infer_batch
 from .mcts import MCTS, choose, non_threefold_indices, visit_policy
+from .outcomes import outcome_values
 from .stats import new_result_stats, record_result
 from .tactics import tactical_action
 
@@ -21,7 +22,8 @@ def make_evaluator(net: AZNet, device):
     return ev
 
 
-def play_game(net, device, hand, n_sims=64, max_moves=200, temp_moves=12, c_puct=1.5, seed=None):
+def play_game(net, device, hand, n_sims=64, max_moves=200, temp_moves=12, c_puct=1.5,
+              seed=None, threefold_contempt=0.0):
     if seed is not None:
         np.random.seed(seed)
     mcts = MCTS(make_evaluator(net, device), c_puct=c_puct)
@@ -29,12 +31,15 @@ def play_game(net, device, hand, n_sims=64, max_moves=200, temp_moves=12, c_puct
     samples = []                       # (planes, pi_target, mover)
     moves = 0
     avoided_3fold = 0
+    last_mover = None
     while not state.terminal and moves < max_moves:
         forced, _ = tactical_action(state)
         if forced is not None:
+            mover = state.turn
             pi = np.zeros(POLICY_SIZE, dtype=np.float32)
             pi[action_to_index(forced)] = 1.0
-            samples.append((encode_planes(state, state.turn), pi, state.turn))
+            samples.append((encode_planes(state, mover), pi, mover))
+            last_mover = mover
             state.apply(forced)
             moves += 1
             continue
@@ -42,17 +47,14 @@ def play_game(net, device, hand, n_sims=64, max_moves=200, temp_moves=12, c_puct
         allowed, avoided = non_threefold_indices(root)
         avoided_3fold += avoided
         pi = visit_policy(root, temperature=1.0, allowed=allowed)  # target = visit-count distribution
-        samples.append((encode_planes(state, state.turn), pi, state.turn))
+        mover = state.turn
+        samples.append((encode_planes(state, mover), pi, mover))
         temp = 1.0 if moves < temp_moves else 1e-9           # explore early, greedy late
-        state.apply(index_to_action(choose(root, temperature=temp, allowed=allowed), state.turn))
+        last_mover = mover
+        state.apply(index_to_action(choose(root, temperature=temp, allowed=allowed), mover))
         moves += 1
-    if state.winner == "w":
-        z = {"w": 1.0, "b": -1.0}
-    elif state.winner == "b":
-        z = {"w": -1.0, "b": 1.0}
-    else:
-        z = {"w": 0.0, "b": 0.0}
     reason = state.end_reason if state.terminal else "max_moves"
+    z = outcome_values(state.winner, reason, last_mover, threefold_contempt)
     winner = state.winner if state.winner in ("w", "b") else None
     return [(pl, pi, z[mv]) for (pl, pi, mv) in samples], {
         "winner": winner,
