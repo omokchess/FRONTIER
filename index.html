@@ -1022,7 +1022,7 @@ input{font-family:inherit;outline:none}
         <!-- 데일리 스트릭 작은 뱃지 -->
         <div class="streak-badge" id="streakBadge" onclick="openDailyQuestModal()" 
              style="display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 14px;background:linear-gradient(135deg,rgba(255,149,0,.15),rgba(255,69,58,.1));border:1px solid rgba(255,149,0,.3);border-radius:8px;margin:0 0 12px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s">
-          🔥 <span id="streakCount">0</span>일 연속 접속
+          🔥 <span id="streakCount">0</span>일 연속 출석
         </div>
         <!-- 🧪 물약 모드 ELO 카드 -->
         <div class="potion-elo-card" id="potionEloCard"></div>
@@ -2663,12 +2663,12 @@ window.startTutorial = function(){
     { id:'gold_tier',     name:'중급자!',           desc:'골드 티어 진입 (ELO 1400)',     color:'#f5c842', cat:'티어' },
     { id:'platinum_tier', name:'고수',              desc:'플래티넘 티어 진입 (ELO 1600)', color:'#5ac8fa', cat:'티어' },
     { id:'diamond_tier',  name:'diamond!',          desc:'다이아 티어 진입 (ELO 1800)',   gradient:'sky-blue', cat:'티어' },
-    // ── 연속 접속 (데일리)
-    { id:'streak_3',      name:'부지런한 사람',     desc:'3일 연속 접속',                 color:'#ffffff', cat:'데일리' },
-    { id:'streak_7',      name:'이 게임이 재밌어',  desc:'7일 연속 접속',                 color:'#9be15d', cat:'데일리' },
-    { id:'streak_30',     name:'정말이야?',         desc:'30일 연속 접속',                color:'#5ac8fa', cat:'데일리' },
-    { id:'streak_100',    name:'잔디를 만져요',     desc:'100일 연속 접속',               color:'#0a84ff', cat:'데일리' },
-    { id:'streak_365',    name:'밖에좀 나가..',     desc:'365일 연속 접속',               color:'#bf5af2', cat:'데일리' },
+    // ── 연속 출석 (데일리)
+    { id:'streak_3',      name:'부지런한 사람',     desc:'3일 연속 출석',                 color:'#ffffff', cat:'데일리' },
+    { id:'streak_7',      name:'이 게임이 재밌어',  desc:'7일 연속 출석',                 color:'#9be15d', cat:'데일리' },
+    { id:'streak_30',     name:'정말이야?',         desc:'30일 연속 출석',                color:'#5ac8fa', cat:'데일리' },
+    { id:'streak_100',    name:'잔디를 만져요',     desc:'100일 연속 출석',               color:'#0a84ff', cat:'데일리' },
+    { id:'streak_365',    name:'밖에좀 나가..',     desc:'365일 연속 출석',               color:'#bf5af2', cat:'데일리' },
     // ── 일일 퀘스트
     { id:'quest_first',   name:'생각보다 할만 한데?', desc:'일일 퀘스트 1개 완료',        color:'#9be15d', cat:'퀘스트' },
     { id:'quest_all',     name:'일과 끝!',           desc:'하루 일일 퀘스트 모두 완료',   color:'#30d158', cat:'퀘스트' },
@@ -2721,6 +2721,7 @@ window.startTutorial = function(){
     unlockAchievement: unlockLobbyAchievement
   });
   const updateDailyStreak = DailyModule.updateDailyStreak;
+  const loadDailyStreak = DailyModule.loadDailyStreak;
   const renderQuestCardBadge = DailyModule.renderQuestCardBadge;
 
   async function loadAchievements(){
@@ -3264,7 +3265,7 @@ window.startTutorial = function(){
     startFriendAcceptedListener();
     watchRooms();
     try {
-      await updateDailyStreak();
+      await loadDailyStreak();
       renderQuestCardBadge();
     } catch(e){ console.warn('[Daily] init 실패:', e); }
     hideLoginGate();

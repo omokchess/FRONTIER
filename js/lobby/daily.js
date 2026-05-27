@@ -67,6 +67,9 @@
       const escapeHtml = ctx.escapeHtml || fallbackEscape;
       const escapeAttr = ctx.escapeAttr || escapeHtml;
       const unlockAchievement = ctx.unlockAchievement || (async () => false);
+      const tr = (s) => window.t ? window.t(s) : s;
+      let dailyStreakCache = null;
+      let attendanceBusy = false;
 
       function currentAuthUid(){
         const auth = getAuth();
@@ -99,6 +102,28 @@
       }
 
       async function updateDailyStreak(){
+        const data = await loadDailyStreak();
+        const uid = currentAuthUid();
+        const today = getTodayDateStr();
+        const yesterday = getYesterdayDateStr();
+        if(data.last === today){
+          dailyStreakCache = data;
+          return data;
+        } else if(data.last === yesterday){
+          data.current = (data.current || 0) + 1;
+          data.last = today;
+        } else {
+          data.current = 1;
+          data.last = today;
+        }
+        if(data.current > (data.longest || 0)) data.longest = data.current;
+        await saveDailyStreak(uid, data);
+        dailyStreakCache = data;
+        await unlockDailyStreakAchievements(data.current || 0);
+        return data;
+      }
+
+      async function loadDailyStreak(){
         let localData;
         try { localData = JSON.parse(localStorage.getItem('frontier_streak') || 'null'); } catch(_){}
         const uid = currentAuthUid();
@@ -113,21 +138,19 @@
           }
         }
         const data = pickNewestStreak(localData, remoteData);
+        dailyStreakCache = data;
+        try { localStorage.setItem('frontier_streak', JSON.stringify(data)); } catch(_){}
+        return data;
+      }
+
+      function getDisplayStreak(data){
+        const normalized = normalizeStreak(data || dailyStreakCache);
         const today = getTodayDateStr();
         const yesterday = getYesterdayDateStr();
-        if(data.last === today){
-          // Already counted today.
-        } else if(data.last === yesterday){
-          data.current = (data.current || 0) + 1;
-          data.last = today;
-        } else {
-          data.current = 1;
-          data.last = today;
+        if(normalized.last && normalized.last !== today && normalized.last !== yesterday){
+          normalized.current = 0;
         }
-        if(data.current > (data.longest || 0)) data.longest = data.current;
-        await saveDailyStreak(uid, data);
-        await unlockDailyStreakAchievements(data.current || 0);
-        return data;
+        return normalized;
       }
 
       function getDailyQuests(){
@@ -286,8 +309,32 @@
         return data;
       };
 
-      window.openDailyQuestModal = function(){
+      window.claimDailyAttendance = async function(){
+        if(attendanceBusy) return;
+        attendanceBusy = true;
+        const btn = document.getElementById('attendanceBtn');
+        if(btn){
+          btn.disabled = true;
+          btn.textContent = '처리 중...';
+        }
+        try {
+          await updateDailyStreak();
+          renderQuestCardBadge();
+          renderDailyQuestModal();
+        } catch(e){
+          console.warn('[Daily] 출석 체크 실패:', e.message);
+          alert('출석 체크 실패: ' + (e.message || e));
+        } finally {
+          attendanceBusy = false;
+          renderDailyQuestModal();
+        }
+      };
+
+      window.openDailyQuestModal = async function(){
         document.getElementById('dailyQuestModal').classList.add('show');
+        if(!dailyStreakCache){
+          try { await loadDailyStreak(); } catch(e){ console.warn('[Daily] streak 로드 실패:', e.message); }
+        }
         renderDailyQuestModal();
       };
 
@@ -296,13 +343,16 @@
       };
 
       function getStreak(){
-        try { return JSON.parse(localStorage.getItem('frontier_streak') || 'null') || {current:0,longest:0}; }
-        catch(_){ return {current:0,longest:0}; }
+        if(dailyStreakCache) return getDisplayStreak(dailyStreakCache);
+        try { return getDisplayStreak(JSON.parse(localStorage.getItem('frontier_streak') || 'null')); }
+        catch(_){ return {current:0,longest:0,last:null}; }
       }
 
       function renderDailyQuestModal(){
         const quests = getDailyQuests().quests;
         const streak = getStreak();
+        const today = getTodayDateStr();
+        const checkedToday = !!dailyStreakCache && dailyStreakCache.last === today;
         const list = document.getElementById('questList');
         if(!list) return;
         list.innerHTML = quests.map(q => `
@@ -318,8 +368,11 @@
         const streakEl = document.getElementById('streakDisplay');
         if(streakEl){
           streakEl.innerHTML = `
-            <div class="streak-current">🔥 <b>${streak.current||0}</b>일 연속</div>
+            <div class="streak-current">🔥 <b>${streak.current||0}</b>일 연속 출석</div>
             <div class="streak-longest" style="font-size:11px;color:var(--muted);margin-top:2px">최장: ${streak.longest||0}일</div>
+            <button id="attendanceBtn" class="btn ${checkedToday?'btn-ghost':'btn-gold'}" onclick="claimDailyAttendance()" ${checkedToday?'disabled':''} style="margin-top:10px;padding:9px 16px;font-weight:800;${checkedToday?'opacity:.72;cursor:default':''}">
+              ${checkedToday ? tr('오늘 출석 완료') : tr('출석 체크')}
+            </button>
           `;
         }
       }
@@ -344,6 +397,7 @@
       return {
         getDailyQuests,
         getStreak,
+        loadDailyStreak,
         renderQuestCardBadge,
         updateDailyStreak
       };

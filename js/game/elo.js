@@ -104,8 +104,9 @@ window.checkAchievements = async function checkAchievements(winner, title, desc)
   if(IS_SPEC || IS_REPLAY) return;
   if(!MY_COLOR && !IS_AI && !IS_LOCAL) return;
   
-  const iWon = winner === MY_COLOR;
-  const iLost = winner !== MY_COLOR && winner !== 'draw';
+  const hasWinner = winner === 'w' || winner === 'b';
+  const iWon = hasWinner && winner === MY_COLOR;
+  const iLost = hasWinner && winner !== MY_COLOR;
   
   // 승리 기반 업적
   if(iWon){
@@ -132,7 +133,7 @@ window.checkAchievements = async function checkAchievements(winner, title, desc)
     await unlockAch('first_loss');
     // 연승 카운터 리셋
     try { localStorage.setItem('frontier_win_streak', '0'); } catch(_){}
-  } else {
+  } else if(winner === 'draw') {
     // 무승부 — 연승은 유지 X (리셋)
     try { localStorage.setItem('frontier_win_streak', '0'); } catch(_){}
   }
