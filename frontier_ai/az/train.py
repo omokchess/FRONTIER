@@ -131,6 +131,13 @@ def _trim_replay(buffer: list, maxlen: int) -> None:
         del buffer[:overflow]
 
 
+def _active_arena_threshold(best_iter: int, normal_threshold: float,
+                            bootstrap_until: int, bootstrap_threshold: float) -> tuple[float, bool]:
+    if bootstrap_until > 0 and best_iter < bootstrap_until:
+        return min(normal_threshold, bootstrap_threshold), True
+    return normal_threshold, False
+
+
 def _arena_game(candidate, best, device, hand: dict[str, int], n_sims: int,
                 max_moves: int, candidate_white: bool, seed: int,
                 temp_moves: int, noise_frac: float) -> dict:
@@ -221,6 +228,10 @@ def main() -> None:
     p.add_argument("--arena-threshold", type=float, default=0.55)
     p.add_argument("--arena-temp-moves", type=int, default=4)
     p.add_argument("--arena-noise-frac", type=float, default=0.15)
+    p.add_argument("--arena-bootstrap-until", type=int, default=60,
+                   help="use a lower arena threshold while the best checkpoint is younger than this iteration")
+    p.add_argument("--arena-bootstrap-threshold", type=float, default=0.40,
+                   help="temporary arena threshold for the early bootstrap phase")
     p.add_argument("--threefold-contempt", type=float, default=0.0,
                    help="value target penalty for the side that makes a threefold draw")
     p.add_argument("--init-from", default="",
@@ -238,11 +249,13 @@ def main() -> None:
     buffer: list = []
     hand = parse_hand_str(args.hand)
     arena_enabled = args.arena_every > 0 and args.arena_games > 0
+    current_best_iter = 0
 
     loaded_checkpoint = False
     if args.resume:
         if arena_enabled:
             best_iter = _load_if_compatible(best_out, best_net, cfg, device, "best")
+            current_best_iter = best_iter
             if os.path.exists(args.candidate_out):
                 candidate_iter = _load_if_compatible(args.candidate_out, net, cfg, device, "candidate")
             else:
@@ -279,6 +292,9 @@ def main() -> None:
         print(f"arena=on every={args.arena_every} games={args.arena_games} "
               f"sims={args.arena_sims} threshold={args.arena_threshold:.3f} "
               f"temp_moves={args.arena_temp_moves} noise={args.arena_noise_frac:.2f}")
+        if args.arena_bootstrap_until > 0:
+            print(f"arena_bootstrap=best_iter<{args.arena_bootstrap_until} "
+                  f"threshold={min(args.arena_threshold, args.arena_bootstrap_threshold):.3f}")
         print(f"best={best_out} | candidate={args.candidate_out}")
     print(f"replay={args.replay_path or 'off'} | replay_samples={len(buffer)} | max={args.buffer}")
     if args.threefold_contempt > 0:
@@ -331,36 +347,45 @@ def main() -> None:
             checkpoint_path = args.candidate_out if arena_enabled else args.out
             _save(checkpoint_path, net, cfg, meta)
 
-            if args.replay_save_every > 0 and it % args.replay_save_every == 0:
+            if args.replay_save_every > 0 and last_iter % args.replay_save_every == 0:
                 ts = time.time()
                 _save_replay(args.replay_path, buffer)
                 print(f"replay saved: {args.replay_path} (samples={len(buffer)}, {time.time()-ts:.1f}s)")
 
-            if arena_enabled and it % args.arena_every == 0:
+            if arena_enabled and last_iter % args.arena_every == 0:
                 ts = time.time()
                 arena_seed = (last_iter * 9_176 + args.arena_games * 131) % (2 ** 32)
                 arena = _arena(net, best_net, device, hand, args.arena_games, args.arena_sims,
                                args.max_moves, arena_seed, max(0, args.arena_temp_moves),
                                min(1.0, max(0.0, args.arena_noise_frac)))
                 score = (arena["candidate"] + 0.5 * arena["draw"]) / max(1, args.arena_games)
-                accepted = score >= args.arena_threshold
+                active_threshold, bootstrap_gate = _active_arena_threshold(
+                    current_best_iter,
+                    args.arena_threshold,
+                    args.arena_bootstrap_until,
+                    args.arena_bootstrap_threshold,
+                )
+                accepted = score >= active_threshold
                 print(f"arena iter={last_iter} | {counts_view(arena, ('candidate', 'best', 'draw'))} | "
                       f"sides={format_group_counts(arena.get('by_side', {}), (('candidate_white', 'candW'), ('candidate_black', 'candB')), ('candidate', 'best', 'draw'))} | "
                       f"ends={format_reason_stats(arena, ('candidate', 'best', 'draw'))} | "
                       f"moves={format_move_stats(arena, ('candidate', 'best', 'draw'))} | "
                       f"avoid3={int(arena.get('avoid_3fold', 0))} | "
                       f"score={score:.3f} "
-                      f"threshold={args.arena_threshold:.3f} | "
+                      f"threshold={active_threshold:.3f}{' bootstrap' if bootstrap_gate else ''} | "
                       f"{'accepted' if accepted else 'rejected'} | time={time.time()-ts:.1f}s")
                 if accepted:
                     _copy_weights(best_net, net)
+                    current_best_iter = last_iter
                     _save_many([best_out, args.out], best_net, cfg, {**meta, "accepted": True,
-                                                                     "arena": arena, "score": score})
+                                                                     "arena": arena, "score": score,
+                                                                     "arena_threshold": active_threshold})
                 else:
                     _copy_weights(net, best_net)
                     opt = _make_optimizer(net, args.lr)
                     _save(args.candidate_out, net, cfg, {**meta, "reverted_to_best": True,
-                                                         "arena": arena, "score": score})
+                                                         "arena": arena, "score": score,
+                                                         "arena_threshold": active_threshold})
     except KeyboardInterrupt:
         checkpoint_path = args.candidate_out if arena_enabled else args.out
         _save(checkpoint_path, net, cfg, {"iterations": last_iter, "hand": args.hand,
