@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://omokchess.github.io/FRONTIER/sitemap.xml
