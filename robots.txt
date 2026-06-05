@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://omokchess.github.io/FRONTIER/sitemap.xml
+Sitemap: https://frontier-5h9.pages.dev/sitemap.xml

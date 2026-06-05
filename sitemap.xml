@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://omokchess.github.io/FRONTIER/</loc>
+    <loc>https://frontier-5h9.pages.dev/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://omokchess.github.io/FRONTIER/tutorial.html</loc>
+    <loc>https://frontier-5h9.pages.dev/tutorial.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://omokchess.github.io/FRONTIER/FRONTIER.html</loc>
+    <loc>https://frontier-5h9.pages.dev/FRONTIER.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://omokchess.github.io/FRONTIER/ranking.html</loc>
+    <loc>https://frontier-5h9.pages.dev/ranking.html</loc>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://omokchess.github.io/FRONTIER/replays.html</loc>
+    <loc>https://frontier-5h9.pages.dev/replays.html</loc>
     <changefreq>weekly</changefreq>
     <priority>0.4</priority>
   </url>
