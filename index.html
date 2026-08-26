@@ -56,12 +56,13 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <!-- 다국어(i18n): 사전 먼저, 그다음 엔진 -->
-<script src="js/i18n-dict.js?v=20"></script>
-<script src="js/i18n.js?v=20"></script>
-<script src="js/lobby/daily.js?v=20"></script>
-<script src="js/lobby/titles.js?v=20"></script>
-<link rel="stylesheet" href="css/theme.css?v=20">
-<script src="js/theme.js?v=20"></script>
+<script src="js/i18n-dict.js?v=21"></script>
+<script src="js/i18n.js?v=21"></script>
+<script src="js/game/pieces.js?v=21"></script>
+<script src="js/lobby/daily.js?v=21"></script>
+<script src="js/lobby/titles.js?v=21"></script>
+<link rel="stylesheet" href="css/theme.css?v=21">
+<script src="js/theme.js?v=21"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -1710,7 +1711,7 @@ function renderLocalSetup(){
     const c = window._localCounts[k] || 0;
     return `
     <div class="local-piece">
-      <div class="sym ${d.spec?'spec':''}">${d.sym}</div>
+      <div class="sym ${d.spec?'spec':''}">${pieceSvgInline(k, 'w', 26)}</div>
       <div class="info">
         <div class="pname">${d.name}</div>
         <div class="pdesc">${d.desc}</div>
@@ -1833,7 +1834,7 @@ function renderAiSetup(){
     const c = window._aiCounts[k] || 0;
     return `
     <div class="local-piece">
-      <div class="sym ${d.spec?'spec':''}">${d.sym}</div>
+      <div class="sym ${d.spec?'spec':''}">${pieceSvgInline(k, 'w', 26)}</div>
       <div class="info">
         <div class="pname">${d.name}</div>
         <div class="pdesc">${d.desc}</div>
@@ -1917,7 +1918,7 @@ function renderAiVaiSetup(){
     const c = window._aivaiCounts[k] || 0;
     return `
     <div class="local-piece">
-      <div class="sym ${d.spec?'spec':''}">${d.sym}</div>
+      <div class="sym ${d.spec?'spec':''}">${pieceSvgInline(k, 'w', 26)}</div>
       <div class="info">
         <div class="pname">${d.name}</div>
         <div class="pdesc">${d.desc}</div>
@@ -3783,7 +3784,7 @@ window.startTutorial = function(){
         const delta = c - d;
         const cls = delta > 0 ? 'plus' : 'minus';
         const sign = delta > 0 ? '+' : '';
-        diffs.push(`<span class="pdiff"><span class="sym">${PIECE_DEFS_LOBBY[k].sym}</span><span class="${cls}">${sign}${delta}</span></span>`);
+        diffs.push(`<span class="pdiff"><span class="sym">${pieceSvgInline(k, 'w', 14)}</span><span class="${cls}">${sign}${delta}</span></span>`);
       }
     }
     return diffs.length ? diffs.join('') : '<span class="empty">기본 설정</span>';
@@ -3806,7 +3807,7 @@ window.startTutorial = function(){
       const symCls = PIECE_DEFS_LOBBY[k].spec ? 'csym cspec' : 'csym';
       return `
         <div class="${cls}">
-          <span class="${symCls}">${PIECE_DEFS_LOBBY[k].sym}</span>
+          <span class="${symCls}">${pieceSvgInline(k, 'w', 18)}</span>
           <span class="cnm">${PIECE_DEFS_LOBBY[k].name}</span>
           <span class="cval">${c}</span>
           ${diffHtml}

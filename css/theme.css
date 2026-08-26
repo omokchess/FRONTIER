@@ -214,14 +214,7 @@
 [data-theme] .cell.lt .coord{color:rgba(21,23,25,.62)}
 [data-theme] .cell.dk .coord{color:rgba(255,254,250,.82)}
 
-/* 흰 기물 글리프는 낮 모드의 종이색 위에서 윤곽선에만 의존한다 → 윤곽을 진하게 */
-[data-theme="light"] .cell .pc.w,
-[data-theme="light"] .cell .pc.spec.w,
-[data-theme="light"] .hp .sym.hp-w,
-[data-theme="light"] .hp .sym.spec.hp-w{
-  text-shadow:0 0 1px var(--ink),0 0 2px var(--ink),0 1px 1px var(--ink),
-              0 -1px 1px var(--ink),1px 0 1px var(--ink),-1px 0 1px var(--ink)
-}
+/* 기물이 SVG가 되면서 글리프용 윤곽선 보정은 불필요해졌다 (stroke가 담당) */
 
 /* ===== 로비 헤더를 카드로 =====
    augmentchess의 .docs-header 패턴. 로고·언어 선택이 배경 위에 떠 있어

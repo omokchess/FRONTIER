@@ -119,10 +119,6 @@ const TIME_INC = parseInt(Q.get('inc') || '0') || 0;
 // ===================================================================
 // 2. 기물 정의
 // ===================================================================
-const SYMBOLS = {
-  w:{K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',SH:'⬢',SN:'⊕',JP:'✦'},
-  b:{K:'♚',Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟',SH:'⬢',SN:'⊕',JP:'✦'}
-};
 const PIECE_NAMES = {K:'킹',Q:'퀸',R:'룩',B:'비숍',N:'나이트',P:'폰',SH:'방패',SN:'스나이퍼',JP:'어쌔신'};
 const SPECIAL_KINDS = ['SH','SN','JP'];
 
@@ -1455,11 +1451,7 @@ function getPieceName(kind){
   return {K:'킹',Q:'퀸',R:'룩',B:'비숍',N:'나이트',P:'폰',SH:'방패',SN:'스나이퍼',JP:'어쌔신'}[kind] || kind;
 }
 function pieceGlyph(color, kind){
-  const G = {
-    w:{K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',SH:'⬢',SN:'⊕',JP:'✦'},
-    b:{K:'♚',Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟',SH:'⬢',SN:'⊕',JP:'✦'}
-  };
-  return G[color][kind] || '?';
+  return pieceSvgInline(kind, color, 20);
 }
 
 // ----- 차단 물약 -----
@@ -2038,7 +2030,7 @@ function renderBoard(){
         const span = document.createElement('span');
         const isSpec = SPECIAL_KINDS.includes(p.kind);
         span.className = 'pc ' + p.color + (isSpec?' spec':'');
-        span.textContent = SYMBOLS[p.color][p.kind];
+        span.innerHTML = pieceSvg(p.kind, p.color);
         cell.appendChild(span);
         // 스나이퍼 공격 카운터 (3회 후퇴)
         if(p.kind === 'SN' && p.attacks > 0){
@@ -2177,7 +2169,7 @@ function renderHandList(color, interactive){
   const order = ['K','Q','R','B','N','P','SH','SN','JP'];
   return order.map(k => {
     const n = hands[color][k] || 0;
-    const sym = SYMBOLS[color][k];
+    const sym = pieceSvgInline(k, color, 22);
     const name = PIECE_NAMES[k];
     const dis = !interactive || n <= 0 || isMyTurnLocked() === false || gameOver;
     const isSel = SEL && SEL.kind === 'place' && SEL.piece === k;
@@ -2537,7 +2529,7 @@ function promptPromotion(color){
   return new Promise(resolve => {
     const opts = ['Q','R','B','N'];
     document.getElementById('promoOpts').innerHTML = opts.map(k =>
-      `<button class="promo-opt ${color}" data-k="${k}">${SYMBOLS[color][k]}</button>`
+      `<button class="promo-opt ${color}" data-k="${k}">${pieceSvgInline(k, color, 30)}</button>`
     ).join('');
     document.getElementById('promoModal').classList.add('show');
     document.getElementById('promoRestore').style.display = 'none';
@@ -3036,7 +3028,13 @@ function showEndModal(){
 }
 
 // 규칙 보기/닫기
-function openRules(){ document.getElementById('rulesModal').classList.add('show'); }
+function openRules(){
+  // data-piece가 붙은 자리에 기물 SVG를 채워 넣는다 (한 번만)
+  document.querySelectorAll('#rulesModal [data-piece]').forEach(el => {
+    if(!el.firstChild) el.innerHTML = pieceSvgInline(el.dataset.piece, 'w', 18);
+  });
+  document.getElementById('rulesModal').classList.add('show');
+}
 function closeRules(){ document.getElementById('rulesModal').classList.remove('show'); }
 
 // ===== 일일 퀘스트 진행 추적 (localStorage 직접) =====
@@ -4464,7 +4462,7 @@ function buildReplayCaptureMarks(){
     if(meta.captured){
       const isMyCapture = captorColor === myColor;
       const cls = isMyCapture ? 'capture' : 'captured';
-      const capturedSym = SYMBOLS[meta.captured.color]?.[meta.captured.kind] || '?';
+      const capturedSym = pieceSvgInline(meta.captured.kind, meta.captured.color, 14);
       const label = (isMyCapture ? '획득' : '손실') + ` ${capturedSym} ${posStr}`;
       marks.push(`<div class="replay-mark ${cls}" style="left:${leftPct}%" data-turn="${turnIdx}" onclick="replayGoTo(${turnIdx})">
         <span class="replay-mark-tooltip">${turnIdx}수 · ${label}</span>
@@ -4472,14 +4470,14 @@ function buildReplayCaptureMarks(){
     }
     // 프로모션 마커 (파랑)
     if(action.type === 'move' && action.promote){
-      const promoSym = SYMBOLS[captorColor]?.[action.promote] || '?';
+      const promoSym = pieceSvgInline(action.promote, captorColor, 14);
       marks.push(`<div class="replay-mark promote" style="left:${leftPct}%" data-turn="${turnIdx}" onclick="replayGoTo(${turnIdx})">
         <span class="replay-mark-tooltip">${turnIdx}수 · 프로모션 → ${promoSym} ${posStr}</span>
       </div>`);
     }
     // 배치 마커 (주황)
     if(action.type === 'place'){
-      const placeSym = SYMBOLS[captorColor]?.[action.kind] || '?';
+      const placeSym = pieceSvgInline(action.kind, captorColor, 14);
       marks.push(`<div class="replay-mark place" style="left:${leftPct}%" data-turn="${turnIdx}" onclick="replayGoTo(${turnIdx})">
         <span class="replay-mark-tooltip">${turnIdx}수 · 배치 ${placeSym} ${posStr}</span>
       </div>`);
@@ -4565,7 +4563,7 @@ function describeAction(meta, idx){
   function pos(r,c){ return FILES[c] + RANKS[r]; }
   let text = '';
   if(a.type === 'place'){
-    const piece = SYMBOLS[aColor][a.kind] || a.kind;
+    const piece = pieceSvgInline(a.kind, aColor, 14);
     const pname = PIECE_NAMES[a.kind] || a.kind;
     text = `${piece} ${pname} 배치 ${pos(a.r,a.c)}`;
   } else if(a.type === 'move'){
@@ -4588,7 +4586,7 @@ function buildReplayList(){
   if(!_replayData?.actions?.length){ list.innerHTML = '<div style="padding:8px;color:var(--muted)">기록 없음</div>'; return; }
   list.innerHTML = _replayData.actions.map((meta, i) => {
     const d = describeAction(meta, i);
-    const capHtml = d.captured ? `<span class="turn-cap">×${SYMBOLS[d.captured.color]?.[d.captured.kind] || '?'}</span>` : '';
+    const capHtml = d.captured ? `<span class="turn-cap">×${pieceSvgInline(d.captured.kind, d.captured.color, 13)}</span>` : '';
     return `<div class="replay-list-item" data-idx="${i+1}" onclick="replayGoTo(${i+1})">
       <span class="turn-num">${i+1}.</span>
       <span class="turn-color ${d.colorClass}">●</span>
@@ -4614,7 +4612,7 @@ function updateReplayUI(){
     const d = describeAction(meta, _replayCurrentTurn - 1);
     let html = `<span class="turn-color ${d.colorClass}" style="display:inline-block">●</span> <b>${d.colorName}</b>: ${d.text}`;
     if(d.captured){
-      const capSym = SYMBOLS[d.captured.color]?.[d.captured.kind] || '?';
+      const capSym = pieceSvgInline(d.captured.kind, d.captured.color, 13);
       // 시점 기준: 캡쳐자가 나면 "획득" 초록, 아니면 "손실" 빨강
       const captorColor = meta.action.color || ((_replayCurrentTurn - 1) % 2 === 0 ? 'w' : 'b');
       const isMyCapture = captorColor === MY_COLOR;
