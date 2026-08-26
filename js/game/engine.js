@@ -379,18 +379,29 @@ function checkBanned(color){
   return color === 'w' && Math.floor(moveHistory.length / 2) < WHITE_CHECK_BAN_MOVES;
 }
 
-// 그 칸에 놓으면 상대 킹이 체크되는가? (체크가 금지된 턴에만 검사 — 아니면 계산 낭비)
-// 배치 하이라이트를 빨간 점선으로 바꾸는 데 쓴다.
-function placeGivesBannedCheck(color, kind, r, c){
-  if(!checkBanned(color)) return false;
-  if(board[r][c]) return false;
-  const foe = opp(color);
-  if(!kingPlaced[foe]) return false;
+// 지금 이 색이 체크를 걸 수 없는 상태인가?
+//  · 백 첫 2수 (선공 보정)
+//  · 이미 5회를 다 걸어서 다음 체크가 한도 초과
+function checkForbidden(color){
+  return checkBanned(color) || (totalChecks[color] || 0) >= 5;
+}
+
+// 그 수가 '체크 금지' 때문에 거절되는가?
+// 판정을 엔진(applyAction)에 직접 물어 로직이 두 벌로 갈리지 않게 한다.
+// 금지 상태가 아니면 시뮬레이션 자체를 건너뛴다.
+function actionBlockedByCheckRule(action){
+  const color = action.color || turn;
+  if(!checkForbidden(color)) return false;
   const snap = snapshotState();
-  board[r][c] = (kind === 'SN') ? { color, kind, attacks:0 } : { color, kind };
-  const gives = isInCheck(foe);
+  const res = applyAction(action, { silent:true });
   restoreState(snap);
-  return gives;
+  return !!(res && res.checkRule);
+}
+
+// 배치 하이라이트용 래퍼 — 빈 칸만 대상.
+function placeGivesBannedCheck(color, kind, r, c){
+  if(board[r][c]) return false;
+  return actionBlockedByCheckRule({ type:'place', color, kind, r, c });
 }
 
 // ===================================================================
@@ -580,7 +591,7 @@ function applyAction(action, opts={}){
     // 백 선공 보정: 백의 첫 2수는 체크 금지 → 이 수 무효
     if(checkBanned(turn)){
       restoreState(snap);
-      return { ok:false, err:'백은 첫 2수 동안 체크할 수 없음' };
+      return { ok:false, err:'백은 첫 2수 동안 체크할 수 없음', checkRule:true };
     }
     opponentInCheck = true;
     if(IS_PEASANT) addMinsim(next, 20);   // 농민 봉기: 킹이 체크당한 진영의 민심 +20%
@@ -589,7 +600,7 @@ function applyAction(action, opts={}){
     // 5회 체크 초과 → 이 수 무효 (스냅샷 복원)
     if(totalChecks[turn] > 5){
       restoreState(snap);
-      return { ok:false, err:'5회 체크 한도 초과 (이전 턴으로 복원)' };
+      return { ok:false, err:'5회 체크 한도 초과 (이전 턴으로 복원)', checkRule:true };
     }
     // 3회 연속 체크 → 체크 건 쪽 자멸
     if(checkStreak[next] >= 3){
@@ -2369,6 +2380,8 @@ function onCellClick(e){
   }
 }
 
+// 참고: 이동/공격은 computeHighlights 끝의 res.ok 필터가 이미 걸러낸다
+// (체크 금지 거절도 ok:false라 하이라이트에서 아예 빠짐). 배치만 별도 처리가 필요했다.
 function computeHighlights(r, c, p){
   const out = [];
   if(p.kind === 'SN'){
