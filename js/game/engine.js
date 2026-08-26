@@ -55,7 +55,12 @@ const IS_SPEC  = (NET_ROLE === 'spectator');
 const IS_REPLAY = (MODE === 'replay');
 // 변형 모드는 상호 배타 — 동시에 여러 개가 켜지면 우선순위(타이쿤 > 물약)로 하나만 적용
 const IS_TYCOON = (Q.get('tycoon') === '1');                                   // 타이쿤 (골드 경제)
-const IS_POTION  = (Q.get('potion') === '1') && !IS_TYCOON;                    // 물약 모드
+const IS_XL      = (Q.get('xl') === '1') && !IS_TYCOON;                        // XL 모드 (12x12 강화 기물)
+const IS_POTION  = (Q.get('potion') === '1') && !IS_TYCOON && !IS_XL;          // 물약 모드
+
+// 보드 한 변의 칸 수. XL만 12, 나머지는 8.
+const BOARD_N = IS_XL ? 12 : 8;
+const LAST_IDX = BOARD_N - 1;
 
 // ===== 타이쿤 모드 상수 =====
 const TYCOON_TURN_INCOME = 5;   // 매 턴 시작 시 골드 수입
@@ -142,25 +147,30 @@ let myRoomCode = null;          // 페이지 이탈 시 정리할 방 코드
 
 function makeEmptyBoard(){
   const b = [];
-  for(let r=0;r<8;r++){ b.push(new Array(8).fill(null)); }
+  for(let r=0;r<BOARD_N;r++){ b.push(new Array(BOARD_N).fill(null)); }
   return b;
 }
 
 // ===================================================================
 // 4. 좌표 / 헬퍼
 // ===================================================================
-const inBounds = (r,c)=> r>=0 && r<8 && c>=0 && c<8;
-const fileLabel = c => 'abcdefgh'[c];
-const rankLabel = r => '87654321'[r];   // row 0 = rank 8 (top)
+const inBounds = (r,c)=> r>=0 && r<BOARD_N && c>=0 && c<BOARD_N;
+const fileLabel = c => 'abcdefghijkl'[c];
+const rankLabel = r => String(BOARD_N - r);   // row 0 = 최상단 랭크
 const algebraic = (r,c) => fileLabel(c) + rankLabel(r);
 const opp = c => c === 'w' ? 'b' : 'w';
 
-// 일반 배치 영역: 6x4 (b~g, 3~6행) = cols 1-6, rows 2-5
-function inGeneralZone(r,c){ return r>=2 && r<=5 && c>=1 && c<=6; }
-// 킹 배치 영역: 4x4 (c~f, 3~6행) = cols 2-5, rows 2-5
-function inKingZone(r,c){ return r>=2 && r<=5 && c>=2 && c<=5; }
-// 스나이퍼 배치: 4꼭짓점
-function inCornerZone(r,c){ return (r===0||r===7) && (c===0||c===7); }
+// 배치 영역 — 판 크기에 맞춰 스케일.
+//   8x8 : 일반 rows2-5/cols1-6, 킹 rows2-5/cols2-5, 스나이퍼 4꼭짓점
+//   12x12: 일반 rows3-8/cols2-9, 킹 rows4-7/cols4-7,
+//          스나이퍼는 바깥 12x12 모서리 4곳 + 안쪽 8x8 영역 모서리 4곳 = 8곳
+const ZONES = IS_XL
+  ? { gen:[3,8,2,9], king:[4,7,4,7], corners:[[0,0],[0,11],[11,0],[11,11],[2,2],[2,9],[9,2],[9,9]] }
+  : { gen:[2,5,1,6], king:[2,5,2,5], corners:[[0,0],[0,7],[7,0],[7,7]] };
+
+function inGeneralZone(r,c){ const z=ZONES.gen;  return r>=z[0] && r<=z[1] && c>=z[2] && c<=z[3]; }
+function inKingZone(r,c){    const z=ZONES.king; return r>=z[0] && r<=z[1] && c>=z[2] && c<=z[3]; }
+function inCornerZone(r,c){  return ZONES.corners.some(([zr,zc]) => zr===r && zc===c); }
 
 // ===================================================================
 // 5. 기물 이동 / 공격 가능 좌표
@@ -168,6 +178,23 @@ function inCornerZone(r,c){ return (r===0||r===7) && (c===0||c===7); }
 // 한 기물에 대해 (이동 가능 좌표, 공격 가능 좌표) 반환
 //  - 이동: 그 칸이 비어있어야 갈 수 있음
 //  - 공격: 그 칸에 상대 기물이 있어야 잡을 수 있음
+// XL 강화: 기존 행마법에 도약형 행마법을 덧붙인다 (슬라이딩 로직은 그대로 재사용).
+//   Q+N=아마존, R+N=챈슬러, B+N=아크비숍, N+K=켄타우로스
+// 나이트/킹 오프셋은 서로도, 직선·대각 슬라이딩과도 겹치지 않아 중복 제거가 필요 없다.
+const KNIGHT_OFFS = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+const KING_OFFS   = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+const XL_EXTRA = { Q:KNIGHT_OFFS, R:KNIGHT_OFFS, B:KNIGHT_OFFS, N:KING_OFFS };
+
+function addLeaper(r, c, col, offs, moves, attacks){
+  for(const [dr,dc] of offs){
+    const nr=r+dr, nc=c+dc;
+    if(!inBounds(nr,nc)) continue;
+    const t = board[nr][nc];
+    if(!t) moves.push([nr,nc]);
+    else if(t.color !== col) attacks.push([nr,nc]);
+  }
+}
+
 function pieceMoves(r, c, piece){
   const moves = [];   // 빈 칸 이동
   const attacks = []; // 적 기물 공격
@@ -226,21 +253,30 @@ function pieceMoves(r, c, piece){
       const t = board[nr][nc];
       if(t && t.color !== col) attacks.push([nr,nc]);
     }
+    // XL 강화: 옆으로 한 칸 이동 (포획은 기존대로 전진 대각만)
+    if(IS_XL){
+      for(const dc of [-1,1]){
+        if(inBounds(r, c+dc) && !board[r][c+dc]) moves.push([r, c+dc]);
+      }
+    }
   } else if(k === 'SH'){
     // 방패: 앞/뒤 1칸만 이동. 인접 적은 밀기 = 공격으로 처리 (킹 체크 가능)
     const dy = (col === 'w') ? -1 : 1;
+    // XL 강화: 한 번에 두 칸까지 (두 칸은 중간 칸이 비어 있어야 함)
+    const maxStep = IS_XL ? 2 : 1;
     for(const ddy of [dy, -dy]){
-      const nr = r+ddy;
-      if(!inBounds(nr,c)) continue;
-      const t = board[nr][c];
-      if(!t){
-        moves.push([nr,c]);
-      } else {
-        // 적 기물 — 밀기로 공격 가능
-        if(t.color !== col){
-          attacks.push([nr,c]);
+      for(let step=1; step<=maxStep; step++){
+        const nr = r + ddy*step;
+        if(!inBounds(nr,c)) break;
+        if(step === 2 && board[r+ddy]) { if(board[r+ddy][c]) break; }
+        const t = board[nr][c];
+        if(!t){
+          moves.push([nr,c]);
+        } else {
+          if(t.color !== col) attacks.push([nr,c]);
+          moves.push([nr,c]); // 이동 처리는 trySHMove
+          break;              // 기물을 만나면 그 너머로는 못 감
         }
-        moves.push([nr,c]); // 이동 처리는 trySHMove
       }
     }
   } else if(k === 'SN'){
@@ -256,19 +292,25 @@ function pieceMoves(r, c, piece){
       [-1,-1, 3],[-1, 1, 3],[ 1,-1, 3],[ 1, 1, 3]    // 대각 4방향: 3칸
     ];
     for(const [dr,dc,maxDist] of dirs){
-      for(let dist=1; dist<=maxDist; dist++){
+      // XL 강화: 사거리를 판 끝까지 늘리고, 기물 하나는 관통해서 그 너머까지 저격.
+      const range = IS_XL ? BOARD_N : maxDist;
+      let pierced = 0;
+      for(let dist=1; dist<=range; dist++){
         const nr = r + dr*dist, nc = c + dc*dist;
         if(!inBounds(nr,nc)) break;
         const t = board[nr][nc];
         if(t){
           if(t.color !== col) attacks.push([nr,nc]); // 적이면 저격 가능
-          break; // 첫 기물(적/우군) 만나면 정지 — 그 너머는 못 봄
+          if(!IS_XL) break;                          // 기본: 첫 기물에서 정지
+          if(++pierced >= 2) break;                  // XL: 두 번째 기물에서 정지
         }
       }
     }
   } else if(k === 'JP'){
-    // 어쌔신: 상하좌우 2칸 점프
-    const offs = [[-2,0],[2,0],[0,-2],[0,2]];
+    // 어쌔신: 상하좌우 2칸 점프. XL 강화 = 알리바바 (대각 2칸 점프 추가)
+    const offs = IS_XL
+      ? [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[-2,2],[2,-2],[2,2]]
+      : [[-2,0],[2,0],[0,-2],[0,2]];
     for(const [dr,dc] of offs){
       const nr=r+dr, nc=c+dc;
       if(!inBounds(nr,nc)) continue;
@@ -278,13 +320,14 @@ function pieceMoves(r, c, piece){
     }
   }
 
+  if(IS_XL && XL_EXTRA[k]) addLeaper(r, c, col, XL_EXTRA[k], moves, attacks);
   return { moves, attacks };
 }
 
 // 단순히 "그 칸을 공격할 수 있는가"만 체크 (체크 판정용)
 function canAttack(byColor, tr, tc){
-  for(let r=0;r<8;r++){
-    for(let c=0;c<8;c++){
+  for(let r=0;r<BOARD_N;r++){
+    for(let c=0;c<BOARD_N;c++){
       const p = board[r][c];
       if(!p || p.color !== byColor) continue;
       const {attacks} = pieceMoves(r, c, p);
@@ -297,7 +340,7 @@ function canAttack(byColor, tr, tc){
 }
 
 function findKing(color){
-  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+  for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
     const p = board[r][c];
     if(p && p.color===color && p.kind==='K') return [r,c];
   }
@@ -315,8 +358,8 @@ function isInCheck(color){
 // ===================================================================
 function checkFiveInRow(){
   const dirs = [[0,1],[1,0],[1,1],[1,-1]];
-  for(let r=0;r<8;r++){
-    for(let c=0;c<8;c++){
+  for(let r=0;r<BOARD_N;r++){
+    for(let c=0;c<BOARD_N;c++){
       const p = board[r][c];
       if(!p) continue;
       for(const [dr,dc] of dirs){
@@ -381,7 +424,7 @@ function placeIsIllegal(color, kind, r, c){
 // ===================================================================
 function serializeBoard(){
   let s = turn + '|';
-  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+  for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
     const p = board[r][c];
     s += p ? (p.color + p.kind + ',') : '.';
   }
@@ -492,7 +535,7 @@ function applyAction(action, opts={}){
       board[fr][fc] = null;
       // 폰 프로모션
       if(p.kind === 'P'){
-        if((p.color === 'w' && tr === 0) || (p.color === 'b' && tr === 7)){
+        if((p.color === 'w' && tr === 0) || (p.color === 'b' && tr === LAST_IDX)){
           const promoTo = action.promote || 'Q';
           board[tr][tc] = { color: p.color, kind: promoTo };
         }
@@ -686,7 +729,7 @@ function tycoonCanAct(){
 
 // 해당 색의 폰 나이(생존 턴 수) +1
 function agePawns(color){
-  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+  for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
     const p = board[r][c];
     if(p && p.color === color && p.kind === 'P') p.age = (p.age||0) + 1;
   }
@@ -1377,7 +1420,7 @@ function countDeadPieces(color){
   // INIT_HAND 기준 - 보드 위 현재 + 손패
   const total = {...INIT_HAND};
   const onBoard = {};
-  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+  for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
     const p = board[r][c];
     if(p && p.color === color){
       onBoard[p.kind] = (onBoard[p.kind] || 0) + 1;
@@ -1395,7 +1438,7 @@ function findRevivePosition(kind, color){
   // white 진영: r=5,6,7 / black 진영: r=0,1,2
   const myRows = color === 'w' ? [7,6,5,4] : [0,1,2,3];
   for(const r of myRows){
-    for(let c=0;c<8;c++){
+    for(let c=0;c<BOARD_N;c++){
       if(!board[r][c] && !isCellBlocked(r,c)){
         if(kind === 'SN' && !inCornerZone(r,c)) continue;
         return {r, c};
@@ -1403,7 +1446,7 @@ function findRevivePosition(kind, color){
     }
   }
   // 진영에 없으면 아무 빈 칸
-  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+  for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
     if(!board[r][c] && !isCellBlocked(r,c)) return {r, c};
   }
   return null;
@@ -1464,7 +1507,7 @@ function applyJokerPotion(potionId){
   if(!p) return;
   const cost = POTION_TYPES.joker.cost;
   // 모든 기물 색 swap
-  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+  for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
     if(board[r][c]) board[r][c].color = opp(board[r][c].color);
   }
   // 손패도 swap
@@ -1723,7 +1766,8 @@ function allLegalActions(color){
   // 킹 미배치면 킹 배치만 가능 (단, 자기 킹이 즉시 체크되는 자리는 제외 — 아래 필터에서 걸러짐)
   if(!kingPlaced[color]){
     if(hands[color].K > 0){
-      for(let r=2;r<=5;r++) for(let c=2;c<=5;c++){
+      const z = ZONES.king;
+      for(let r=z[0];r<=z[1];r++) for(let c=z[2];c<=z[3];c++){
         if(!board[r][c]) list.push({type:'place', kind:'K', r, c, color});
       }
     }
@@ -1735,18 +1779,19 @@ function allLegalActions(color){
       if(n <= 0) continue;
       if(kind === 'K') continue; // K 추가 배치 불가 (이미 배치됨)
       if(kind === 'SN'){
-        [[0,0],[0,7],[7,0],[7,7]].forEach(([r,c]) => {
+        ZONES.corners.forEach(([r,c]) => {
           if(!board[r][c]) list.push({type:'place', kind, r, c, color});
         });
       } else {
-        for(let r=2;r<=5;r++) for(let c=1;c<=6;c++){
+        const z = ZONES.gen;
+        for(let r=z[0];r<=z[1];r++) for(let c=z[2];c<=z[3];c++){
           if(!board[r][c]) list.push({type:'place', kind, r, c, color});
         }
       }
     }
   }
   // 보드상 기물 이동
-  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+  for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
     const p = board[r][c];
     if(!p || p.color !== color) continue;
     if(p.kind === 'SN'){
@@ -1804,7 +1849,7 @@ function setBoardSize(){
   if(ww >= 821){
     // 데스크탑: 좌우 패널 240*2 + 패딩
     const avail = Math.min(ww - 540, wh - 100);
-    cellSize = Math.max(40, Math.min(72, Math.floor(avail / 8)));
+    cellSize = Math.max(26, Math.min(72, Math.floor(avail / BOARD_N)));
   } else {
     // 모바일/태블릿: 보드 영역의 실제 폭 기준 (이젠 grid가 auto-row라 폭이 결정 인자)
     const wrap = document.querySelector('.board-wrap');
@@ -1812,9 +1857,10 @@ function setBoardSize(){
     // 세로 여유도 검사 — 카드+손패+탑바 합쳐 대략 320px 정도 여유 두고 클램프
     const availH = Math.max(180, wh - 320);
     const sq = Math.min(availW || (ww-16), availH);
-    cellSize = Math.max(28, Math.min(56, Math.floor(sq / 8)));
+    cellSize = Math.max(20, Math.min(56, Math.floor(sq / BOARD_N)));
   }
   document.documentElement.style.setProperty('--cs', cellSize + 'px');
+  document.documentElement.style.setProperty('--bn', BOARD_N);
 }
 window.addEventListener('resize', setBoardSize);
 window.addEventListener('orientationchange', ()=> setTimeout(setBoardSize, 100));
@@ -1839,8 +1885,8 @@ function logicalCoords(dr, dc){
 
 function renderBoard(){
   boardEl.innerHTML = '';
-  for(let dr=0; dr<8; dr++){
-    for(let dc=0; dc<8; dc++){
+  for(let dr=0; dr<BOARD_N; dr++){
+    for(let dc=0; dc<BOARD_N; dc++){
       const [r,c] = logicalCoords(dr, dc);
       const cell = document.createElement('div');
       cell.className = 'cell ' + ((r+c)%2===0 ? 'lt' : 'dk');
@@ -1854,7 +1900,7 @@ function renderBoard(){
         lab.textContent = rankLabel(r);
         cell.appendChild(lab);
       }
-      if(dr === 7){
+      if(dr === LAST_IDX){
         const lab = document.createElement('span');
         lab.className = 'coord f';
         lab.textContent = fileLabel(c);
@@ -2268,7 +2314,7 @@ function onCellClick(e){
     if(isClickable){
       // 이동 시도
       // 폰 프로모션 체크
-      if(p.kind === 'P' && ((p.color==='w' && r===0)||(p.color==='b' && r===7))){
+      if(p.kind === 'P' && ((p.color==='w' && r===0)||(p.color==='b' && r===LAST_IDX))){
         promptPromotion(p.color).then(promo => {
           submitAction({ type:'move', fr:SEL.r, fc:SEL.c, tr:r, tc:c, promote: promo });
           SEL = null; HIGHLIGHTS = [];
@@ -2357,7 +2403,7 @@ function computeHighlights(r, c, p){
   // 둘 수 없는 수도 이유별로 표시 (SN은 위에서 이미 처리)
   return out.map(h => {
     const a = { type:'move', fr:r, fc:c, tr:h.r, tc:h.c };
-    if(p.kind === 'P' && ((p.color==='w' && h.r===0)||(p.color==='b' && h.r===7))){
+    if(p.kind === 'P' && ((p.color==='w' && h.r===0)||(p.color==='b' && h.r===LAST_IDX))){
       a.promote = 'Q';
     }
     return classifyHighlight(h, a, p);
@@ -2959,7 +3005,7 @@ function aiTurn(){
         const p = board[best.fr][best.fc];
         if(p && p.kind === 'P'){
           if(aiColor === 'w' && best.tr === 0) best.promote = 'Q';
-          else if(aiColor === 'b' && best.tr === 7) best.promote = 'Q';
+          else if(aiColor === 'b' && best.tr === LAST_IDX) best.promote = 'Q';
         }
       }
       submitAction(best);
@@ -2975,7 +3021,7 @@ function aiTurn(){
     const p = board[best.fr][best.fc];
     if(p && p.kind === 'P'){
       if(aiColor === 'w' && best.tr === 0) best.promote = 'Q';
-      else if(aiColor === 'b' && best.tr === 7) best.promote = 'Q';
+      else if(aiColor === 'b' && best.tr === LAST_IDX) best.promote = 'Q';
     }
   }
   submitAction(best);
@@ -3242,8 +3288,8 @@ function findBlock4(list, threatColor){
   // 단순 휴리스틱: 적 색깔로 4연 + 양옆 빈칸 패턴 검사
   const dirs = [[0,1],[1,0],[1,1],[1,-1]];
   const threats = [];
-  for(let r=0;r<8;r++){
-    for(let c=0;c<8;c++){
+  for(let r=0;r<BOARD_N;r++){
+    for(let c=0;c<BOARD_N;c++){
       for(const [dr,dc] of dirs){
         // 4 연속 검사
         const cells = [];
@@ -3297,7 +3343,7 @@ function evaluatePosition(color, genome){
   const g = genome || DEFAULT_GENOME;
   let score = 0;
   // 보드 기물
-  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+  for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
     const p = board[r][c];
     if(!p) continue;
     const v = g[p.kind] || 0;
@@ -3317,8 +3363,8 @@ function countLineThreats(col, genome){
   const g = genome || DEFAULT_GENOME;
   const dirs = [[0,1],[1,0],[1,1],[1,-1]];
   let total = 0;
-  for(let r=0;r<8;r++){
-    for(let c=0;c<8;c++){
+  for(let r=0;r<BOARD_N;r++){
+    for(let c=0;c<BOARD_N;c++){
       for(const [dr,dc] of dirs){
         let count=0;
         for(let i=0;i<5;i++){
@@ -3705,7 +3751,7 @@ function onPeerMessage(data){
     showFlash('상대가 칸을 차단', 1500);
   } else if(data.t === 'POTION_JOKER'){
     // 양쪽 다 색 swap + 보드 회전
-    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
       if(board[r][c]) board[r][c].color = opp(board[r][c].color);
     }
     const tmpHand = {...hands.w}; hands.w = {...hands.b}; hands.b = tmpHand;
@@ -3848,7 +3894,7 @@ function initSpectator(){
 function updateMaterial(){
   // 보드 위 기물의 합 점수
   let wSum = 0, bSum = 0;
-  for(let r=0; r<8; r++) for(let c=0; c<8; c++){
+  for(let r=0; r<BOARD_N; r++) for(let c=0; c<BOARD_N; c++){
     const p = board[r][c];
     if(!p) continue;
     const v = PIECE_VALUES[p.kind] || 0;
@@ -4255,8 +4301,8 @@ function buildReplayCaptureMarks(){
   if(total === 0){ marksEl.innerHTML = ''; return; }
 
   const myColor = MY_COLOR;
-  const FILES = 'abcdefgh';
-  const RANKS = '87654321';
+  const FILES = 'abcdefghijkl';
+  const RANKS = Array.from({length:BOARD_N},(_,i)=>String(BOARD_N-i)).join(',').split(',');
 
   const marks = [];
   _replayData.actions.forEach((meta, i) => {
@@ -4366,8 +4412,8 @@ function describeAction(meta, idx){
   const aColor = a.color || (idx % 2 === 0 ? 'w' : 'b');
   const colorName = aColor === 'w' ? '백' : '흑';
   const colorClass = aColor === 'w' ? 'w' : 'b';
-  const FILES = 'abcdefgh';
-  const RANKS = '87654321';
+  const FILES = 'abcdefghijkl';
+  const RANKS = Array.from({length:BOARD_N},(_,i)=>String(BOARD_N-i)).join(',').split(',');
   function pos(r,c){ return FILES[c] + RANKS[r]; }
   let text = '';
   if(a.type === 'place'){
