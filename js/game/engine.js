@@ -372,15 +372,15 @@ function isBlackCounterFive(color){
   return color === 'b' && checkFiveInRow() === 'b';
 }
 
-// 선공 보정: 백은 자기 첫 2수 동안 체크를 걸 수 없다.
+// 선공 보정: 백은 자기 첫 N수 동안 체크를 걸 수 없다.
 // moveHistory는 수가 완료될 때마다 1개씩 쌓이므로 백의 수 번호 = floor(length/2)+1.
-const WHITE_CHECK_BAN_MOVES = 2;
+const WHITE_CHECK_BAN_MOVES = 3;
 function checkBanned(color){
   return color === 'w' && Math.floor(moveHistory.length / 2) < WHITE_CHECK_BAN_MOVES;
 }
 
 // 지금 이 색이 체크를 걸 수 없는 상태인가?
-//  · 백 첫 2수 (선공 보정)
+//  · 백 첫 N수 (선공 보정)
 //  · 이미 5회를 다 걸어서 다음 체크가 한도 초과
 function checkForbidden(color){
   return checkBanned(color) || (totalChecks[color] || 0) >= 5;
@@ -588,10 +588,10 @@ function applyAction(action, opts={}){
   const next = opp(turn);
   let opponentInCheck = false;
   if(kingPlaced[next] && isInCheck(next)){
-    // 백 선공 보정: 백의 첫 2수는 체크 금지 → 이 수 무효
+    // 백 선공 보정: 백의 첫 N수는 체크 금지 → 이 수 무효
     if(checkBanned(turn)){
       restoreState(snap);
-      return { ok:false, err:'백은 첫 2수 동안 체크할 수 없음', checkRule:true };
+      return { ok:false, err:`백은 첫 ${WHITE_CHECK_BAN_MOVES}수 동안 체크할 수 없음`, checkRule:true };
     }
     opponentInCheck = true;
     if(IS_PEASANT) addMinsim(next, 20);   // 농민 봉기: 킹이 체크당한 진영의 민심 +20%
@@ -1929,7 +1929,7 @@ function renderBoard(){
         if(SEL.piece === 'K') cell.classList.add('king-zone');
         else if(SEL.piece === 'SN') cell.classList.add('corner-zone');
         else cell.classList.add('place-zone');
-        // 놓으면 거절되는 자리는 빨간 점선으로 (백 첫 2수 체크 금지)
+        // 놓으면 거절되는 자리는 빨간 점선으로 (백 첫 N수 체크 금지)
         if(placeGivesBannedCheck(SEL.color, SEL.piece, r, c)) cell.classList.add('place-check');
       }
 

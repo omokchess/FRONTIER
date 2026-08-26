@@ -47,15 +47,15 @@ class EngineTest(unittest.TestCase):
         return s
 
     def test_white_cannot_check_on_first_two_moves(self):
-        for history_len in (0, 2):          # 백의 1수째, 2수째
+        for history_len in (0, 2, 4):       # 백의 1~3수째
             s = self._check_ban_state(history_len)
             res = s.apply(Action('move','w',fr=3,fc=0,tr=0,tc=0))
             self.assertFalse(res.ok, 'history=%d' % history_len)
             self.assertIsNotNone(s.board[3][0])     # 수가 되돌려졌는지
             self.assertEqual(s.total_checks['w'], 0)
 
-    def test_white_can_check_from_third_move(self):
-        s = self._check_ban_state(4)        # 백의 3수째
+    def test_white_can_check_from_fourth_move(self):
+        s = self._check_ban_state(6)        # 백의 4수째
         res = s.apply(Action('move','w',fr=3,fc=0,tr=0,tc=0))
         self.assertTrue(res.ok)
         self.assertTrue(res.opponent_in_check)
