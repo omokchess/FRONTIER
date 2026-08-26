@@ -209,3 +209,19 @@
   text-shadow:0 0 1px var(--ink),0 0 2px var(--ink),0 1px 1px var(--ink),
               0 -1px 1px var(--ink),1px 0 1px var(--ink),-1px 0 1px var(--ink)
 }
+
+/* ===== 로비 헤더를 카드로 =====
+   augmentchess의 .docs-header 패턴. 로고·언어 선택이 배경 위에 떠 있어
+   본문 카드들과 층위가 안 맞던 것을 한 장으로 묶는다. */
+@media (min-width:769px){
+  [data-theme] .head{
+    padding:14px 20px;
+    border:2px solid var(--ink);
+    border-radius:8px;
+    background:var(--panel);
+    box-shadow:var(--card-shadow);
+    justify-content:space-between;
+    text-align:left;
+  }
+  [data-theme] .head .brand{text-align:left}
+}
