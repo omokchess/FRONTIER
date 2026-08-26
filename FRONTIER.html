@@ -11,17 +11,17 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <!-- 다국어(i18n): 사전 먼저, 그다음 엔진 -->
-<script src="js/i18n-dict.js?v=8"></script>
-<script src="js/i18n.js?v=8"></script>
+<script src="js/i18n-dict.js?v=9"></script>
+<script src="js/i18n.js?v=9"></script>
 <!-- Game modules (split from monolith FRONTIER.html) -->
-<script src="js/game/utils.js?v=8"></script>
-<script src="js/game/firebase.js?v=8"></script>
-<script src="js/game/timer.js?v=8"></script>
-<script src="js/game/chat.js?v=8"></script>
-<script src="js/game/elo.js?v=8"></script>
-<script src="js/game/network.js?v=8"></script>
-<link rel="stylesheet" href="css/theme.css?v=8">
-<script src="js/theme.js?v=8"></script>
+<script src="js/game/utils.js?v=9"></script>
+<script src="js/game/firebase.js?v=9"></script>
+<script src="js/game/timer.js?v=9"></script>
+<script src="js/game/chat.js?v=9"></script>
+<script src="js/game/elo.js?v=9"></script>
+<script src="js/game/network.js?v=9"></script>
+<link rel="stylesheet" href="css/theme.css?v=9">
+<script src="js/theme.js?v=9"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -128,15 +128,20 @@ input{font-family:inherit;outline:none}
 .cell.place-zone::before,.cell.corner-zone::before{
   content:'';position:absolute;inset:2px;border:3px dashed rgba(21,23,25,.78);
   border-radius:4px;pointer-events:none}
-/* 점선 색은 칸 색에 맞춰 뒤집는다 — 밝은 칸엔 검정, 어두운 칸엔 흰색 */
+/* 점선 색은 칸 실제 밝기에 맞춘다. 값은 테마가 정한다(theme.css의 --dash-lt/--dash-dk)
+   — 낮 모드의 '어두운 칸'(#99a2a0)은 중간 회색이라 흰 점선이 묻히기 때문. */
 .cell.lt.place-zone::before,.cell.lt.corner-zone::before,.cell.lt.king-zone::before{
-  border-color:rgba(21,23,25,.78)}
+  border-color:var(--dash-lt,rgba(21,23,25,.78))}
 .cell.dk.place-zone::before,.cell.dk.corner-zone::before,.cell.dk.king-zone::before{
-  border-color:rgba(255,254,250,.88)}
+  border-color:var(--dash-dk,rgba(255,254,250,.88))}
 /* 놓으면 체크가 되어 거절되는 칸 (백 첫 2수 체크 금지) — 빨간 점선.
    위 lt/dk 규칙과 명시도가 같으므로 반드시 뒤에 와야 이긴다. */
 .cell.lt.place-check::before,.cell.dk.place-check::before{
-  border-color:rgba(255,69,58,.95);box-shadow:0 0 10px rgba(255,69,58,.35)}
+  border-color:rgba(255,69,58,.95)}
+/* 빨강은 어느 칸에서도 휘도 대비가 3:1을 못 넘는다(밤 2.1 / 낮 어두운칸 1.3).
+   선만으로는 안 읽히므로 틴트를 같이 얹어 '색'으로 구분되게 한다. */
+.cell.place-check::after{
+  content:'';position:absolute;inset:0;background:rgba(255,69,58,.24);pointer-events:none}
 .cell.move::after{content:'';position:absolute;width:30%;height:30%;background:rgba(48,209,88,.55);border-radius:50%;pointer-events:none}
 .cell.attack::after{content:'';position:absolute;inset:8%;border:3px solid rgba(255,69,58,.65);border-radius:50%;pointer-events:none}
 /* 스나이퍼 사정거리 시각화 */
@@ -1445,13 +1450,13 @@ body.board-flipped .cell{transform:rotate(180deg)}
   <div class="replay-list" id="replayList" style="display:none"></div>
 </div>
 
-<script src="js/game/engine.js?v=8"></script>
+<script src="js/game/engine.js?v=9"></script>
 
 <!-- Python AI Worker bridge: AI 대전 URL에 pyai=1이 있을 때 활성화 -->
 <script>
   window.FRONTIER_AI_API = window.FRONTIER_AI_API || 'https://frontier-python-ai.onrender.com';
 </script>
-<script src="js/game/python-ai-client.js?v=8"></script>
+<script src="js/game/python-ai-client.js?v=9"></script>
 
 </body>
 </html>
