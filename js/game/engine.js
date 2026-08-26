@@ -675,6 +675,7 @@ function syncLocalInventory(){
   myInventory = window._localInv[turn];
   myPoints = window._localPts[turn];
   oppInventoryCount = window._localInv[opp(turn)].length;
+  oppPoints = window._localPts[opp(turn)];
 }
 
 function handlePotionTurnStart(newTurnColor){
@@ -938,33 +939,47 @@ function renderPotionUI(){
     }
   } else {
     if(container) container.style.display = 'none';
+    const oppC = document.getElementById('potionInvContainerOpp');
+    if(oppC) oppC.style.display = 'none';
     if(fab){ fab.classList.remove('show-potion'); fab.style.display = 'none'; }
     return;
   }
-  if(!container) return;
-  const myCount = myInventory.length;
-  const oppCount = IS_LOCAL || IS_AI ? (window._localOppInv || []).length : oppInventoryCount;
-  container.innerHTML = `
-    <button class="potion-open-btn" onclick="openPotionInventoryModal()">
+  // 진영마다 패널 하나씩 — 오른쪽은 MY_COLOR, 왼쪽은 그 반대색.
+  renderPotionPanel(container, MY_COLOR);
+  renderPotionPanel(document.getElementById('potionInvContainerOpp'), opp(MY_COLOR));
+}
+
+function renderPotionPanel(el, color){
+  if(!el) return;
+  el.style.display = 'block';
+  const st = potionStateOf(color);
+  const active = canActPotion(color);
+  const label = (color === 'w' ? '백' : '흑') + ' 물약';
+  const pts = st.points === null ? '???' : st.points + 'P';
+  el.innerHTML = `
+    <button class="potion-open-btn${active ? '' : ' dim'}"
+            ${active ? `onclick="openPotionInventoryModal('${color}')"` : 'disabled'}>
       <div class="pot-btn-icon">${potionSvg('revive', 48)}</div>
-      <div class="pot-btn-label">물약</div>
+      <div class="pot-btn-label">${label}</div>
       <div class="pot-btn-meta">
-        <span class="pot-btn-count">${myCount}/${MAX_INVENTORY_SIZE}</span>
-        <span class="pot-btn-p">💰 ${myPoints}P</span>
+        <span class="pot-btn-count">${st.count}/${MAX_INVENTORY_SIZE}</span>
+        <span class="pot-btn-p">💰 ${pts}</span>
       </div>
-      ${myCount > 0 ? `<div class="pot-btn-badge">${myCount}</div>` : ''}
+      ${st.count > 0 ? `<div class="pot-btn-badge">${st.count}</div>` : ''}
     </button>
-    <div class="pot-opp-summary">
-      <span>상대</span>
-      <span>🧪 ${oppCount}</span>
-      <span>💰 ${IS_LOCAL || IS_AI ? oppPoints + 'P' : '???'}</span>
-    </div>
   `;
 }
 
 // 인벤토리 모달
-window.openPotionInventoryModal = function(){
+window.openPotionInventoryModal = function(color){
   if(!IS_POTION) return;
+  const target = color || (IS_LOCAL ? turn : MY_COLOR);
+  if(!canActPotion(target)){
+    showFlash(`${target === 'w' ? '백' : '흑'} 차례가 아닙니다`);
+    return;
+  }
+  // 로컬은 myInventory가 '지금 두는 쪽'을 가리켜야 모달 내부 로직이 맞는다
+  if(IS_LOCAL) syncLocalInventory();
   document.getElementById('potionInvModal').classList.add('show');
   renderPotionInventoryModal();
 };
@@ -1114,6 +1129,26 @@ function updatePointsUI(){ renderPotionUI(); }
 // ===== 인벤토리 클릭 → 사용/취소 메뉴 =====
 let _pendingPotion = null; // 현재 선택된 물약 (사용 대기)
 let _pendingMerge = null;  // 합체 대기 (드래그 출발)
+
+// 색깔별 물약 상태. myInventory/myPoints는 '지금 두는 쪽'의 뷰라서
+// 패널을 양쪽에 그리려면 색으로 직접 조회할 수단이 필요하다.
+function potionStateOf(color){
+  if(IS_LOCAL){
+    const inv = (window._localInv && window._localInv[color]) || [];
+    const pts = (window._localPts && window._localPts[color]) || 0;
+    return { count: inv.length, points: pts };
+  }
+  if(color === MY_COLOR) return { count: myInventory.length, points: myPoints };
+  // 상대 인벤 내용·포인트는 비공개 (공개는 엿보기 물약의 역할). 개수만 노출.
+  return { count: IS_AI ? (window._localOppInv || []).length : oppInventoryCount, points: null };
+}
+
+// 그 색의 물약을 지금 조작할 수 있는가
+function canActPotion(color){
+  if(!IS_POTION || gameOver || IS_REPLAY || IS_SPEC) return false;
+  if(turn !== color) return false;
+  return IS_LOCAL ? true : color === MY_COLOR;
+}
 
 function isMyTurnForPotion(){
   if(IS_REPLAY || IS_SPEC || gameOver) return false;
