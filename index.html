@@ -6,7 +6,7 @@
 <title>FRONTIER — 체스 × 오목 하이브리드 보드게임 | 무료 온라인 플레이</title>
 <!-- ===== SEO / 검색 노출 ===== -->
 <meta name="google-site-verification" content="egXSFyRhZBb6tFdqr4xijc45BG2vUyFUXNkmk94Wifk" />
-<meta name="description" content="FRONTIER(프론티어)는 체스의 전략과 오목(5목)의 짜릿함을 합친 무료 온라인 보드게임입니다. AI 대전, 친구와 온라인 대국, 물약·농민봉기·타이쿤 변형 모드, ELO 랭킹과 칭호를 즐겨보세요.">
+<meta name="description" content="FRONTIER(프론티어)는 체스의 전략과 오목(5목)의 짜릿함을 합친 무료 온라인 보드게임입니다. AI 대전, 친구와 온라인 대국, 물약·타이쿤·XL 변형 모드, ELO 랭킹과 칭호를 즐겨보세요.">
 <meta name="keywords" content="FRONTIER, 프론티어, 프론티어 뒤엎기, 체스 오목, 오목 체스, 보드게임, 온라인 보드게임, 체스 게임, 오목 게임, 웹게임, AI 체스, 5목">
 <meta name="author" content="omokchess">
 <meta name="robots" content="index, follow">
@@ -56,12 +56,12 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <!-- 다국어(i18n): 사전 먼저, 그다음 엔진 -->
-<script src="js/i18n-dict.js?v=16"></script>
-<script src="js/i18n.js?v=16"></script>
-<script src="js/lobby/daily.js?v=16"></script>
-<script src="js/lobby/titles.js?v=16"></script>
-<link rel="stylesheet" href="css/theme.css?v=16">
-<script src="js/theme.js?v=16"></script>
+<script src="js/i18n-dict.js?v=17"></script>
+<script src="js/i18n.js?v=17"></script>
+<script src="js/lobby/daily.js?v=17"></script>
+<script src="js/lobby/titles.js?v=17"></script>
+<link rel="stylesheet" href="css/theme.css?v=17">
+<script src="js/theme.js?v=17"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -866,12 +866,6 @@ input{font-family:inherit;outline:none}
 .mode.mode-potion .mt{color:#d68fff}
 .mode.mode-potion .icon{background:linear-gradient(135deg,#bf5af2,#7c2bce)}
 .mode.mode-potion .icon svg{color:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
-/* 모드 카드 — 농민 봉기 (갈색) */
-.mode.mode-peasant{border-color:rgba(160,82,45,.5);background:linear-gradient(135deg, var(--panel), rgba(160,82,45,.10))}
-.mode.mode-peasant:hover{border-color:#a0522d;box-shadow:0 0 0 1px #a0522d, 0 0 14px rgba(160,82,45,.3)}
-.mode.mode-peasant .mt{color:#c8814f}
-.mode.mode-peasant .icon{background:linear-gradient(135deg,#a0522d,#6b3410)}
-.mode.mode-peasant .icon svg{color:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
 /* 모드 카드 — 타이쿤 (골드) */
 .mode.mode-tycoon{border-color:rgba(245,200,66,.5);background:linear-gradient(135deg, var(--panel), rgba(245,200,66,.10))}
 .mode.mode-tycoon:hover{border-color:#f5c842;box-shadow:0 0 0 1px #f5c842, 0 0 14px rgba(245,200,66,.3)}
@@ -994,7 +988,7 @@ body{background:var(--bg)}
   <div class="login-card">
     <h1 class="login-logo">FRONTIER</h1>
     <div class="login-sub">체스 × 오목 하이브리드</div>
-    <p class="login-seo">체스의 전략과 오목(5목)의 짜릿함을 합친 무료 온라인 보드게임. AI 대전, 친구와의 온라인 대국, 물약·농민 봉기·타이쿤 변형 모드, ELO 랭킹과 칭호까지.</p>
+    <p class="login-seo">체스의 전략과 오목(5목)의 짜릿함을 합친 무료 온라인 보드게임. AI 대전, 친구와의 온라인 대국, 물약·타이쿤·XL 변형 모드, ELO 랭킹과 칭호까지.</p>
 
     <div id="loginStep" class="login-step">
       <div class="login-desc">계정으로 시작하세요</div>
@@ -1092,11 +1086,6 @@ body{background:var(--bg)}
           <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg></div>
           <div class="mt">물약 모드</div>
           <div class="md">5종 물약으로 즐기는 변형 모드</div>
-        </button>
-        <button class="mode mode-peasant" onclick="openPeasantStartModal()">
-          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8 6 6 9 6 13a6 6 0 0 0 12 0c0-4-2-7-6-11z"/></svg></div>
-          <div class="mt">농민 봉기</div>
-          <div class="md">민심이 끓어오르면 기물이 변형되는 변형 모드</div>
         </button>
         <button class="mode mode-tycoon" onclick="openTycoonStartModal()">
           <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.5 9a2.5 2 0 0 0-2.5-1.5c-1.5 0-2.5.8-2.5 2s1 1.7 2.5 2 2.5.8 2.5 2-1 2-2.5 2a2.5 2 0 0 1-2.5-1.5"/><path d="M12 6v1.5M12 16.5V18"/></svg></div>
@@ -1379,30 +1368,6 @@ body{background:var(--bg)}
       <div class="actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
         <button class="btn btn-ghost" onclick="closePotionStartModal()">취소</button>
         <button class="btn btn-tutorial" onclick="location.href='tutorial.html?mode=potion'" style="background:linear-gradient(135deg,rgba(191,90,242,.2),rgba(191,90,242,.08));border:1px solid rgba(191,90,242,.5);color:#d68fff">📖 튜토리얼</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 농민 봉기 시작 모달 -->
-  <div class="modal" id="peasantStartModal" onclick="if(event.target.id==='peasantStartModal') closePeasantStartModal()">
-    <div class="modal-card" style="max-width:420px;width:92%">
-      <h3 style="text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c8814f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8 6 6 9 6 13a6 6 0 0 0 12 0c0-4-2-7-6-11z"/></svg>
-        농민 봉기 시작
-      </h3>
-      <p style="font-size:13px;color:var(--muted);text-align:center;margin-bottom:14px">어떤 방식으로 플레이할까요?</p>
-      <div class="opts">
-        <div class="opt" onclick="startPeasantMode('local')">
-          <b>로컬 2인</b>
-          <span>한 기기에서 두 명이 번갈아</span>
-        </div>
-        <div class="opt" onclick="startPeasantMode('online')">
-          <b>온라인 방 만들기</b>
-          <span>온라인 친구한테 비공개 방 초대</span>
-        </div>
-      </div>
-      <div class="actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
-        <button class="btn btn-ghost" onclick="closePeasantStartModal()">취소</button>
       </div>
     </div>
   </div>
@@ -1733,31 +1698,6 @@ function renderLocalSetup(){
     각 진영 총 기물 수: <b style="color:var(--gold)">${total}</b><br>
     총 시간: <b style="color:var(--gold)">${tlabel}</b> (체스식 누적)`;
 }
-
-window.openPeasantStartModal = function(){
-  document.getElementById('peasantStartModal').classList.add('show');
-};
-window.closePeasantStartModal = function(){
-  document.getElementById('peasantStartModal').classList.remove('show');
-};
-window.startPeasantMode = function(mode){
-  closePeasantStartModal();
-  if(mode === 'online'){
-    // 온라인 방 만들기 페이지로 + peasant 자동 활성 플래그
-    if(!MY_UID){ alert('로그인이 완료되지 않았습니다. 잠시 후 다시 시도하세요.'); return; }
-    const params = new URLSearchParams({uid:MY_UID, nick:MY_NICK, tag:MY_TAG||'', elo: getEloForMode(false), peasant:'1'});
-    if(typeof appendTitleParams === 'function') appendTitleParams(params);
-    location.href = 'create-room.html?' + params.toString();
-  } else {
-    startPeasantGame();
-  }
-};
-window.startPeasantGame = function(){
-  // 농민 봉기: 로컬 2인 + peasant=1 (표준 기물 구성)
-  const params = new URLSearchParams({ mode:'local', hand:'K1Q1R2B2N2P8SH0SN0JP0', time:'unlimited', peasant:'1' });
-  if(typeof appendTitleParams === 'function') appendTitleParams(params);
-  location.href = 'FRONTIER.html?' + params.toString();
-};
 
 window.openTycoonStartModal = function(){
   document.getElementById('tycoonStartModal').classList.add('show');
@@ -2553,7 +2493,7 @@ window.startTutorial = function(){
     try { await _fbDb.ref(`invitations/${MY_UID}/${inv.fromUid}`).remove(); } catch(_){}
     const code = inv.roomCode;
     if(!code){ alert('방 코드가 없는 초대입니다.'); return; }
-    // 방 설정 읽기 (hand/potion/peasant/시간 등을 URL로 전달해야 함)
+    // 방 설정 읽기 (hand/potion/시간 등을 URL로 전달해야 함)
     let r;
     try {
       const snap = await _fbDb.ref('rooms/'+code).once('value');
@@ -2574,7 +2514,6 @@ window.startTutorial = function(){
       hand:r.hand||'K1Q1R2B2N2P8SH0SN0JP0'
     });
     if(r.potion) params.set('potion','1');
-    if(r.peasant) params.set('peasant','1');
     if(r.tycoon) params.set('tycoon','1');
     appendTitleParams(params);
     location.href = 'FRONTIER.html?'+params.toString();
@@ -3958,7 +3897,6 @@ window.startTutorial = function(){
       hand:r.hand||'K1Q1R2B2N2P8SH0SN0JP0'
     });
     if(r.potion) params.set('potion','1');
-    if(r.peasant) params.set('peasant','1');
     if(r.tycoon) params.set('tycoon','1');
     appendTitleParams(params);
     location.href = 'FRONTIER.html?'+params.toString();
@@ -3973,7 +3911,6 @@ window.startTutorial = function(){
       hand:r.hand||'K1Q1R2B2N2P8SH0SN0JP0'
     });
     if(r.potion) params.set('potion','1');
-    if(r.peasant) params.set('peasant','1');
     if(r.tycoon) params.set('tycoon','1');
     appendTitleParams(params);
     location.href = 'FRONTIER.html?'+params.toString();
