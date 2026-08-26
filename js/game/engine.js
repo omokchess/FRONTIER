@@ -2380,8 +2380,18 @@ function onCellClick(e){
   }
 }
 
-// 참고: 이동/공격은 computeHighlights 끝의 res.ok 필터가 이미 걸러낸다
-// (체크 금지 거절도 ok:false라 하이라이트에서 아예 빠짐). 배치만 별도 처리가 필요했다.
+// 하이라이트 후보 하나를 판정한다.
+//   합법            → 그대로
+//   체크 금지로 거절 → 'blocked' (빨간 점, 클릭 불가)
+//   그 외 거절(자기 킹 노출 등) → null (표시 안 함)
+function classifyHighlight(h, action){
+  const snap = snapshotState();
+  const res = applyAction(action, { silent:true });
+  restoreState(snap);
+  if(res.ok) return h;
+  return res.checkRule ? { ...h, type:'blocked' } : null;
+}
+
 function computeHighlights(r, c, p){
   const out = [];
   if(p.kind === 'SN'){
@@ -2413,14 +2423,10 @@ function computeHighlights(r, c, p){
         // 우군: 표시 안 함, 그러나 그 너머 셀도 보이도록 break하지 않음
       }
     }
-    // 자기 킹 노출 검증 (attack/blocked만 필터; sniper-range는 클릭 무동작이라 스킵)
-    return out.filter(h => {
-      if(h.type !== 'attack') return true;  // 시각 전용은 그대로 통과
-      const snap = snapshotState();
-      const res = applyAction({type:'move', fr:r, fc:c, tr:h.r, tc:h.c}, {silent:true});
-      restoreState(snap);
-      return res.ok;
-    });
+    // 자기 킹 노출 검증 (attack만 판정; sniper-range/blocked는 클릭 무동작이라 스킵)
+    return out.map(h => h.type !== 'attack' ? h
+        : classifyHighlight(h, {type:'move', fr:r, fc:c, tr:h.r, tc:h.c}))
+      .filter(Boolean);
   } else if(p.kind === 'SH'){
     const dy = (p.color === 'w') ? -1 : 1;
     for(const ddy of [dy, -dy]){
@@ -2435,17 +2441,14 @@ function computeHighlights(r, c, p){
     for(const [tr,tc] of moves) out.push({r:tr, c:tc, type:'move'});
     for(const [tr,tc] of attacks) out.push({r:tr, c:tc, type:'attack'});
   }
-  // 자기 킹 노출되는 수 제거 (SN은 위에서 이미 처리)
-  return out.filter(h => {
-    const snap = snapshotState();
+  // 자기 킹 노출되는 수 제거 + 체크 금지 수는 'blocked'로 (SN은 위에서 이미 처리)
+  return out.map(h => {
     const a = { type:'move', fr:r, fc:c, tr:h.r, tc:h.c };
     if(p.kind === 'P' && ((p.color==='w' && h.r===0)||(p.color==='b' && h.r===7))){
       a.promote = 'Q';
     }
-    const res = applyAction(a, {silent:true});
-    restoreState(snap);
-    return res.ok;
-  });
+    return classifyHighlight(h, a);
+  }).filter(Boolean);
 }
 
 // 프로모션 모달
