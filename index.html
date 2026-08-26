@@ -60,8 +60,8 @@
 <script src="js/i18n.js"></script>
 <script src="js/lobby/daily.js"></script>
 <script src="js/lobby/titles.js"></script>
-<link rel="stylesheet" href="css/theme.css?v=4">
-<script src="js/theme.js?v=4"></script>
+<link rel="stylesheet" href="css/theme.css?v=5">
+<script src="js/theme.js?v=5"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -474,7 +474,9 @@ input{font-family:inherit;outline:none}
 
   /* 프로필은 헤더 카드로 (내 페이지의 큰 프로필과 중복 제거) */
   .head .profile{display:flex}
-  .head{justify-content:space-between}
+  /* .body-layout의 padding:0 24px 때문에 아래 섹션들만 안쪽으로 들어간다.
+     헤더에도 같은 값을 줘서 좌우 끝을 맞춘다. */
+  .head{justify-content:space-between;margin-left:24px;margin-right:24px}
   .tab-panel .big-profile{display:none}
 
   /* 친구/차단 목록은 메뉴가 아니라 목록 — 맨 아래로 */
