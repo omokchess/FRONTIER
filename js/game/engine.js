@@ -398,10 +398,17 @@ function actionBlockedByCheckRule(action){
   return !!(res && res.checkRule);
 }
 
-// 배치 하이라이트용 래퍼 — 빈 칸만 대상.
-function placeGivesBannedCheck(color, kind, r, c){
+// 그 칸에 놓으면 거절되는가? (배치 하이라이트를 빨갛게 칠하는 판정)
+// 체크 금지뿐 아니라 '자기 킹이 체크됨'(킹을 상대 킹 옆에 두는 경우)도 포함한다.
+function placeIsIllegal(color, kind, r, c){
   if(board[r][c]) return false;
-  return actionBlockedByCheckRule({ type:'place', color, kind, r, c });
+  // 킹은 상대 킹 인접이 항상 불법이라 늘 검사. 그 외는 체크 금지 상태에서만
+  // 검사하면 되므로 평상시엔 시뮬레이션을 건너뛴다.
+  if(kind !== 'K' && !checkForbidden(color)) return false;
+  const snap = snapshotState();
+  const res = applyAction({ type:'place', color, kind, r, c }, { silent:true });
+  restoreState(snap);
+  return !res.ok;
 }
 
 // ===================================================================
@@ -1965,7 +1972,7 @@ function renderBoard(){
         else if(SEL.piece === 'SN') cell.classList.add('corner-zone');
         else cell.classList.add('place-zone');
         // 놓으면 거절되는 자리는 빨간 점선으로 (백 첫 N수 체크 금지)
-        if(placeGivesBannedCheck(SEL.color, SEL.piece, r, c)) cell.classList.add('place-check');
+        if(placeIsIllegal(SEL.color, SEL.piece, r, c)) cell.classList.add('place-check');
       }
 
       // 기물
@@ -2352,7 +2359,7 @@ function onCellClick(e){
     // 조건은 renderBoard의 place-check 부여 조건과 정확히 같아야 한다.
     // (점유된 칸까지 삼키면 '다른 칸 클릭 = 선택 취소'가 막힌다)
     if(!board[r][c] && canPlaceHere(SEL.color, SEL.piece, r, c)
-       && placeGivesBannedCheck(SEL.color, SEL.piece, r, c)) return;
+       && placeIsIllegal(SEL.color, SEL.piece, r, c)) return;
     if(canPlaceHere(SEL.color, SEL.piece, r, c) && !board[r][c]){
       submitAction({ type:'place', kind:SEL.piece, r, c, color:SEL.color });
       SEL = null; HIGHLIGHTS = [];
