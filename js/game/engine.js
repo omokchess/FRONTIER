@@ -158,10 +158,10 @@ const opp = c => c === 'w' ? 'b' : 'w';
 
 // 배치 영역 — 판 크기에 맞춰 스케일.
 //   8x8 : 일반 rows2-5/cols1-6, 킹 rows2-5/cols2-5, 스나이퍼 4꼭짓점
-//   12x12: 일반 rows3-8/cols2-9, 킹 rows4-7/cols4-7,
+//   12x12: 일반 rows3-8/cols2-9, 킹 rows2-9/cols2-9 (8x8),
 //          스나이퍼는 바깥 12x12 모서리 4곳 + 안쪽 8x8 영역 모서리 4곳 = 8곳
 const ZONES = IS_XL
-  ? { gen:[3,8,2,9], king:[4,7,4,7], corners:[[0,0],[0,11],[11,0],[11,11],[2,2],[2,9],[9,2],[9,9]] }
+  ? { gen:[3,8,2,9], king:[2,9,2,9], corners:[[0,0],[0,11],[11,0],[11,11],[2,2],[2,9],[9,2],[9,9]] }
   : { gen:[2,5,1,6], king:[2,5,2,5], corners:[[0,0],[0,7],[7,0],[7,7]] };
 
 function inGeneralZone(r,c){ const z=ZONES.gen;  return r>=z[0] && r<=z[1] && c>=z[2] && c<=z[3]; }
@@ -378,7 +378,7 @@ function isBlackCounterFive(color){
 
 // 선공 보정: 백은 자기 첫 N수 동안 체크를 걸 수 없다.
 // moveHistory는 수가 완료될 때마다 1개씩 쌓이므로 백의 수 번호 = floor(length/2)+1.
-const WHITE_CHECK_BAN_MOVES = 3;
+const WHITE_CHECK_BAN_MOVES = 2;
 function checkBanned(color){
   return color === 'w' && Math.floor(moveHistory.length / 2) < WHITE_CHECK_BAN_MOVES;
 }

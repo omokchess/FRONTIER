@@ -64,14 +64,79 @@
          ${BASE}`,
   };
 
+  // ===================================================================
+  // XL 전용 강화 기물
+  // 기본 실루엣을 유지하되 '덧붙은 행마법'이 형태로 드러나게 한다.
+  //   Q·R·B는 나이트 행마를 얻으므로 축소 말머리를 얹는다 (체스 변종의 관례:
+  //   아마존/챈슬러/아크비숍은 원래 해당 기물 + 나이트 머리로 그린다)
+  //   N은 킹 행마를 얻으므로 십자를, 나머지는 늘어난 방향을 눈금으로.
+  // ===================================================================
+
+  // 축소 말머리 — 강화 표식. transform으로 위치·크기를 잡는다.
+  // (scale이 stroke도 같이 줄여서 작은 표식이 가늘어지는 게 오히려 자연스럽다)
+  const miniKnight = (cx, cy, k) =>
+    `<path transform="translate(${cx} ${cy}) scale(${k}) translate(-6 -7)"
+       d="M0 13c0-3.4 2-6 4.8-7.2L3.4 0l5 2.8C11.4 4.2 13 7 13 10.6V14H1z"/>`;
+
+  const XL_SHAPES = {
+    // 아마존 — 퀸 왕관 가운데 구슬을 말머리로
+    Q: `<circle cx="8" cy="12.5" r="2.5"/><circle cx="15" cy="10" r="2.3"/>
+        <circle cx="30" cy="10" r="2.3"/><circle cx="37" cy="12.5" r="2.5"/>
+        <path d="M9 15l3.5 17h20L36 15l-5 6-3-8-5.5 8-5.5-8-3 8z"/>
+        ${miniKnight(22.5, 8, 0.62)}
+        ${BASE}`,
+    // 챈슬러 — 성탑 위로 말머리
+    R: `<path d="M11 14h5v3h4v-3h5v3h4v-3h5v5l-3 3v10l3 3v4H11v-4l3-3V22l-3-3z"/>
+        ${miniKnight(22.5, 7, 0.58)}`,
+    // 아크비숍 — 주교관 꼭대기 구슬 대신 말머리
+    B: `<path d="M22.5 14c-5 0-9 6-9 11 0 3.5 2 5.5 4 7h10c2-1.5 4-3.5 4-7 0-5-4-11-9-11z"/>
+        <path d="M22.5 18v8M18.5 22h8"/>
+        ${miniKnight(22.5, 8.5, 0.58)}
+        ${BASE}`,
+    // 켄타우로스 — 말머리 + 킹의 십자 (킹 행마 획득)
+    N: `<path d="M10 23c0-5 4-9 9-10.5L17.5 7l8 4.5c6.5 2 9 8.5 9 16.5V32H13.5c0-5 3.5-7.5 7-9.5
+                c-4 0-8 0-10.5-1.5z"/>
+        <circle cx="21.5" cy="15.5" r="1.4" class="pc-dot"/>
+        <circle cx="12.8" cy="21.6" r="1" class="pc-dot"/>
+        <path d="M30 2v7M26.5 5.5h7" class="pc-mark"/>
+        ${BASE}`,
+    // 강화 폰 — 좌우 화살표 (옆 한 칸 이동)
+    P: `<circle cx="22.5" cy="12" r="5.2"/>
+        <path d="M17 20h11l3 12H14z"/>
+        <path d="M12.5 25.5h-4M8.5 25.5l2.2-2.2M8.5 25.5l2.2 2.2
+                 M32.5 25.5h4M36.5 25.5l-2.2-2.2M36.5 25.5l-2.2 2.2" class="pc-mark"/>
+        ${BASE}`,
+    // 강화 방패 — 꺾쇠 두 겹 (한 번에 두 칸)
+    SH: `<path d="M22.5 6L32 9.5V18c0 7-4.5 11.5-9.5 14-5-2.5-9.5-7-9.5-14V9.5z"/>
+         <path d="M17.5 17l5-4 5 4M17.5 21.5l5-4 5 4
+                  M17.5 23.5l5 4 5-4M17.5 28l5 4 5-4" class="pc-mark"/>
+         ${BASE}`,
+    // 강화 스나이퍼 — 눈금이 판 끝까지 뻗고, 좌우는 관통을 뜻해 끊긴 이중 눈금
+    SN: `<path d="M17.5 17h10l2.5 15H15z"/>
+         <circle cx="22.5" cy="11" r="6.5"/>
+         <circle cx="22.5" cy="11" r="2.4" class="pc-mark"/>
+         <path d="M22.5 1v4M8 11h3.5M13.5 11h2.5M29 11h2.5M34 11h3.5" class="pc-mark"/>
+         ${BASE}`,
+    // 알리바바 — 후드 + 네 모서리 대각 눈금 (대각 2칸 도약 추가)
+    JP: `<path d="M22.5 4c5.5 2 9 7 8.5 13-.5 7-4 12-8.5 15-4.5-3-8-8-8.5-15C13.5 11 17 6 22.5 4z"/>
+         <path d="M18 17h9" class="pc-mark"/>
+         <path d="M8 8l3.5 3.5M37 8l-3.5 3.5M8 27l3.5-3.5M37 27l-3.5-3.5" class="pc-mark"/>
+         ${BASE}`
+  };
+
   // 백/흑 팔레트. 채움과 윤곽을 뒤집기만 하면 두 진영이 나온다.
   const PALETTE = {
     w: { fill: '#F7F5EF', line: '#16181A' },
     b: { fill: '#1D2226', line: '#F2F0EA' }
   };
 
-  window.pieceSvg = function pieceSvg(kind, color, size){
-    const shape = SHAPES[kind];
+  // XL 모드에서는 강화 도형을 쓴다. engine.js의 IS_XL은 pieces.js보다 나중에
+  // 정의되므로 호출 시점에 typeof로 확인한다 (로비에는 IS_XL 자체가 없다).
+  const useXl = () => typeof IS_XL !== 'undefined' && IS_XL;
+
+  window.pieceSvg = function pieceSvg(kind, color, size, forceXl){
+    const xl = forceXl === undefined ? useXl() : forceXl;
+    const shape = (xl && XL_SHAPES[kind]) || SHAPES[kind];
     if(!shape) return '';
     const p = PALETTE[color] || PALETTE.w;
     const px = size ? `width="${size}" height="${size}"` : 'width="100%" height="100%"';
@@ -86,8 +151,8 @@
   };
 
   // 텍스트 흐름 안에 끼워 넣을 때 (기보/리플레이 로그 등)
-  window.pieceSvgInline = function pieceSvgInline(kind, color, size){
+  window.pieceSvgInline = function pieceSvgInline(kind, color, size, forceXl){
     return `<span class="pc-inline" style="width:${size}px;height:${size}px">${
-      window.pieceSvg(kind, color, size)}</span>`;
+      window.pieceSvg(kind, color, size, forceXl)}</span>`;
   };
 })();

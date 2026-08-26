@@ -30,6 +30,7 @@
   --dash-dk:rgba(21,23,25,.80);
 
   --ink:#202326;                /* 테두리용 잉크 */
+  --trail:#6E56CF;              /* 마지막 수 잔상 — 청록(이동)·빨강(금지)과 겹치지 않는 색 */
   --ink-on:#FFFEFA;             /* 잉크 위 글자색 */
   --card-shadow:0 6px 0 rgba(32,36,38,.14);
   --card-shadow-sm:0 3px 0 rgba(32,36,38,.16);
@@ -58,6 +59,7 @@
 
   --ink:rgba(247,245,239,.30);
   --ink-on:#14171A;
+  --trail:#A78BFA;              /* 마지막 수 잔상 */
   --card-shadow:0 6px 0 rgba(0,0,0,.42);
   --card-shadow-sm:0 3px 0 rgba(0,0,0,.42);
   --board-shadow:0 18px 46px rgba(0,0,0,.5);
@@ -146,7 +148,11 @@
   inset:8%;border:4px solid var(--red);opacity:.7;background:transparent
 }
 [data-theme] .cell.sel{background:color-mix(in srgb, var(--blue) 22%, transparent)!important}
-[data-theme] .cell.last{background:color-mix(in srgb, var(--gold) 26%, transparent)!important}
+[data-theme] .cell.last{background:color-mix(in srgb, var(--trail) 30%, transparent)!important}
+[data-theme] .cell.last-place{
+  background:color-mix(in srgb, var(--trail) 38%, transparent)!important;
+  box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--trail) 65%, transparent)
+}
 
 /* ===== 헤더 / 타이포 ===== */
 [data-theme] .logo,
