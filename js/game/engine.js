@@ -2416,15 +2416,21 @@ function onCellClick(e){
 }
 
 // 하이라이트 후보 하나를 판정한다.
-//   합법            → 그대로
-//   체크 금지로 거절 → 'blocked' (빨간 점, 클릭 불가)
-//   그 외 거절(자기 킹 노출 등) → null (표시 안 함)
-function classifyHighlight(h, action){
+//   합법            → 그대로 (청록 점 / 빨간 실선 링)
+//   체크 금지로 거절 → 'blocked' (빨간 점)
+//   자기 킹 노출     → 킹 본인의 이동이면 'illegal' (빨간 점선 원), 아니면 숨김
+// blocked/illegal 둘 다 클릭 가능 타입이 아니라 onCellClick에서 그대로 씹힌다.
+//
+// 핀 걸린 기물까지 'illegal'로 표시하면 퀸 하나에 빨간 원이 14개까지 붙어
+// 판이 시끄러워진다. 킹은 최대 8칸이라 부담이 없고, '갈 곳이 없다'는 정보가
+// 그 자리에서 바로 읽힌다.
+function classifyHighlight(h, action, piece){
   const snap = snapshotState();
   const res = applyAction(action, { silent:true });
   restoreState(snap);
   if(res.ok) return h;
-  return res.checkRule ? { ...h, type:'blocked' } : null;
+  if(res.checkRule) return { ...h, type:'blocked' };
+  return (piece && piece.kind === 'K') ? { ...h, type:'illegal' } : null;
 }
 
 function computeHighlights(r, c, p){
@@ -2458,9 +2464,9 @@ function computeHighlights(r, c, p){
         // 우군: 표시 안 함, 그러나 그 너머 셀도 보이도록 break하지 않음
       }
     }
-    // 자기 킹 노출 검증 (attack만 판정; sniper-range/blocked는 클릭 무동작이라 스킵)
+    // attack만 판정 (sniper-range는 원래 클릭 무동작이라 그대로 통과)
     return out.map(h => h.type !== 'attack' ? h
-        : classifyHighlight(h, {type:'move', fr:r, fc:c, tr:h.r, tc:h.c}))
+        : classifyHighlight(h, {type:'move', fr:r, fc:c, tr:h.r, tc:h.c}, p))
       .filter(Boolean);
   } else if(p.kind === 'SH'){
     const dy = (p.color === 'w') ? -1 : 1;
@@ -2476,13 +2482,13 @@ function computeHighlights(r, c, p){
     for(const [tr,tc] of moves) out.push({r:tr, c:tc, type:'move'});
     for(const [tr,tc] of attacks) out.push({r:tr, c:tc, type:'attack'});
   }
-  // 자기 킹 노출되는 수 제거 + 체크 금지 수는 'blocked'로 (SN은 위에서 이미 처리)
+  // 둘 수 없는 수도 이유별로 표시 (SN은 위에서 이미 처리)
   return out.map(h => {
     const a = { type:'move', fr:r, fc:c, tr:h.r, tc:h.c };
     if(p.kind === 'P' && ((p.color==='w' && h.r===0)||(p.color==='b' && h.r===7))){
       a.promote = 'Q';
     }
-    return classifyHighlight(h, a);
+    return classifyHighlight(h, a, p);
   }).filter(Boolean);
 }
 
