@@ -11,18 +11,18 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <!-- 다국어(i18n): 사전 먼저, 그다음 엔진 -->
-<script src="js/i18n-dict.js?v=21"></script>
-<script src="js/i18n.js?v=21"></script>
+<script src="js/i18n-dict.js?v=22"></script>
+<script src="js/i18n.js?v=22"></script>
 <!-- Game modules (split from monolith FRONTIER.html) -->
-<script src="js/game/utils.js?v=21"></script>
-<script src="js/game/pieces.js?v=21"></script>
-<script src="js/game/firebase.js?v=21"></script>
-<script src="js/game/timer.js?v=21"></script>
-<script src="js/game/chat.js?v=21"></script>
-<script src="js/game/elo.js?v=21"></script>
-<script src="js/game/network.js?v=21"></script>
-<link rel="stylesheet" href="css/theme.css?v=21">
-<script src="js/theme.js?v=21"></script>
+<script src="js/game/utils.js?v=22"></script>
+<script src="js/game/pieces.js?v=22"></script>
+<script src="js/game/firebase.js?v=22"></script>
+<script src="js/game/timer.js?v=22"></script>
+<script src="js/game/chat.js?v=22"></script>
+<script src="js/game/elo.js?v=22"></script>
+<script src="js/game/network.js?v=22"></script>
+<link rel="stylesheet" href="css/theme.css?v=22">
+<script src="js/theme.js?v=22"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -377,7 +377,7 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
 .rules-body li{padding:4px 0;font-size:13px;border-bottom:1px dashed rgba(255,255,255,.06)}
 .rules-body li:last-child{border-bottom:none}
 .rules-body b{color:var(--text);font-weight:700}
-.rules-body .r-sym{display:inline-block;width:24px;font-size:18px;text-align:center;margin-right:4px}
+.rules-body .r-sym{display:inline-flex;align-items:center;justify-content:center;width:24px;height:20px;margin-right:4px;vertical-align:-.3em}
 .rules-body .r-sym.spec-w{text-shadow:0 0 2px #000,0 0 2px #000}
 
 /* 채팅 */
@@ -1401,11 +1401,11 @@ body.board-flipped .cell{transform:rotate(180deg)}
 
       <h4>♟ 일반 기물 행마</h4>
       <ul>
-        <li><span class="r-sym">♕</span> <b>퀸</b>: 8방향 직선/대각선 무제한</li>
-        <li><span class="r-sym">♖</span> <b>룩</b>: 4방향 직선 (가로세로) 무제한</li>
-        <li><span class="r-sym">♗</span> <b>비숍</b>: 대각선 무제한</li>
-        <li><span class="r-sym">♘</span> <b>나이트</b>: L자 점프 (2칸+1칸, 중간 무시)</li>
-        <li><span class="r-sym">♙</span> <b>폰</b>: 1칸 전진. 대각선 1칸 적 공격. 마지막 줄 도달 시 Q/R/B/N 중 프로모션</li>
+        <li><span class="r-sym" data-piece="Q"></span> <b>퀸</b>: 8방향 직선/대각선 무제한</li>
+        <li><span class="r-sym" data-piece="R"></span> <b>룩</b>: 4방향 직선 (가로세로) 무제한</li>
+        <li><span class="r-sym" data-piece="B"></span> <b>비숍</b>: 대각선 무제한</li>
+        <li><span class="r-sym" data-piece="N"></span> <b>나이트</b>: L자 점프 (2칸+1칸, 중간 무시)</li>
+        <li><span class="r-sym" data-piece="P"></span> <b>폰</b>: 1칸 전진. 대각선 1칸 적 공격. 마지막 줄 도달 시 Q/R/B/N 중 프로모션</li>
       </ul>
 
       <h4>✨ 특수 기물</h4>
@@ -1467,13 +1467,13 @@ body.board-flipped .cell{transform:rotate(180deg)}
   <div class="replay-list" id="replayList" style="display:none"></div>
 </div>
 
-<script src="js/game/engine.js?v=21"></script>
+<script src="js/game/engine.js?v=22"></script>
 
 <!-- Python AI Worker bridge: AI 대전 URL에 pyai=1이 있을 때 활성화 -->
 <script>
   window.FRONTIER_AI_API = window.FRONTIER_AI_API || 'https://frontier-python-ai.onrender.com';
 </script>
-<script src="js/game/python-ai-client.js?v=21"></script>
+<script src="js/game/python-ai-client.js?v=22"></script>
 
 </body>
 </html>
