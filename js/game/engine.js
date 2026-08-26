@@ -379,6 +379,19 @@ function checkBanned(color){
   return color === 'w' && Math.floor(moveHistory.length / 2) < WHITE_CHECK_BAN_MOVES;
 }
 
+// 그 칸에 놓으면 상대 킹이 체크되는가? (체크가 금지된 턴에만 검사 — 아니면 계산 낭비)
+// 배치 하이라이트를 빨간 점선으로 바꾸는 데 쓴다.
+function placeGivesBannedCheck(color, kind, r, c){
+  if(!checkBanned(color)) return false;
+  const foe = opp(color);
+  if(!kingPlaced[foe]) return false;
+  const snap = snapshotState();
+  board[r][c] = (kind === 'SN') ? { color, kind, attacks:0 } : { color, kind };
+  const gives = isInCheck(foe);
+  restoreState(snap);
+  return gives;
+}
+
 // ===================================================================
 // 7. 직렬화 / 스냅샷 (반복 검출 + 5회 체크 복원)
 // ===================================================================
@@ -1904,6 +1917,8 @@ function renderBoard(){
         if(SEL.piece === 'K') cell.classList.add('king-zone');
         else if(SEL.piece === 'SN') cell.classList.add('corner-zone');
         else cell.classList.add('place-zone');
+        // 놓으면 거절되는 자리는 빨간 점선으로 (백 첫 2수 체크 금지)
+        if(placeGivesBannedCheck(SEL.color, SEL.piece, r, c)) cell.classList.add('place-check');
       }
 
       // 기물

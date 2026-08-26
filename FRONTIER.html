@@ -11,17 +11,17 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <!-- 다국어(i18n): 사전 먼저, 그다음 엔진 -->
-<script src="js/i18n-dict.js"></script>
-<script src="js/i18n.js"></script>
+<script src="js/i18n-dict.js?v=6"></script>
+<script src="js/i18n.js?v=6"></script>
 <!-- Game modules (split from monolith FRONTIER.html) -->
-<script src="js/game/utils.js"></script>
-<script src="js/game/firebase.js"></script>
-<script src="js/game/timer.js"></script>
-<script src="js/game/chat.js"></script>
-<script src="js/game/elo.js"></script>
-<script src="js/game/network.js"></script>
-<link rel="stylesheet" href="css/theme.css?v=5">
-<script src="js/theme.js?v=5"></script>
+<script src="js/game/utils.js?v=6"></script>
+<script src="js/game/firebase.js?v=6"></script>
+<script src="js/game/timer.js?v=6"></script>
+<script src="js/game/chat.js?v=6"></script>
+<script src="js/game/elo.js?v=6"></script>
+<script src="js/game/network.js?v=6"></script>
+<link rel="stylesheet" href="css/theme.css?v=6">
+<script src="js/theme.js?v=6"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -125,6 +125,14 @@ input{font-family:inherit;outline:none}
 }
 .cell.place-zone::after{content:'';position:absolute;inset:0;background:rgba(48,209,88,.15);pointer-events:none}
 .cell.corner-zone::after{content:'';position:absolute;inset:0;background:rgba(255,69,58,.18);pointer-events:none}
+/* 배치 가능 칸 — 킹과 같은 노란 점선 (킹은 위 .king-zone::before가 담당) */
+.cell.place-zone::before,.cell.corner-zone::before{
+  content:'';position:absolute;inset:2px;border:3px dashed rgba(245,200,66,.85);
+  border-radius:4px;pointer-events:none}
+/* 놓으면 체크가 되어 거절되는 칸 (백 첫 2수 체크 금지) — 빨간 점선 */
+.cell.place-zone.place-check::before,.cell.corner-zone.place-check::before,
+.cell.king-zone.place-check::before{
+  border-color:rgba(255,69,58,.95);box-shadow:0 0 10px rgba(255,69,58,.35)}
 .cell.move::after{content:'';position:absolute;width:30%;height:30%;background:rgba(48,209,88,.55);border-radius:50%;pointer-events:none}
 .cell.attack::after{content:'';position:absolute;inset:8%;border:3px solid rgba(255,69,58,.65);border-radius:50%;pointer-events:none}
 /* 스나이퍼 사정거리 시각화 */
@@ -1433,13 +1441,13 @@ body.board-flipped .cell{transform:rotate(180deg)}
   <div class="replay-list" id="replayList" style="display:none"></div>
 </div>
 
-<script src="js/game/engine.js"></script>
+<script src="js/game/engine.js?v=6"></script>
 
 <!-- Python AI Worker bridge: AI 대전 URL에 pyai=1이 있을 때 활성화 -->
 <script>
   window.FRONTIER_AI_API = window.FRONTIER_AI_API || 'https://frontier-python-ai.onrender.com';
 </script>
-<script src="js/game/python-ai-client.js"></script>
+<script src="js/game/python-ai-client.js?v=6"></script>
 
 </body>
 </html>
