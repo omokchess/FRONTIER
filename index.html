@@ -60,8 +60,8 @@
 <script src="js/i18n.js"></script>
 <script src="js/lobby/daily.js"></script>
 <script src="js/lobby/titles.js"></script>
-<link rel="stylesheet" href="css/theme.css?v=3">
-<script src="js/theme.js?v=3"></script>
+<link rel="stylesheet" href="css/theme.css?v=4">
+<script src="js/theme.js?v=4"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -75,7 +75,7 @@ body{background:radial-gradient(ellipse at top,#3a3a3c 0%,#2c2c2e 50%,#1c1c1e 10
 button{font-family:inherit;cursor:pointer;border:none;outline:none}
 input{font-family:inherit;outline:none}
 
-.wrap{max-width:1100px;margin:0 auto;padding:24px 20px 60px}
+.wrap{max-width:1400px;margin:0 auto;padding:24px 20px 60px}
 
 /* 헤더 */
 .head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
@@ -479,6 +479,22 @@ input{font-family:inherit;outline:none}
 
   /* 친구/차단 목록은 메뉴가 아니라 목록 — 맨 아래로 */
   .tab-panel .social-section{max-width:none;margin-left:0;margin-right:0}
+
+  /* 내 페이지 납작하게 — 세로로 쌓이던 3덩이를 2열로.
+     친구 목록(넓게) | 차단 목록 + 받은 친구 요청(좁게) */
+  .tab-panel[data-tab="mypage"]{
+    /* 위 .tab-panel의 display:block !important를 이겨야 한다 */
+    display:grid !important;
+    grid-template-columns:minmax(0,2fr) minmax(0,1fr);
+    gap:10px;
+    align-content:start
+  }
+  .tab-panel[data-tab="mypage"] > .tab-title{grid-column:1/-1}
+  .tab-panel[data-tab="mypage"] > .social-section{margin:0}
+  .tab-panel[data-tab="mypage"] > .social-section:not(.blocked-details){grid-row:span 2}
+  .tab-panel[data-tab="mypage"] .modes{grid-template-columns:minmax(0,1fr)}
+  /* 친구가 많아도 섹션이 늘어나지 않도록 */
+  .tab-panel[data-tab="mypage"] .friends-list{max-height:150px;overflow-y:auto}
 }
 
 /* 큰 프로필 카드 (내 페이지 탭) */
