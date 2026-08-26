@@ -31,6 +31,16 @@
       label();
     };
     label();
-    document.body.appendChild(btn);
+    // 로비 헤더가 있으면 그 안에 넣는다 (플로팅 버튼 하나 줄이기).
+    // 언어 선택기는 i18n이 나중에 그리므로 DOM 순서 대신 flex order로 자리를 잡는다.
+    // 헤더가 없는 페이지(게임/랭킹 등)에서는 기존대로 우하단 고정.
+    // 모바일에서는 .head가 display:none이라, 안에 넣으면 토글이 사라진다.
+    const head = document.querySelector('.head');
+    if (head && head.getBoundingClientRect().height > 0) {
+      btn.classList.add('theme-toggle-inline');
+      head.appendChild(btn);
+    } else {
+      document.body.appendChild(btn);
+    }
   });
 })();

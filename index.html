@@ -60,8 +60,8 @@
 <script src="js/i18n.js"></script>
 <script src="js/lobby/daily.js"></script>
 <script src="js/lobby/titles.js"></script>
-<link rel="stylesheet" href="css/theme.css">
-<script src="js/theme.js"></script>
+<link rel="stylesheet" href="css/theme.css?v=3">
+<script src="js/theme.js?v=3"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -422,6 +422,63 @@ input{font-family:inherit;outline:none}
   /* 내 페이지 콘텐츠 — 너무 넓지 않게 중앙 정렬 */
   .tab-panel .big-profile{max-width:560px;margin-left:auto;margin-right:auto}
   .tab-panel .social-section{max-width:560px;margin-left:auto;margin-right:auto}
+}
+
+/* ===================================================================
+   데스크탑: 탭을 없애고 메뉴 15개를 한 화면에 펼친다.
+   탭 패널을 그대로 두고 전부 표시 + 타일을 압축하는 방식이라
+   HTML/JS 구조는 손대지 않는다. 모바일(<769px)은 기존 탭 유지.
+   =================================================================== */
+@media (min-width:769px){
+  /* 섹션을 6칸 그리드에 배치 — 타일 2개짜리 퀘스트가 한 줄을 통째로
+     먹지 않도록 기타(4칸) 옆에 붙인다. */
+  .lobby-grid{
+    display:grid;
+    grid-template-columns:repeat(6,minmax(0,1fr));
+    gap:14px 12px;
+    align-content:start
+  }
+  .tab-panel{display:block !important;margin:0;padding:14px;grid-column:span 6}
+  /* DOM 순서가 모드 → 메인이라 뒤집는다 */
+  .tab-panel[data-tab="main"]{order:1}
+  .tab-panel[data-tab="ai"]{order:2}
+  .tab-panel[data-tab="quest"]{order:3;grid-column:span 2}
+  .tab-panel[data-tab="misc"]{order:4;grid-column:span 4}
+  .tab-panel[data-tab="mypage"]{order:99;grid-column:span 6}
+  .desktop-sidebar{display:none !important}
+
+  /* 탭 제목 → 섹션 라벨 */
+  .tab-title{
+    font-family:inherit;font-size:11px;font-weight:900;
+    letter-spacing:.09em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 7px 0;padding:0;border:0
+  }
+  .tab-title svg{width:13px;height:13px}
+
+  /* 메뉴 타일: 아이콘 위 / 라벨 아래, 설명은 숨김 */
+  .tab-panel .modes{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:10px;margin:0
+  }
+  .tab-panel[data-tab="quest"] .modes{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tab-panel .mode{
+    flex-direction:column;align-items:center;text-align:center;
+    justify-content:center;gap:5px;
+    min-height:0;height:auto;padding:10px 8px
+  }
+  .tab-panel .mode .icon{margin:0;width:32px;height:32px;flex:0 0 32px;border-radius:9px}
+  .tab-panel .mode .icon svg{width:18px;height:18px}
+  .tab-panel .mode .mt{font-size:12.5px;line-height:1.25;text-align:center;margin:0}
+  .tab-panel .mode .md{display:none}
+  .tab-panel .mode > div:not(.icon){flex:0 0 auto;min-width:0}
+
+  /* 프로필은 헤더 카드로 (내 페이지의 큰 프로필과 중복 제거) */
+  .head .profile{display:flex}
+  .head{justify-content:space-between}
+  .tab-panel .big-profile{display:none}
+
+  /* 친구/차단 목록은 메뉴가 아니라 목록 — 맨 아래로 */
+  .tab-panel .social-section{max-width:none;margin-left:0;margin-right:0}
 }
 
 /* 큰 프로필 카드 (내 페이지 탭) */
