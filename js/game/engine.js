@@ -383,6 +383,7 @@ function checkBanned(color){
 // 배치 하이라이트를 빨간 점선으로 바꾸는 데 쓴다.
 function placeGivesBannedCheck(color, kind, r, c){
   if(!checkBanned(color)) return false;
+  if(board[r][c]) return false;
   const foe = opp(color);
   if(!kingPlaced[foe]) return false;
   const snap = snapshotState();
@@ -2301,6 +2302,11 @@ function onCellClick(e){
 
   // 손패 배치 모드
   if(SEL && SEL.kind === 'place'){
+    // 빨간 점선 칸(체크 금지)은 클릭을 그냥 무시 — 선택도 유지, 경고도 없음.
+    // 조건은 renderBoard의 place-check 부여 조건과 정확히 같아야 한다.
+    // (점유된 칸까지 삼키면 '다른 칸 클릭 = 선택 취소'가 막힌다)
+    if(!board[r][c] && canPlaceHere(SEL.color, SEL.piece, r, c)
+       && placeGivesBannedCheck(SEL.color, SEL.piece, r, c)) return;
     if(canPlaceHere(SEL.color, SEL.piece, r, c) && !board[r][c]){
       submitAction({ type:'place', kind:SEL.piece, r, c, color:SEL.color });
       SEL = null; HIGHLIGHTS = [];
