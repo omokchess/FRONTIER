@@ -372,6 +372,13 @@ function isBlackCounterFive(color){
   return color === 'b' && checkFiveInRow() === 'b';
 }
 
+// 선공 보정: 백은 자기 첫 2수 동안 체크를 걸 수 없다.
+// moveHistory는 수가 완료될 때마다 1개씩 쌓이므로 백의 수 번호 = floor(length/2)+1.
+const WHITE_CHECK_BAN_MOVES = 2;
+function checkBanned(color){
+  return color === 'w' && Math.floor(moveHistory.length / 2) < WHITE_CHECK_BAN_MOVES;
+}
+
 // ===================================================================
 // 7. 직렬화 / 스냅샷 (반복 검출 + 5회 체크 복원)
 // ===================================================================
@@ -556,6 +563,11 @@ function applyAction(action, opts={}){
   const next = opp(turn);
   let opponentInCheck = false;
   if(kingPlaced[next] && isInCheck(next)){
+    // 백 선공 보정: 백의 첫 2수는 체크 금지 → 이 수 무효
+    if(checkBanned(turn)){
+      restoreState(snap);
+      return { ok:false, err:'백은 첫 2수 동안 체크할 수 없음' };
+    }
     opponentInCheck = true;
     if(IS_PEASANT) addMinsim(next, 20);   // 농민 봉기: 킹이 체크당한 진영의 민심 +20%
     totalChecks[turn]++;
@@ -2564,7 +2576,7 @@ function submitAction(action){
 
   // AI 차례
   if(IS_AI && !gameOver && turn === 'b'){
-    setTimeout(()=> aiTurn(), 250);
+    setTimeout(()=> aiTurn(), 120);
   } else if(IS_AIVAI && !gameOver){
     // AI vs AI: 양쪽 모두 자동 진행. 조금 더 긴 딜레이로 관전 가능
     setTimeout(()=> aiTurn(), 600);
@@ -3078,7 +3090,7 @@ function aiNormal(list, myColor, genome){
 }
 
 // ===== AI 어려움 — 알파베타 미니맥스 (반복 회피 + 깊이 탐색) =====
-const AI_HARD_TIME_MS = 2500;     // 최대 사고 시간
+const AI_HARD_TIME_MS = 1200;     // 최대 사고 시간 (반복 심화라 짧아지면 얕은 깊이에서 끊길 뿐 결과는 유효)
 const AI_HARD_MAX_DEPTH = 5;       // 최대 탐색 깊이 (반복 = 5수 lookahead)
 const AI_HARD_TT_MAX = 100000;     // 트랜스포지션 테이블 최대 엔트리
 

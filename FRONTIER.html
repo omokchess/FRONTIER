@@ -20,6 +20,8 @@
 <script src="js/game/chat.js"></script>
 <script src="js/game/elo.js"></script>
 <script src="js/game/network.js"></script>
+<link rel="stylesheet" href="css/theme.css">
+<script src="js/theme.js"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -58,7 +60,7 @@ input{font-family:inherit;outline:none}
 }
 .pcard .ph{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .pcard.active .ph::after{content:'◀ 차례';margin-left:auto;font-size:11px;font-weight:700;color:var(--gold);background:rgba(245,200,66,.15);padding:2px 7px;border-radius:5px;flex-shrink:0}
-.pcard .av{width:28px;height:28px;border-radius:50%;background:var(--gold);color:#1c1c1e;
+.pcard .av{width:28px;height:28px;border-radius:50%;background:var(--gold-fill);color:#1c1c1e;
   display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex-shrink:0}
 .pcard .av.b{background:#1c1c1e;color:var(--gold);border:1px solid var(--gold)}
 .pcard .pn{font-weight:700;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -157,7 +159,7 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
 .ev-btn{padding:10px 18px;background:transparent;color:var(--text);border:1px solid var(--border);
   border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;margin:4px}
 .ev-btn:hover{background:var(--panel2)}
-.ev-btn-primary{background:var(--gold);color:#1c1c1e;border-color:var(--gold);width:100%;margin-top:12px}
+.ev-btn-primary{background:var(--gold-fill);color:#1c1c1e;border-color:var(--gold);width:100%;margin-top:12px}
 .ev-btn-primary:hover{filter:brightness(1.1)}
 .ev-status{font-size:14px;color:var(--gold);font-weight:700;margin-bottom:10px;text-align:center}
 .ev-progress-wrap{width:100%;height:10px;background:var(--panel2);border-radius:5px;overflow:hidden;margin-bottom:12px}
@@ -333,7 +335,7 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
 
 /* 게임 종료 후 결과 모달을 잠시 닫고 보드 볼 때의 복귀 버튼 */
 .end-restore{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:80;
-  background:var(--gold);color:#1c1c1e;border:none;padding:8px 16px;border-radius:8px;
+  background:var(--gold-fill);color:#1c1c1e;border:none;padding:8px 16px;border-radius:8px;
   font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4)}
 .end-restore:hover{background:#fcd853}
 
@@ -351,7 +353,7 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
 
 /* 채팅 */
 .chat-fab{position:fixed;bottom:14px;right:14px;width:50px;height:50px;border-radius:50%;
-  background:var(--gold);color:#1c1c1e;font-size:22px;display:flex;align-items:center;justify-content:center;
+  background:var(--gold-fill);color:#1c1c1e;font-size:22px;display:flex;align-items:center;justify-content:center;
   box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:50;cursor:pointer}
 
 /* ===== 채팅 내 이모지 ===== */
@@ -404,7 +406,7 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
 .chat-msgs{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px}
 .chat-msgs::-webkit-scrollbar{width:4px}
 .cm{display:flex;flex-direction:column;gap:2px;font-size:13px;padding:6px 10px;border-radius:8px;max-width:80%;word-break:break-word}
-.cm.me{align-self:flex-end;background:var(--gold);color:#1c1c1e}
+.cm.me{align-self:flex-end;background:var(--gold-fill);color:#1c1c1e}
 .cm.them{align-self:flex-start;background:var(--panel2)}
 .cm.sys{align-self:center;font-size:11px;color:var(--muted);background:transparent;font-style:italic}
 .cm .who{font-size:10px;color:var(--muted);margin-bottom:1px}
@@ -412,7 +414,7 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
 .chat-input{display:flex;border-top:1px solid var(--border);padding:8px;gap:6px}
 .chat-input input{flex:1;padding:8px 10px;background:var(--panel2);border:1px solid var(--border);
   border-radius:6px;color:var(--text);font-size:13px}
-.chat-input button{padding:8px 14px;background:var(--gold);color:#1c1c1e;border-radius:6px;font-weight:700;font-size:13px}
+.chat-input button{padding:8px 14px;background:var(--gold-fill);color:#1c1c1e;border-radius:6px;font-weight:700;font-size:13px}
 
 /* 모달 */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:flex-start;justify-content:center;z-index:200;padding:20px;overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -429,7 +431,7 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
   padding:12px 24px;margin:12px -24px -24px;
   border-top:1px solid var(--border);z-index:2}
 .btn{padding:10px 18px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;border:none;font-family:inherit}
-.btn-gold{background:linear-gradient(180deg,var(--gold),var(--gold2));color:#1c1c1e}
+.btn-gold{background:linear-gradient(180deg,var(--gold-fill),var(--gold-fill2));color:#1c1c1e}
 .btn-ghost{background:var(--panel2);color:var(--text);border:1px solid var(--border)}
 .btn-blue{background:var(--blue);color:#fff}
 
@@ -575,7 +577,7 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
   .opp-sheet-card{background:var(--panel);border-top-left-radius:14px;border-top-right-radius:14px;
     width:100%;max-height:75vh;padding:16px;overflow-y:auto}
   .opp-sheet-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)}
-  .opp-sheet-head .av{width:34px;height:34px;flex-shrink:0;border-radius:50%;background:var(--gold);color:#1c1c1e;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+  .opp-sheet-head .av{width:34px;height:34px;flex-shrink:0;border-radius:50%;background:var(--gold-fill);color:#1c1c1e;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
   .opp-sheet-head .av.b{background:#1c1c1e;color:var(--gold);border:1px solid var(--gold)}
   .opp-sheet-info{flex:1;min-width:0}
   .opp-sheet-name{font-weight:800;font-size:15px}
@@ -601,8 +603,8 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
 .replay-slider{flex:1;-webkit-appearance:none;appearance:none;height:6px;background:var(--panel2);
   border-radius:3px;outline:none;cursor:pointer;position:relative;z-index:1}
 .replay-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;
-  background:var(--gold);cursor:pointer;border:2px solid #1c1c1e;position:relative;z-index:3}
-.replay-slider::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--gold);
+  background:var(--gold-fill);cursor:pointer;border:2px solid #1c1c1e;position:relative;z-index:3}
+.replay-slider::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--gold-fill);
   cursor:pointer;border:2px solid #1c1c1e}
 .replay-marks{position:absolute;left:9px;right:9px;top:50%;transform:translateY(-50%);height:14px;
   pointer-events:none;z-index:2}
@@ -622,7 +624,7 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
 
 .rb-btn-flip{padding:5px 12px;background:transparent;color:var(--gold);border:1px solid var(--gold);
   border-radius:6px;cursor:pointer;font-size:12px;font-weight:700}
-.rb-btn-flip:hover{background:var(--gold);color:#1c1c1e}
+.rb-btn-flip:hover{background:var(--gold-fill);color:#1c1c1e}
 .replay-controls{display:flex;gap:6px;align-items:center;justify-content:center}
 .rb-btn{padding:7px 14px;background:var(--panel2);color:var(--text);border:1px solid var(--border);
   border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;transition:all .12s}
@@ -633,7 +635,7 @@ body.evolve-mode{padding:0;margin:0;background:linear-gradient(135deg,#1c1c1e,#2
 .replay-jump-row{display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap}
 .replay-jump-input{width:80px;padding:5px 8px;background:var(--panel2);border:1px solid var(--border);
   border-radius:6px;color:var(--text);font-size:13px;text-align:center}
-.rb-btn-jump,.rb-btn-list{padding:5px 12px;background:var(--gold);color:#1c1c1e;border:none;
+.rb-btn-jump,.rb-btn-list{padding:5px 12px;background:var(--gold-fill);color:#1c1c1e;border:none;
   border-radius:6px;cursor:pointer;font-size:12px;font-weight:700}
 .rb-btn-jump:hover,.rb-btn-list:hover{filter:brightness(1.1)}
 .rb-btn-list{background:var(--panel);color:var(--gold);border:1px solid var(--gold)}
@@ -895,7 +897,7 @@ body.replay-mode #chatBtn,body.replay-mode #chatPanel,body.replay-mode #forfeitB
   transition:all .15s
 }
 .shop-card-btn.buy:hover:not(:disabled){
-  background:var(--gold);color:#000;border-color:var(--gold)
+  background:var(--gold-fill);color:#000;border-color:var(--gold)
 }
 .shop-card-btn.sell:hover:not(:disabled){
   background:var(--green);color:#fff;border-color:var(--green)
@@ -1145,6 +1147,36 @@ body.board-flipped .cell{transform:rotate(180deg)}
   25%{transform:translateY(-2px) rotate(-8deg)}
   75%{transform:translateY(-2px) rotate(8deg)}
 }
+
+/* ===================================================================
+   UI 단순화 — 장식용 글로우 / 무한 펄스 / 그라디언트 제거.
+   정보를 전달하는 애니메이션(시간 경고, 체크 카운터 위험)만 남긴다.
+   되돌리려면 이 블록만 지우면 된다.
+   =================================================================== */
+
+/* 기물: 위로 길어 보이던 글리프를 한 단계 줄이고 칸 중앙으로 내림 */
+.cell .pc{font-size:calc(var(--cs) * .56);line-height:1;transform:translateY(3%)}
+
+/* 기물 외곽선: 7겹 → 2겹 (가독성 유지, 번짐 제거) */
+.cell .pc.w,.cell .pc.spec.w{text-shadow:0 0 2px #000,0 1px 1px #000}
+.cell .pc.b,.cell .pc.spec.b{text-shadow:0 0 2px #fff,0 1px 1px #fff}
+
+/* 내 차례 카드: 맥동하는 후광 → 금색 테두리 한 줄 */
+.pcard.active{box-shadow:none;animation:none;border-color:var(--gold)}
+
+/* 킹 배치 영역: 유령 ♚ + 맥동 후광 제거, 점선 테두리만 */
+.cell.king-zone::before{animation:none;box-shadow:none}
+.cell.king-zone::after{display:none}
+
+/* 체크된 킹: 깜빡임 대신 고정 붉은 틴트 */
+.cell.check::before{animation:none;background:rgba(255,69,58,.3)}
+
+/* 보드 그림자 축소 */
+.board{box-shadow:0 4px 16px rgba(0,0,0,.35)}
+
+/* 물약/상점 장식 애니메이션 제거 */
+.pot-card.merge-target{animation:none}
+.shop-gacha-icon{animation:none;filter:none}
 </style>
 <div class="chat-panel" id="chatPanel">
   <div class="chat-head">
@@ -1323,6 +1355,7 @@ body.board-flipped .cell{transform:rotate(180deg)}
       <ul>
         <li>한 게임에서 한 색이 가할 수 있는 <b>총 체크는 5회</b></li>
         <li>5회 초과의 추가 체크 시도는 무효 처리되어 그 수가 거절됨</li>
+        <li><b>백은 첫 2수 동안 체크 금지</b> — 선공 보정. 체크가 되는 수는 거절됨 (흑은 제한 없음)</li>
       </ul>
 
       <h4>📐 보드 영역</h4>

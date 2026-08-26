@@ -12,6 +12,8 @@
 <!-- 다국어(i18n): 사전 먼저, 그다음 엔진 -->
 <script src="js/i18n-dict.js"></script>
 <script src="js/i18n.js"></script>
+<link rel="stylesheet" href="css/theme.css">
+<script src="js/theme.js"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -65,7 +67,7 @@ input,textarea{font-family:inherit;outline:none}
 .piece .ctl{display:flex;align-items:center;gap:6px}
 .cbtn{width:30px;height:30px;border-radius:6px;background:var(--panel);border:1px solid var(--border);
   color:var(--text);font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center}
-.cbtn:hover:not(:disabled){background:var(--gold);color:#1c1c1e;border-color:var(--gold)}
+.cbtn:hover:not(:disabled){background:var(--gold-fill);color:#1c1c1e;border-color:var(--gold)}
 .cbtn:disabled{opacity:.3;cursor:not-allowed}
 .cnum{min-width:24px;text-align:center;font-weight:800;font-size:15px}
 
@@ -76,11 +78,11 @@ input,textarea{font-family:inherit;outline:none}
 .times{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
 .tbtn{padding:10px 4px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;
   color:var(--text);font-size:13px;font-weight:600;cursor:pointer}
-.tbtn.on{background:var(--gold);color:#1c1c1e;border-color:var(--gold)}
+.tbtn.on{background:var(--gold-fill);color:#1c1c1e;border-color:var(--gold)}
 .tbtn:hover:not(.on){background:var(--panel)}
 
 .btn{padding:12px 20px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;border:none;font-family:inherit;width:100%}
-.btn-gold{background:linear-gradient(180deg,var(--gold),var(--gold2));color:#1c1c1e;font-size:16px;padding:14px}
+.btn-gold{background:linear-gradient(180deg,var(--gold-fill),var(--gold-fill2));color:#1c1c1e;font-size:16px;padding:14px}
 .btn-gold:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(245,200,66,.3)}
 .btn-gold:disabled{opacity:.5;cursor:not-allowed;transform:none}
 .btn-ghost{background:var(--panel2);color:var(--text);border:1px solid var(--border)}

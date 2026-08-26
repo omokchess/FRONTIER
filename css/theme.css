@@ -1,0 +1,211 @@
+/* ===================================================================
+   FRONTIER 테마 — augmentchess.org 계열의 "두꺼운 잉크 테두리 + 종이" 디자인.
+   낮/밤 두 벌.
+
+   모든 선택자를 [data-theme]으로 감싼 이유:
+   각 페이지의 인라인 <style>이 :root(0,1,0)로 같은 변수를 이미 정의해 두었다.
+   [data-theme]는 (0,2,0)이라 <link> 위치와 무관하게 항상 이긴다.
+   → HTML은 head에 링크 두 줄만 추가하면 끝.
+   =================================================================== */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+
+/* ===== 낮 (기본) ===== */
+:root[data-theme="light"]{
+  --bg:#EEF0EC;
+  --panel:#FBFAF6;
+  --panel2:#EBE8DF;
+  --border:rgba(21,23,25,.16);
+  --text:#151719;
+  --muted:#65706E;
+
+  --gold:#8A5E12;  --gold2:#7A5210;          /* 글자·테두리용 (종이 위 대비 확보) */
+  --gold-fill:#F3D390; --gold-fill2:#E7C173;  /* 채움용 — 그 위 글자는 잉크색 */
+  --red:#BA3C3C;   --green:#2F855A;
+  --blue:#0F766E;  --orange:#D9992B;
+
+  --light:#F7F5EF;              /* 밝은 칸 */
+  --dark:#99A2A0;               /* 어두운 칸 */
+
+  --ink:#202326;                /* 테두리용 잉크 */
+  --ink-on:#FFFEFA;             /* 잉크 위 글자색 */
+  --card-shadow:0 6px 0 rgba(32,36,38,.14);
+  --card-shadow-sm:0 3px 0 rgba(32,36,38,.16);
+  --board-shadow:0 18px 46px rgba(25,27,29,.16);
+}
+
+/* ===== 밤 ===== */
+:root[data-theme="dark"]{
+  --bg:#14171A;
+  --panel:#1D2226;
+  --panel2:#282E33;
+  --border:rgba(247,245,239,.18);
+  --text:#F2F0EA;
+  --muted:#9AA5A3;
+
+  --gold:#E8B053;  --gold2:#D0973C;
+  --gold-fill:#E8B053; --gold-fill2:#D0973C;
+  --red:#E0645F;   --green:#4EC98A;
+  --blue:#35B3A6;  --orange:#E8B053;
+
+  --light:#C9D0CD;
+  --dark:#4A5654;
+
+  --ink:rgba(247,245,239,.30);
+  --ink-on:#14171A;
+  --card-shadow:0 6px 0 rgba(0,0,0,.42);
+  --card-shadow-sm:0 3px 0 rgba(0,0,0,.42);
+  --board-shadow:0 18px 46px rgba(0,0,0,.5);
+}
+
+[data-theme] body{
+  font-family:'Pretendard Variable',Pretendard,'Noto Sans KR','Apple SD Gothic Neo',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+
+/* ===== 카드 = 두꺼운 잉크 테두리 + 흐림 없는 오프셋 그림자 ===== */
+[data-theme] .section,
+[data-theme] .mode,
+[data-theme] .modal-card,
+[data-theme] .cust-box,
+[data-theme] .pcard,
+[data-theme] .hand-card,
+[data-theme] .topbar,
+[data-theme] .tut-card,
+[data-theme] .profile,
+[data-theme] .big-profile{
+  border:2px solid var(--ink);
+  border-radius:8px;
+  box-shadow:var(--card-shadow);
+}
+
+[data-theme] .room,
+[data-theme] .cust-cell,
+[data-theme] .ach-item,
+[data-theme] .title-item,
+[data-theme] .quest-item,
+[data-theme] .hp,
+[data-theme] .modal-card .opt{
+  border:2px solid var(--border);
+  border-radius:6px;
+  box-shadow:none;
+}
+[data-theme] .hp:hover,
+[data-theme] .modal-card .opt:hover,
+[data-theme] .room:hover{border-color:var(--ink)}
+
+/* ===== 버튼 ===== */
+[data-theme] .btn,
+[data-theme] .tb-btn,
+[data-theme] .tab,
+[data-theme] .tbtn,
+[data-theme] .renter,
+[data-theme] .cust-close,
+[data-theme] .lang-btns button{
+  border:2px solid var(--ink);
+  border-radius:6px;
+  font-weight:800;
+  box-shadow:var(--card-shadow-sm);
+}
+[data-theme] .btn:active,
+[data-theme] .tb-btn:active,
+[data-theme] .tab:active,
+[data-theme] .tbtn:active,
+[data-theme] .renter:active{box-shadow:none;transform:translateY(2px)}
+
+/* 선택 상태 = 잉크 반전 (augmentchess의 aria-current 처리) */
+[data-theme] .tab.on,
+[data-theme] .tbtn.on,
+[data-theme] .lang-btns button.on,
+[data-theme] .btn-gold{
+  background:var(--gold-fill);
+  color:#20231F;
+  border-color:var(--ink);
+}
+
+/* ===== 보드 ===== */
+[data-theme] .board{
+  border:3px solid var(--ink);
+  border-radius:8px;
+  background:var(--panel);
+  box-shadow:var(--board-shadow);
+}
+/* 이동/공격 표시: 청록 점 + 붉은 링 */
+[data-theme] .cell.move::after{
+  width:26%;height:26%;background:var(--blue);opacity:.65;
+  box-shadow:0 0 0 5px color-mix(in srgb, var(--blue) 14%, transparent)
+}
+[data-theme] .cell.attack::after{
+  inset:8%;border:4px solid var(--red);opacity:.7;background:transparent
+}
+[data-theme] .cell.sel{background:color-mix(in srgb, var(--blue) 22%, transparent)!important}
+[data-theme] .cell.last{background:color-mix(in srgb, var(--gold) 26%, transparent)!important}
+
+/* ===== 헤더 / 타이포 ===== */
+[data-theme] .logo,
+[data-theme] .tb-mid{
+  font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif;
+  font-weight:900;
+  letter-spacing:.04em;
+  color:var(--text);
+  text-shadow:none;
+}
+[data-theme] .tagline,
+[data-theme] .hand-card h4,
+[data-theme] .cust-section h4{
+  color:var(--muted);
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+/* ===== 낮/밤 토글 (theme.js가 주입) ===== */
+.theme-toggle{
+  position:fixed;right:14px;bottom:14px;z-index:9000;
+  width:44px;height:44px;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  font-size:19px;
+  background:var(--panel);color:var(--text);
+  border:2px solid var(--ink);border-radius:8px;
+  box-shadow:var(--card-shadow-sm);
+  cursor:pointer;
+}
+.theme-toggle:active{box-shadow:none;transform:translateY(2px)}
+@media (max-width:600px){
+  .theme-toggle{width:38px;height:38px;font-size:16px;right:10px;bottom:10px}
+}
+
+/* ===== 낮 모드 대비 보정 =====
+   옅은 배경 위에 강조색을 '글자색'으로 쓰던 자리들. 밤 모드에선 문제없지만
+   낮 모드에선 대비가 1.5~2.2까지 떨어져 읽히지 않는다. → 잉크색 또는 채움 반전. */
+[data-theme="light"] .mode .mt{color:var(--text)}
+[data-theme="light"] .desktop-sidebar .ds-btn:hover{color:var(--text);border-color:var(--ink)}
+[data-theme="light"] .desktop-sidebar .ds-btn.active{
+  background:var(--gold-fill);color:#20231F;border-color:var(--ink);box-shadow:var(--card-shadow-sm)
+}
+
+/* 흰색/검정으로 못박힌 자리 — 낮 모드에서 배경과 같아져 사라진다 */
+[data-theme="light"] .mat-bar-compact .mbc-num.w,
+[data-theme="light"] .mat-bar-full .mbf-num.w{color:var(--text)}
+[data-theme="light"] .mat-bar-compact .mbc-num.b,
+[data-theme="light"] .mat-bar-full .mbf-num.b{color:var(--muted)}
+
+/* 떠 있는 상태 배너: 반투명 검정 고정 → 테마 패널로 */
+[data-theme] .status-float{
+  background:var(--panel);color:var(--text);
+  border:2px solid var(--ink);box-shadow:var(--card-shadow-sm)
+}
+
+/* 보드 좌표: 갈색 고정값이라 밝은 칸 위에서 흐려진다 */
+/* 좌표는 밝은 칸/어두운 칸 위에 각각 얹히므로 칸 색에 맞춰 뒤집는다 */
+[data-theme] .cell.lt .coord{color:rgba(21,23,25,.62)}
+[data-theme] .cell.dk .coord{color:rgba(255,254,250,.82)}
+
+/* 흰 기물 글리프는 낮 모드의 종이색 위에서 윤곽선에만 의존한다 → 윤곽을 진하게 */
+[data-theme="light"] .cell .pc.w,
+[data-theme="light"] .cell .pc.spec.w,
+[data-theme="light"] .hp .sym.hp-w,
+[data-theme="light"] .hp .sym.spec.hp-w{
+  text-shadow:0 0 1px var(--ink),0 0 2px var(--ink),0 1px 1px var(--ink),
+              0 -1px 1px var(--ink),1px 0 1px var(--ink),-1px 0 1px var(--ink)
+}

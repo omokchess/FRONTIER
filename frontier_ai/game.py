@@ -9,6 +9,7 @@ KINDS = ("K", "Q", "R", "B", "N", "P", "SH", "SN", "JP")
 DEFAULT_HAND: dict[str, int] = {"K": 1, "Q": 1, "R": 2, "B": 2, "N": 2, "P": 8, "SH": 0, "SN": 0, "JP": 0}
 PIECE_VALUES: dict[str, float] = {"K": 0, "Q": 9, "R": 5, "B": 3.25, "N": 3, "P": 1, "SH": 3, "SN": 5.5, "JP": 3.25}
 PROMOTIONS = ("Q", "R", "B", "N")
+WHITE_CHECK_BAN_MOVES = 2   # 백 선공 보정: 첫 2수 체크 금지
 
 
 def opp(color: str) -> str:
@@ -289,6 +290,10 @@ class GameState:
     def black_counter_five(self, mover: str) -> bool:
         return mover == "b" and self.five_in_row() == "b"
 
+    def check_banned(self, color: str) -> bool:
+        """선공 보정: 백은 자기 첫 2수 동안 체크를 걸 수 없다 (JS engine.js와 동일 규칙)."""
+        return color == "w" and len(self.history) // 2 < WHITE_CHECK_BAN_MOVES
+
     def position_key(self) -> str:
         cells = []
         for row in self.board:
@@ -375,6 +380,9 @@ class GameState:
         nxt = opp(mover)
         opponent_checked = self.king_placed[nxt] and self.is_in_check(nxt)
         if opponent_checked:
+            if self.check_banned(mover):
+                self.__dict__.update(before.__dict__)
+                return ApplyResult(False, "백은 첫 2수 동안 체크할 수 없음")
             self.total_checks[mover] += 1
             self.check_streak[nxt] += 1
             if self.total_checks[mover] > 5:

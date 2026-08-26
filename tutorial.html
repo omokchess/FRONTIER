@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<script src="js/theme.js"></script>
 <style>
 :root{
   --bg:#1c1c1e; --panel:#2c2c30; --panel2:#1f1f22; --border:#3a3a3e;
@@ -81,7 +83,7 @@ button{font-family:inherit;cursor:pointer;border:none;outline:none;color:inherit
 .tut-nav button{flex:1;padding:14px;border-radius:8px;font-size:14px;font-weight:700}
 .tut-nav .nav-prev{background:var(--panel2);color:var(--text);border:1px solid var(--border)}
 .tut-nav .nav-prev:disabled{opacity:.3;cursor:not-allowed}
-.tut-nav .nav-next{background:var(--gold);color:#1c1c1e}
+.tut-nav .nav-next{background:var(--gold-fill);color:#1c1c1e}
 .tut-nav .nav-next:hover{background:#fcd853}
 
 /* 핵심 강조 박스 */
@@ -198,7 +200,7 @@ const STEPS = [
         <li>보드 구조와 영역 규칙</li>
         <li>각 기물의 움직임 (8종)</li>
         <li>승리 조건 (오목 / 체크메이트 / 자멸)</li>
-        <li>특수 규칙 (체크 한도, 캡처 규칙)</li>
+        <li>특수 규칙 (체크 한도, 백 첫 2수 체크 금지, 캡처 규칙)</li>
       </ul>
       <div class="tut-callout">📌 약 5분이면 끝나며, 마지막에 AI와 연습 대국을 시작할 수 있습니다.</div>`
   },
@@ -368,6 +370,9 @@ const STEPS = [
     body:`
       <h3>체크 한도</h3>
       <p>한 게임에서 한 색이 가할 수 있는 총 체크는 <b>5회</b>까지. 6번째 체크는 무효 처리되어 그 수가 거절됩니다.</p>
+      <h3>백 선공 보정 — 첫 2수 체크 금지</h3>
+      <p>먼저 두는 <b>백</b>은 자기 <b>첫 2수 동안 체크를 걸 수 없습니다</b>. 체크가 되는 수는 무효 처리되어 거절되니 다른 수를 두세요. (흑은 제한 없음)</p>
+      <div class="tut-callout">⚖ 선공 이득을 줄이기 위한 규칙. 백은 초반 2수를 배치·전개에 쓰게 됩니다.</div>
       <h3>캡처 규칙</h3>
       <ul>
         <li>모든 캡처는 <b>영구 제거</b> — 잡힌 기물은 손패에 돌아오지 않음</li>

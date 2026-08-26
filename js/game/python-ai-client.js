@@ -4,8 +4,9 @@
   const enabled = q.get('pyai') === '1';
   const apiBase = (q.get('aiapi') || window.FRONTIER_AI_API || '').replace(/\/$/, '');
   const simulations = Math.max(1, Math.min(250, Number(q.get('aisims') || 32)));
-  // 요청 타임아웃(ms). AZ 추론과 Render 콜드스타트를 기다리도록 기본 120s.
-  const DEFAULT_TIMEOUT_MS = 120000;
+  // 요청 타임아웃(ms). 초과하면 내장 AI로 폴백하므로 길게 기다릴 이유가 없다.
+  // (Render 콜드스타트는 아래 워밍업 요청이 흡수하고, 깨는 동안만 내장 AI가 대신 둔다.)
+  const DEFAULT_TIMEOUT_MS = 20000;
   const requestedTimeoutMs = Number(q.get('aitimeout') || DEFAULT_TIMEOUT_MS);
   const timeoutMs = Number.isFinite(requestedTimeoutMs)
     ? Math.max(3000, requestedTimeoutMs)
