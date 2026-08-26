@@ -11,17 +11,17 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <!-- 다국어(i18n): 사전 먼저, 그다음 엔진 -->
-<script src="js/i18n-dict.js?v=18"></script>
-<script src="js/i18n.js?v=18"></script>
+<script src="js/i18n-dict.js?v=20"></script>
+<script src="js/i18n.js?v=20"></script>
 <!-- Game modules (split from monolith FRONTIER.html) -->
-<script src="js/game/utils.js?v=18"></script>
-<script src="js/game/firebase.js?v=18"></script>
-<script src="js/game/timer.js?v=18"></script>
-<script src="js/game/chat.js?v=18"></script>
-<script src="js/game/elo.js?v=18"></script>
-<script src="js/game/network.js?v=18"></script>
-<link rel="stylesheet" href="css/theme.css?v=18">
-<script src="js/theme.js?v=18"></script>
+<script src="js/game/utils.js?v=20"></script>
+<script src="js/game/firebase.js?v=20"></script>
+<script src="js/game/timer.js?v=20"></script>
+<script src="js/game/chat.js?v=20"></script>
+<script src="js/game/elo.js?v=20"></script>
+<script src="js/game/network.js?v=20"></script>
+<link rel="stylesheet" href="css/theme.css?v=20">
+<script src="js/theme.js?v=20"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -1379,6 +1379,18 @@ body.board-flipped .cell{transform:rotate(180deg)}
         <li><b>백은 첫 3수 동안 체크 금지</b> — 선공 보정. 체크가 되는 수는 거절됨 (흑은 제한 없음)</li>
       </ul>
 
+      <h4>🔲 XL 모드 (12×12)</h4>
+      <ul>
+        <li><b>승리는 오목으로만</b> — 체크메이트는 아래 비상탈출을 다 쓴 뒤에만 패배로 이어짐</li>
+        <li><b>비상탈출</b>: 체크메이트되면 킹이 <b>게임당 1회</b> 주위 5×5의 안전한 빈 칸으로 대피.
+            대가로 자기 기물 1개를 잃는다. (3×3이 아닌 이유 — 체크메이트 시점엔 인접 칸이 전부 막혀 있음)</li>
+        <li><b>강화 기물</b>: 퀸=아마존(퀸+나이트) · 룩=챈슬러(룩+나이트) · 비숍=아크비숍(비숍+나이트) ·
+            나이트=켄타우로스(나이트+킹) · 폰은 옆으로 한 칸 이동 가능</li>
+        <li><b>특수 기물 강화</b>: 방패는 한 번에 두 칸 · 스나이퍼는 사거리 무제한 + 기물 1개 관통 ·
+            어쌔신은 알리바바(상하좌우·대각 2칸 점프)</li>
+        <li>스나이퍼 배치 자리 8곳 — 바깥 모서리 4곳 + 안쪽 8×8 영역 모서리 4곳</li>
+      </ul>
+
       <h4>📐 보드 영역</h4>
       <ul>
         <li><b>4×4 킹 영역</b> (중앙): 킹 배치 가능 — 첫 수는 무조건 킹</li>
@@ -1454,13 +1466,13 @@ body.board-flipped .cell{transform:rotate(180deg)}
   <div class="replay-list" id="replayList" style="display:none"></div>
 </div>
 
-<script src="js/game/engine.js?v=18"></script>
+<script src="js/game/engine.js?v=20"></script>
 
 <!-- Python AI Worker bridge: AI 대전 URL에 pyai=1이 있을 때 활성화 -->
 <script>
   window.FRONTIER_AI_API = window.FRONTIER_AI_API || 'https://frontier-python-ai.onrender.com';
 </script>
-<script src="js/game/python-ai-client.js?v=18"></script>
+<script src="js/game/python-ai-client.js?v=20"></script>
 
 </body>
 </html>

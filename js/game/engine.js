@@ -1838,6 +1838,122 @@ function isCheckmate(color){
 }
 
 // ===================================================================
+// XL 비상탈출 — 체크메이트된 킹이 게임당 1회만 대피. 대가로 자기 기물 1개 희생.
+//
+// 반경이 2(5x5)인 이유: 체크메이트 판정은 '체크 + 합법수 전무'라서
+// 인접 8칸(3x3)은 정의상 전부 막혔거나 공격받는 상태다. 거리 2 칸은
+// 킹이 원래 한 번에 못 가는 자리라 체크메이트와 무관하게 안전할 수 있다.
+// ===================================================================
+const XL_ESCAPE_RADIUS = 2;
+let xlEscapeUsed = { w:false, b:false };
+let _xlEscape = null;   // { color, targets, dest } — 진행 중인 탈출
+
+// 킹을 옮길 수 있는 빈 칸 (옮긴 뒤 체크가 아닌 자리만)
+function xlEscapeTargets(color){
+  const k = findKing(color);
+  if(!k) return [];
+  const [kr,kc] = k;
+  const out = [];
+  for(let dr=-XL_ESCAPE_RADIUS; dr<=XL_ESCAPE_RADIUS; dr++){
+    for(let dc=-XL_ESCAPE_RADIUS; dc<=XL_ESCAPE_RADIUS; dc++){
+      if(!dr && !dc) continue;
+      const nr=kr+dr, nc=kc+dc;
+      if(!inBounds(nr,nc) || board[nr][nc]) continue;
+      const snap = snapshotState();
+      board[nr][nc] = board[kr][kc]; board[kr][kc] = null;
+      const safe = !isInCheck(color);
+      restoreState(snap);
+      if(safe) out.push([nr,nc]);
+    }
+  }
+  return out;
+}
+
+// 희생 가능한 자기 기물 (킹 제외)
+function xlSacrificeCandidates(color){
+  const out = [];
+  for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
+    const p = board[r][c];
+    if(p && p.color === color && p.kind !== 'K') out.push([r,c]);
+  }
+  return out;
+}
+
+function xlIsAiColor(color){
+  if(IS_AIVAI) return true;
+  return IS_AI && color === 'b';
+}
+
+// 탈출 가능하면 시작하고 true. 불가능하면 false → 호출부가 그냥 패배 처리.
+function startXlEscape(color){
+  if(!IS_XL || xlEscapeUsed[color]) return false;
+  const targets = xlEscapeTargets(color);
+  if(!targets.length || !xlSacrificeCandidates(color).length) return false;
+  _xlEscape = { color, targets, dest:null };
+  SEL = null;
+  HIGHLIGHTS = targets.map(([r,c]) => ({r, c, type:'move'}));
+  renderAll();
+  showFlash('🚨 체크메이트! 비상탈출 — 킹을 옮길 칸을 고르세요 (게임당 1회)', 4000);
+  if(xlIsAiColor(color)) setTimeout(autoXlEscape, 500);
+  return true;
+}
+
+// AI 자동 탈출: 첫 안전 칸 + 가장 값싼 기물 희생
+function autoXlEscape(){
+  if(!_xlEscape) return;
+  const [tr,tc] = _xlEscape.targets[0];
+  applyXlEscapeMove(tr, tc);
+  const cands = xlSacrificeCandidates(_xlEscape.color);
+  cands.sort((a,b) => (PIECE_VALUES[board[a[0]][a[1]].kind]||0) - (PIECE_VALUES[board[b[0]][b[1]].kind]||0));
+  applyXlEscapeSacrifice(cands[0][0], cands[0][1]);
+}
+
+function applyXlEscapeMove(tr, tc){
+  const k = findKing(_xlEscape.color);
+  board[tr][tc] = board[k[0]][k[1]];
+  board[k[0]][k[1]] = null;
+  lastMove = { fr:k[0], fc:k[1], tr, tc, type:'escape' };
+  _xlEscape.dest = [tr, tc];
+  HIGHLIGHTS = xlSacrificeCandidates(_xlEscape.color).map(([r,c]) => ({r, c, type:'attack'}));
+  renderAll();
+  showFlash('🩸 희생할 자기 기물을 고르세요', 4000);
+}
+
+function applyXlEscapeSacrifice(sr, sc){
+  const color = _xlEscape.color;
+  board[sr][sc] = null;
+  xlEscapeUsed[color] = true;
+  checkStreak[color] = 0;
+  _xlEscape = null;
+  HIGHLIGHTS = [];
+  if(IS_NET) sendToPeer({ t:'XL_ESCAPE', color, dest:lastMove && [lastMove.tr, lastMove.tc], sac:[sr, sc] });
+  // 기물이 사라지고 킹이 움직였으니 오목이 새로 생겼을 수 있다
+  const five = checkFiveInRow();
+  moveHistory.push(serializeBoard());
+  turn = opp(color);
+  renderAll();
+  if(five){
+    endGame('🏆','오목 승리!', (window.t ? window.t('{c}이 5목을 완성했습니다.', {c:window.t(five==='w'?'백':'흑')}) : `${five==='w'?'백':'흑'}이 5목을 완성했습니다.`), five);
+    return;
+  }
+  showFlash('✅ 비상탈출 완료 — 이제 탈출권이 없습니다', 3000);
+  if(IS_AI && !gameOver && turn === 'b') setTimeout(()=> aiTurn(), 200);
+  else if(IS_AIVAI && !gameOver) setTimeout(()=> aiTurn(), 600);
+}
+
+// 탈출 진행 중 보드 클릭 처리
+function handleXlEscapeClick(r, c){
+  if(!_xlEscape.dest){
+    if(!_xlEscape.targets.some(([tr,tc]) => tr===r && tc===c)) return;
+    applyXlEscapeMove(r, c);
+    return;
+  }
+  const p = board[r][c];
+  if(!p || p.color !== _xlEscape.color || p.kind === 'K') return;
+  applyXlEscapeSacrifice(r, c);
+}
+
+// ===================================================================
 // 9. UI 렌더링
 // ===================================================================
 const boardEl = document.getElementById('board');
@@ -2245,10 +2361,16 @@ function selectHand(kind){
 function onCellClick(e){
   if(gameOver) return;
   if(IS_SPEC) return;
-  if(!isMyTurnLocked()) return;
 
   const r = parseInt(e.currentTarget.dataset.r);
   const c = parseInt(e.currentTarget.dataset.c);
+
+  // XL 비상탈출 진행 중 — 일반 조작보다 먼저 가로챈다
+  if(_xlEscape){
+    if(IS_LOCAL || _xlEscape.color === MY_COLOR) handleXlEscapeClick(r, c);
+    return;
+  }
+  if(!isMyTurnLocked()) return;
   const myCol = IS_LOCAL ? turn : MY_COLOR;
 
   // 차단 물약 사용 중이면 가로채기
@@ -2586,6 +2708,8 @@ function postMoveCheck(r){
     return;
   }
   if(r.checkmate){
+    // XL: 체크메이트된 쪽이 아직 탈출권을 안 썼고 갈 곳이 있으면 게임이 안 끝난다
+    if(startXlEscape(turn)) return;
     endGame('👑','체크메이트!', T('{c}의 승리.', {c:T(r.checkmate==='w'?'백':'흑')}), r.checkmate);
     return;
   }
@@ -3514,6 +3638,24 @@ function onPeerMessage(data){
   // 정상 메시지 받음 → pong 시각 갱신 + grace 취소
   _lastPongTime = Date.now();
   // PING/PONG (연결 상태 확인용)
+  if(data.t === 'XL_ESCAPE'){
+    // 상대의 비상탈출을 그대로 재현 (판정은 보낸 쪽에서 이미 끝났다)
+    const k = findKing(data.color);
+    if(k && data.dest){
+      board[data.dest[0]][data.dest[1]] = board[k[0]][k[1]];
+      board[k[0]][k[1]] = null;
+      lastMove = { fr:k[0], fc:k[1], tr:data.dest[0], tc:data.dest[1], type:'escape' };
+    }
+    if(data.sac) board[data.sac[0]][data.sac[1]] = null;
+    xlEscapeUsed[data.color] = true;
+    checkStreak[data.color] = 0;
+    moveHistory.push(serializeBoard());
+    turn = opp(data.color);
+    renderAll();
+    const five = checkFiveInRow();
+    if(five) endGame('🏆','오목 승리!', `${five==='w'?'백':'흑'}이 5목을 완성했습니다.`, five);
+    return;
+  }
   if(data.t === 'PING'){
     try { sendToPeer({ t:'PONG', ts: data.ts }); } catch(_){}
     return;
@@ -3976,6 +4118,8 @@ function doRematch(){
   snUpgraded = { w:false, b:false };
   tycoonTurn = { w:0, b:0 };
   gameOver = false;
+  xlEscapeUsed = { w:false, b:false };
+  _xlEscape = null;
   SEL = null;
   HIGHLIGHTS = [];
   _eloPending = false;
@@ -4213,6 +4357,8 @@ function initReplay(){
   snUpgraded = { w:false, b:false };
   tycoonTurn = { w:0, b:0 };
   gameOver = false;
+  xlEscapeUsed = { w:false, b:false };
+  _xlEscape = null;
 
   document.body.classList.add('replay-mode');
 
@@ -4356,6 +4502,8 @@ function replayResetState(){
   snUpgraded = { w:false, b:false };
   tycoonTurn = { w:0, b:0 };
   gameOver = false;
+  xlEscapeUsed = { w:false, b:false };
+  _xlEscape = null;
 }
 
 function replayApplyTo(toIndex){
