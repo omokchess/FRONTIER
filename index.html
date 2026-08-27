@@ -56,13 +56,13 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <!-- 다국어(i18n): 사전 먼저, 그다음 엔진 -->
-<script src="js/i18n-dict.js?v=30"></script>
-<script src="js/i18n.js?v=30"></script>
-<script src="js/game/pieces.js?v=30"></script>
-<script src="js/lobby/daily.js?v=30"></script>
-<script src="js/lobby/titles.js?v=30"></script>
-<link rel="stylesheet" href="css/theme.css?v=30">
-<script src="js/theme.js?v=30"></script>
+<script src="js/i18n-dict.js?v=31"></script>
+<script src="js/i18n.js?v=31"></script>
+<script src="js/game/pieces.js?v=31"></script>
+<script src="js/lobby/daily.js?v=31"></script>
+<script src="js/lobby/titles.js?v=31"></script>
+<link rel="stylesheet" href="css/theme.css?v=31">
+<script src="js/theme.js?v=31"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -1681,8 +1681,9 @@ const _LOCAL_TIME_OPTS = [
   {v:'unlimited',l:'제한없음'}
 ];
 const _AI_TIME_OPTS = _LOCAL_TIME_OPTS.filter(o => !['1800','3600','unlimited'].includes(o.v));
-// Python AI 응답 대기 한도. 넘기면 브리지가 내장 AI로 폴백하므로 길게 잡을 이유가 없다.
-const PYTHON_AI_TIMEOUT_MS = '20000';
+// Python AI 응답 대기 한도. 실측상 어려움(32 sims)이 26초까지 걸려 20초로는
+// 항상 폴백됐다. 서버 최적화 후에도 무료 티어라 여유를 둔다.
+const PYTHON_AI_TIMEOUT_MS = '40000';
 // 난이도별 MCTS 시뮬레이션 수 — 예전엔 난이도와 무관하게 48이라 '쉬움'도 똑같이 오래 생각했다.
 const PYTHON_AI_SIMS = { easy:'6', normal:'16', hard:'32' };
 const aiSimsFor = d => PYTHON_AI_SIMS[d] || PYTHON_AI_SIMS.normal;

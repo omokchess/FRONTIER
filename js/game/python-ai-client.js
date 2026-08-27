@@ -4,9 +4,12 @@
   const enabled = q.get('pyai') === '1';
   const apiBase = (q.get('aiapi') || window.FRONTIER_AI_API || '').replace(/\/$/, '');
   const simulations = Math.max(1, Math.min(250, Number(q.get('aisims') || 32)));
-  // 요청 타임아웃(ms). 초과하면 내장 AI로 폴백하므로 길게 기다릴 이유가 없다.
-  // (Render 콜드스타트는 아래 워밍업 요청이 흡수하고, 깨는 동안만 내장 AI가 대신 둔다.)
-  const DEFAULT_TIMEOUT_MS = 20000;
+  // 요청 타임아웃(ms).
+  // 실측(Render 무료 티어, 워밍업 후): 시뮬레이션 1회에도 기저 10초, 32회면 26초.
+  // 20초로 잡았더니 '어려움'은 항상 타임아웃 → 사실상 Python AI가 한 번도
+  // 못 두고 내장 AI로만 돌았다. 서버 쪽 병목(tactical_action)을 줄였지만
+  // 무료 티어 CPU라 여유를 둔다.
+  const DEFAULT_TIMEOUT_MS = 40000;
   const requestedTimeoutMs = Number(q.get('aitimeout') || DEFAULT_TIMEOUT_MS);
   const timeoutMs = Number.isFinite(requestedTimeoutMs)
     ? Math.max(3000, requestedTimeoutMs)
