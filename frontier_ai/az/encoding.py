@@ -37,10 +37,14 @@ def index_to_action(idx: int, color: str) -> Action:
     return Action("move", color, fr=frm // 8, fc=frm % 8, tr=to // 8, tc=to % 8)
 
 
-def legal_action_indices(state: GameState) -> tuple[list[int], dict[int, Action]]:
-    """Legal actions as policy indices, collapsing promotion variants (keep one representative)."""
+def legal_action_indices(state: GameState, actions=None) -> tuple[list[int], dict[int, Action]]:
+    """Legal actions as policy indices, collapsing promotion variants (keep one representative).
+
+    `actions`가 주어지면 그걸 쓴다 — MCTS는 자식 노드를 만들 때 apply()가 이미
+    계산한 합법수를 받아오므로 같은 계산을 두 번 하지 않는다.
+    """
     mapping: dict[int, Action] = {}
-    for a in state.legal_actions():
+    for a in (state.legal_actions() if actions is None else actions):
         idx = action_to_index(a)
         if idx not in mapping:
             mapping[idx] = a

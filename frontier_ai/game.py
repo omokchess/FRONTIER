@@ -83,6 +83,11 @@ class ApplyResult:
     reason: str | None = None
     draw: bool = False
     opponent_in_check: bool = False
+    # check_terminal=True로 적용할 때 체크메이트/스테일메이트 판정을 위해
+    # '다음 차례의 합법수'를 이미 계산한다. 호출자가 곧바로 그걸 다시 구하는
+    # 경우(MCTS의 노드 확장)가 많아 그대로 넘겨준다 — 숨은 캐시를 두면
+    # 판을 직접 수정하는 코드에서 stale 위험이 생기므로 명시적으로 전달한다.
+    legal_after: list["Action"] | None = None
 
 
 @dataclass
@@ -415,13 +420,14 @@ class GameState:
             self.terminal, self.end_reason = True, "threefold"
             return ApplyResult(True, reason="threefold", draw=True, opponent_in_check=opponent_checked)
         if check_terminal:
-            nxt_legal = self.legal_actions(validate_terminal=False)
+            nxt_legal = self.legal_actions()
             if not nxt_legal:
                 if opponent_checked:
                     self.terminal, self.winner, self.end_reason = True, mover, "checkmate"
                     return ApplyResult(True, winner=mover, reason="checkmate", opponent_in_check=True)
                 self.terminal, self.end_reason = True, "stalemate"
                 return ApplyResult(True, reason="stalemate", draw=True)
+            return ApplyResult(True, opponent_in_check=opponent_checked, legal_after=nxt_legal)
         return ApplyResult(True, opponent_in_check=opponent_checked)
 
     def pseudo_actions(self, color: str) -> list[Action]:
@@ -481,7 +487,7 @@ class GameState:
                 return True
         return False
 
-    def legal_actions(self, validate_terminal: bool = True) -> list[Action]:
+    def legal_actions(self) -> list[Action]:
         if self.terminal:
             return []
         color = self.turn

@@ -19,11 +19,19 @@ class AZPlayer:
         policy, value = self.sess.run(None, {self.input_name: planes})
         return policy[0], float(np.reshape(value, -1)[0])
 
+    def _evaluate_batch(self, states):
+        """리프 여러 개를 한 번에. 추론 호출당 고정 오버헤드가 커서 묶는 만큼 그대로 이득."""
+        planes = np.stack([encode_planes(s, s.turn) for s in states])      # [B,42,8,8]
+        policy, value = self.sess.run(None, {self.input_name: planes})
+        value = np.reshape(value, -1)
+        return [(policy[i], float(value[i])) for i in range(len(states))]
+
     def choose_action(self, state: GameState, simulations: int = 64, c_puct: float = 1.5):
         forced, reason = tactical_action(state)
         if forced is not None:
             return forced, {"simulations": 0, "forced": reason, "engine": "alphazero"}
-        mcts = MCTS(self._evaluate, c_puct=c_puct)
+        mcts = MCTS(self._evaluate, c_puct=c_puct,
+                    evaluate_batch=self._evaluate_batch, batch_size=16)
         root = mcts.run(state.clone(), simulations, add_noise=False)
         if not root.N:
             return None, {"legal": 0, "engine": "alphazero"}

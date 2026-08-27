@@ -22,11 +22,26 @@ def make_evaluator(net: AZNet, device):
     return ev
 
 
+def make_batch_evaluator(net: AZNet, device):
+    """리프 여러 개를 한 번에 평가한다.
+
+    배치 1 추론은 GPU에서 커널 실행 오버헤드가 지배해서, 3060 기준 64회를
+    하나씩 돌리면 389ms인데 16개씩 묶으면 21ms다. 자가대국 시간의 60%가
+    여기에 있었다.
+    """
+    def ev(states):
+        planes = np.stack([encode_planes(s, s.turn) for s in states])   # [B,42,8,8]
+        logits, values = infer_batch(net, planes, device)
+        return [(logits[i], float(values[i])) for i in range(len(states))]
+    return ev
+
+
 def play_game(net, device, hand, n_sims=64, max_moves=200, temp_moves=12, c_puct=1.5,
               seed=None, threefold_contempt=0.0):
     if seed is not None:
         np.random.seed(seed)
-    mcts = MCTS(make_evaluator(net, device), c_puct=c_puct)
+    mcts = MCTS(make_evaluator(net, device), c_puct=c_puct,
+                evaluate_batch=make_batch_evaluator(net, device))
     state = GameState.initial(hand)
     samples = []                       # (planes, pi_target, mover)
     moves = 0
