@@ -454,12 +454,58 @@ class GameState:
                         actions.append(Action("move", color, fr=r, fc=c, tr=tr, tc=tc))
         return actions
 
+    def has_legal_action(self) -> bool:
+        """합법수가 하나라도 있는가 — 찾는 즉시 반환한다.
+
+        체크메이트 판정은 '합법수가 0개인가'만 알면 되는데, legal_actions()는
+        목록 전체를 만든다. 상대에게 응수가 있는 게 보통이라 첫 후보 몇 개에서
+        끝나므로 훨씬 싸다.
+        """
+        if self.terminal:
+            return False
+        color = self.turn
+        # 순서가 중요하다. 이 함수가 불리는 상황은 거의 '체크를 당한 직후'인데,
+        # 그때는 배치 대부분이 불법이라 pseudo_actions 순서대로 훑으면 조기 종료가
+        # 한참 뒤에 걸린다. 킹 이동 → 나머지 이동 → 배치 순으로 본다.
+        king_moves, other_moves, places = [], [], []
+        for action in self.pseudo_actions(color):
+            if action.type == "place":
+                places.append(action)
+            else:
+                piece = self.board[action.fr][action.fc]
+                (king_moves if piece and piece.kind == "K" else other_moves).append(action)
+        for action in king_moves + other_moves + places:
+            copied = self.clone()
+            applied = copied.apply(action, check_terminal=False)
+            if applied.ok and applied.reason != "check_suicide":
+                return True
+        return False
+
     def legal_actions(self, validate_terminal: bool = True) -> list[Action]:
         if self.terminal:
             return []
         color = self.turn
+        # 배치는 기물을 '더하는' 행동이라 라인을 막을 뿐 열지 못한다.
+        # 따라서 체크가 아닌 상태에서 킹이 아닌 기물을 놓으면 자기 킹이 노출될 수
+        # 없다 → clone+apply 검증을 통째로 건너뛴다. 초반엔 후보 대부분이 배치라
+        # 이 지름길 하나가 가장 크게 먹힌다.
+        #
+        # 단, 배치도 '상대에게 체크를 걸' 수는 있으므로 체크 관련 거절 사유가
+        # 살아 있는 동안에는 지름길을 쓰지 않는다:
+        #   - 백 첫 N수 체크 금지 (check_banned)
+        #   - 5회 체크 한도 초과
+        #   - 상대가 이미 2연속 체크를 받은 상태 (한 번 더 걸면 3연속 자멸이라
+        #     AI 합법수 생성에서 빠져야 한다)
+        in_check = self.king_placed[color] and self.is_in_check(color)
+        can_skip_places = (not in_check
+                           and not self.check_banned(color)
+                           and self.total_checks[color] < 5
+                           and self.check_streak[opp(color)] < 2)
         result: list[Action] = []
         for action in self.pseudo_actions(color):
+            if can_skip_places and action.type == "place" and action.kind != "K":
+                result.append(action)
+                continue
             copied = self.clone()
             applied = copied.apply(action, check_terminal=False)
             # Original JS filters check-suicide out of AI legal generation.

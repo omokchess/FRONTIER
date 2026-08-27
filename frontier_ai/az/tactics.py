@@ -21,7 +21,7 @@ def _winning_action(state: GameState, color: str | None = None) -> Action | None
         if result.winner == mover:      # 오목 / 3연속 체크 자멸
             return action
         if result.opponent_in_check and not nxt.terminal:
-            if not nxt.legal_actions(validate_terminal=False):
+            if not nxt.has_legal_action():
                 return action           # 체크메이트
     return None
 
