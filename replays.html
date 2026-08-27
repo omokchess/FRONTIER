@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FRONTIER — 내 리플레이</title>
-<link rel="stylesheet" href="css/theme.css?v=28">
-<script src="js/theme.js?v=28"></script>
+<link rel="stylesheet" href="css/theme.css?v=29">
+<script src="js/theme.js?v=29"></script>
 <style>
 :root{
   --bg:#0d0d0e; --panel:#1a1a1c; --panel2:#222226; --border:#3a3a3c;
@@ -119,6 +119,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Pretendard Variabl
 </div>
 
 <script>
+// 재생 URL — 변형 플래그와 손패를 반드시 실어야 한다.
+// 없으면 XL 대국이 8x8로, 물약/타이쿤 대국이 일반 모드로 재생돼 깨진다.
+// 구버전 리플레이(variant 없음)는 일반 모드로 떨어진다 — 그건 원래 동작이 맞다.
+function replayUrl(meta){
+  const p = new URLSearchParams({ role:'replay', rid: meta.id });
+  const v = meta.variant || {};
+  if(v.xl) p.set('xl','1');
+  if(v.potion) p.set('potion','1');
+  if(v.tycoon) p.set('tycoon','1');
+  if(meta.handStr) p.set('hand', meta.handStr);
+  return 'FRONTIER.html?' + p.toString();
+}
 'use strict';
 
 let _replays = [];
@@ -126,6 +138,7 @@ let _replays = [];
 function loadReplays(){
   try {
     _replays = JSON.parse(localStorage.getItem('frontier_replay_index') || '[]');
+    window._replayIndex = _replays;
   } catch(e){ _replays = []; }
 }
 
@@ -232,7 +245,7 @@ function renderList(){
           <span>⏱ ${fmtTime(r.timeLimit)}</span>
         </div>
         <div class="rc-actions">
-          <a class="rc-action" href="FRONTIER.html?role=replay&rid=${r.id}" onclick="event.stopPropagation()">▶ 재생</a>
+          <a class="rc-action" href="${replayUrl(r)}" onclick="event.stopPropagation()">▶ 재생</a>
           <button class="rc-action dl" onclick="event.stopPropagation();downloadReplay('${r.id}')" title="JSON으로 다운로드">⬇</button>
           <button class="rc-action del" onclick="event.stopPropagation();confirmDelete('${r.id}')" title="삭제">🗑</button>
         </div>
@@ -262,7 +275,8 @@ function openReplay(id){
       if(changed) localStorage.setItem('frontier_quests', JSON.stringify(data));
     }
   } catch(_){}
-  location.href = 'FRONTIER.html?role=replay&rid=' + id;
+  const meta = (window._replayIndex || []).find(m => m.id === id);
+  location.href = meta ? replayUrl(meta) : ('FRONTIER.html?role=replay&rid=' + id);
 }
 
 function importReplay(event){

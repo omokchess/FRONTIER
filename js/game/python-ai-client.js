@@ -44,12 +44,26 @@
     if (gameOver) return;
     const aiColor = IS_AIVAI ? turn : 'b';
     if (turn !== aiColor) return;
+    // Python 엔진은 8x8 고정이고 물약 상태를 모른다 — 두 경우 모두 내장 AI로
     if (IS_POTION) { console.warn('Python AI v1 excludes potion mode; falling back to browser AI.'); return fallbackAiTurn(); }
+    if (typeof IS_XL !== 'undefined' && IS_XL) { console.warn('Python AI is 8x8-only; XL falls back to browser AI.'); return fallbackAiTurn(); }
     showAIThinking(true, IS_AIVAI ? aiColor : null);
     try {
       const action = await requestMove();
       if (gameOver || turn !== aiColor) return;
       action.color = aiColor;
+      // 서버가 준 수가 이쪽 규칙으로 불법이면 submitAction이 조용히 거절하고 끝나
+      // AI 턴이 그대로 소진된다 → 게임이 영영 멈춘다.
+      // 배포된 Python 엔진과 JS 룰 버전이 어긋나면 실제로 일어난다.
+      // 넘기기 전에 여기서 먼저 검증하고, 불법이면 내장 AI로 넘긴다.
+      const snap = snapshotState();
+      const probe = applyAction(action, { silent: true });
+      restoreState(snap);
+      if (!probe.ok) {
+        console.warn('Python AI가 불법 수를 반환 — 내장 AI로 전환:', probe.err, action);
+        if (typeof showFlash === 'function') showFlash('AI 응답이 규칙과 불일치 — 내장 AI로 진행', 2600);
+        return fallbackAiTurn();
+      }
       submitAction(action);
     } catch (err) {
       console.error('Python AI 연결 실패, 내장 AI로 전환:', err);

@@ -468,6 +468,59 @@ function rotateShield(r, c, fromNet){
   return true;
 }
 
+// 룰 버전 — 접속 시 교환한다. 규칙이 바뀌면 올린다.
+// 한쪽이 캐시된 옛 JS를 물고 있으면 판정이 갈려 조용히 데스싱크가 난다.
+const RULES_VERSION = 3;
+
+// 판을 그대로 복원하는 데 필요한 전부. 관전 publish와 데스싱크 복구가 같이 쓴다.
+// moveHistory가 반드시 들어가야 한다 — 백 체크 금지·흑 캡처 금지·방패 잠금이
+// 전부 moveHistory.length로 판정되기 때문이다.
+function netStateSnapshot(){
+  return {
+    v: RULES_VERSION,
+    board: board.map(row => row.map(c => c ? {...c} : null)),
+    hands: { w:{...hands.w}, b:{...hands.b} },
+    turn, kingPlaced:{...kingPlaced},
+    lastMove: lastMove ? {...lastMove} : null,
+    checkStreak:{...checkStreak}, totalChecks:{...totalChecks},
+    moveHistory: [...moveHistory],
+    xlEscapeUsed: (typeof xlEscapeUsed !== 'undefined') ? {...xlEscapeUsed} : {w:false,b:false},
+    gold: (typeof gold !== 'undefined' && gold) ? {...gold} : {w:0,b:0},
+    snUpgraded: (typeof snUpgraded !== 'undefined' && snUpgraded) ? {...snUpgraded} : {w:false,b:false},
+    tycoonTurn: (typeof tycoonTurn !== 'undefined' && tycoonTurn) ? {...tycoonTurn} : {w:0,b:0},
+    rating: (typeof _gameRatingInfo !== 'undefined') ? _gameRatingInfo : null
+  };
+}
+
+// 데스싱크 감지 시 호출. 게스트는 호스트에게 요청하고, 호스트는 자기 상태를 밀어준다.
+let _resyncAt = 0;
+function requestResync(reason){
+  if(!IS_NET) return;
+  const now = Date.now();
+  if(now - _resyncAt < 3000) return;   // 연타 방지
+  _resyncAt = now;
+  showFlash('⚠ 상대와 판이 어긋났습니다 — 동기화 중', 2500);
+  if(NET_ROLE === 'host') sendToPeer({ t:'RESYNC_STATE', state: netStateSnapshot() });
+  else sendToPeer({ t:'RESYNC_REQ', reason: reason || '' });
+}
+
+function netStateApply(st){
+  board = st.board.map(row => row.map(c => c ? {...c} : null));
+  hands = { w:{...st.hands.w}, b:{...st.hands.b} };
+  turn = st.turn;
+  kingPlaced = {...st.kingPlaced};
+  lastMove = st.lastMove ? {...st.lastMove} : null;
+  checkStreak = st.checkStreak || {w:0,b:0};
+  totalChecks = st.totalChecks || {w:0,b:0};
+  if(Array.isArray(st.moveHistory)) moveHistory = [...st.moveHistory];
+  if(st.xlEscapeUsed && typeof xlEscapeUsed !== 'undefined') xlEscapeUsed = {...st.xlEscapeUsed};
+  if(typeof gold !== 'undefined') gold = st.gold || {w:0,b:0};
+  if(typeof snUpgraded !== 'undefined') snUpgraded = st.snUpgraded || {w:false,b:false};
+  if(typeof tycoonTurn !== 'undefined') tycoonTurn = st.tycoonTurn || {w:0,b:0};
+  SEL = null; HIGHLIGHTS = [];
+  renderAll();
+}
+
 function serializeBoard(){
   let s = turn + '|';
   for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
@@ -520,6 +573,9 @@ function applyAction(action, opts={}){
 
   if(action.type === 'place'){
     const { kind, r, c, color } = action;
+    // 배치도 이동처럼 '자기 차례의 색'인지 확인한다.
+    // 없으면 조작된 클라이언트가 상대 색 기물을 놓을 수 있다.
+    if(color !== turn) return { ok:false, err:'현재 차례의 색이 아님' };
     if(!hands[color][kind] || hands[color][kind] <= 0) return { ok:false, err:'손패 없음' };
     if(board[r][c]) return { ok:false, err:'점유됨' };
     // 차단 칸 검사 (물약 모드)
@@ -2666,6 +2722,9 @@ function saveReplayToStorage(winner, endTitle, endDesc){
       aiDifficulty: IS_AI ? DIFF : (IS_AIVAI ? `${W_DIFF}/${B_DIFF}` : null),
       timeLimit: TIME_LIMIT,
       handStr: Q.get('hand') || '',
+      // 변형 플래그 — 재생 URL에 그대로 실어야 판 크기·규칙이 맞는다.
+      // 예전엔 role=replay&rid=만 넘겨서 XL 대국이 8x8로 재생되며 깨졌다.
+      variant: { xl: IS_XL ? 1 : 0, potion: IS_POTION ? 1 : 0, tycoon: IS_TYCOON ? 1 : 0 },
       players: {
         w: { 
           nick: IS_AIVAI ? `백 AI(${W_DIFF})` : (IS_NET ? (_gameRatingInfo?.whiteNick || '백') : (MY_COLOR === 'w' ? MY_NICK_P : (IS_AI ? MY_NICK_P : '백'))),
@@ -3291,7 +3350,11 @@ function aiNormal(list, myColor, genome){
 }
 
 // ===== AI 어려움 — 알파베타 미니맥스 (반복 회피 + 깊이 탐색) =====
-const AI_HARD_TIME_MS = 1200;     // 최대 사고 시간 (반복 심화라 짧아지면 얕은 깊이에서 끊길 뿐 결과는 유효)
+// 최대 사고 시간. 판이 커지면 분기 수가 늘어 같은 시간에 훨씬 얕게밖에 못 판다.
+// 면적에 비례시킨다 (8x8=1200ms, 12x12=2400ms 상한).
+// 참고: 1차 채점은 병목이 아니다 — 12x12 후보 330개를 20ms에 다 돈다.
+// 예산이 쓰이는 곳은 반복 심화(alphaBetaSearch)다.
+const AI_HARD_TIME_MS = Math.min(2400, Math.round(1200 * (BOARD_N * BOARD_N) / 64));
 const AI_HARD_MAX_DEPTH = 5;       // 최대 탐색 깊이 (반복 = 5수 lookahead)
 const AI_HARD_TT_MAX = 100000;     // 트랜스포지션 테이블 최대 엔트리
 
@@ -3316,8 +3379,16 @@ function aiHard(list, myColor, genome){
   const startTime = Date.now();
   const tt = new Map();
   const allScored = [];
-  for(const a of list){
-    if(Date.now() - startTime > AI_HARD_TIME_MS * 0.15) break;
+  // 순서를 섞는다. 평소엔 다 돌지만 판이 더 커지거나 기물이 많아져 시간이
+  // 모자라면, 원래 순서로는 항상 목록 뒤쪽(= 특정 기물·특정 방향)만 통째로
+  // 빠져 편향된 후보군이 된다.
+  const shuffled = list.slice();
+  for(let i=shuffled.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  for(const a of shuffled){
+    if(Date.now() - startTime > AI_HARD_TIME_MS * 0.35) break;
     const snap = snapshotState();
     const r = applyAction(a, {silent:true});
     if(!r.ok){ restoreState(snap); continue; }
@@ -3719,6 +3790,18 @@ function onPeerMessage(data){
   // 정상 메시지 받음 → pong 시각 갱신 + grace 취소
   _lastPongTime = Date.now();
   // PING/PONG (연결 상태 확인용)
+  if(data.t === 'RESYNC_REQ'){
+    // 호스트만 권위를 가진다. 게스트가 요청하면 현재 상태를 그대로 보낸다.
+    if(NET_ROLE === 'host') sendToPeer({ t:'RESYNC_STATE', state: netStateSnapshot() });
+    return;
+  }
+  if(data.t === 'RESYNC_STATE'){
+    try{
+      netStateApply(data.state);
+      showFlash('🔄 상태 재동기화 완료', 2000);
+    }catch(e){ console.error('재동기화 실패', e); }
+    return;
+  }
   if(data.t === 'SH_ROTATE'){
     rotateShield(data.r, data.c, true);
     return;
@@ -3810,6 +3893,16 @@ function onPeerMessage(data){
   }
   if(data.t === 'HELLO'){
     console.log('[net] HELLO 수신:', data);
+    // 룰 버전이 다르면 판정이 갈려 조용히 데스싱크가 난다 — 시작 전에 막는다
+    if(data.rulesVersion !== RULES_VERSION){
+      const mine = RULES_VERSION, theirs = data.rulesVersion || '(구버전)';
+      sendToPeer({ t:'REJECT', reason:'version', mine });
+      alert(`규칙 버전이 다릅니다 (나: ${mine} / 상대: ${theirs}).
+` +
+            `양쪽 다 새로고침(Ctrl+F5) 후 다시 시도하세요.`);
+      setTimeout(()=>{ cleanupRoom(); goLobby(); }, 500);
+      return;
+    }
     // 같은 계정 매칭 방지
     const otherUid = NET_ROLE === 'host' ? data.guestUid : data.hostUid;
     if(otherUid && otherUid === MY_UID){
@@ -3887,7 +3980,12 @@ function onPeerMessage(data){
       if(tgt) _captured = { kind: tgt.kind, color: tgt.color };
     }
     const r = applyAction(data.action);
-    if(!r.ok){ console.error('상대 액션 실패', r); return; }
+    if(!r.ok){
+      // 여기서 멈추면 두 판이 영구히 갈라진다 — 호스트 상태로 되돌려 받는다.
+      console.error('상대 액션 실패 — 재동기화 요청', r);
+      requestResync(r.err);
+      return;
+    }
     recordReplayAction(data.action, _captured);
     if(data.action.type === 'place') playSnd('place');
     else playSnd('move');
@@ -3924,6 +4022,7 @@ function onPeerMessage(data){
     // 호스트가 거부 (같은 계정 등)
     let msg = '연결이 거부되었습니다';
     if(data.reason === 'same_account') msg = '자기 자신과는 매칭할 수 없습니다';
+    if(data.reason === 'version') msg = `규칙 버전 불일치 (상대: ${data.mine}) — 새로고침 후 다시 시도하세요`;
     showFlash(msg);
     setTimeout(()=>{
       cleanupRoom();
@@ -4072,16 +4171,7 @@ function initSpectator(){
     }
     try{
       const s = JSON.parse(raw);
-      board = s.board;
-      hands = s.hands;
-      turn = s.turn;
-      kingPlaced = s.kingPlaced;
-      lastMove = s.lastMove;
-      checkStreak = s.checkStreak || {w:0,b:0};
-      totalChecks = s.totalChecks || {w:0,b:0};
-      gold = s.gold || {w:0,b:0};
-      snUpgraded = s.snUpgraded || {w:false,b:false};
-      tycoonTurn = s.tycoonTurn || {w:0,b:0};
+      netStateApply(s);
       _gameRatingInfo = s.rating;
       if(_gameRatingInfo){
         document.getElementById('myName').textContent = _gameRatingInfo.whiteNick + ` (${_gameRatingInfo.whiteElo})`;

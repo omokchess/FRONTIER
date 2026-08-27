@@ -82,10 +82,18 @@ window.initGuest = function initGuest(){
   _peer.on('error', e => console.error('Peer error', e));
 }
 
+// 시그널링 서버(Render 무료 티어)가 유휴 상태면 깨는 데 30초 이상 걸린다.
+// 예전엔 1.5초 x 6회 = 9초 만에 포기해서 콜드스타트를 못 넘겼다.
+const CONNECT_ATTEMPTS = 14;
 window.tryConnect = function tryConnect(attempt){
-  if(attempt >= 6){
-    document.getElementById('connectMsg').textContent = '연결 실패. 호스트가 없거나 방이 닫혔습니다.';
+  if(attempt >= CONNECT_ATTEMPTS){
+    document.getElementById('connectMsg').textContent =
+      '연결 실패. 호스트가 없거나 방이 닫혔습니다. (새로고침해서 다시 시도해 보세요)';
     return;
+  }
+  const msgEl = document.getElementById('connectMsg');
+  if(msgEl && attempt > 2){
+    msgEl.textContent = `서버를 깨우는 중… (${attempt}/${CONNECT_ATTEMPTS})`;
   }
   const conn = _peer.connect(ROOM_CODE, { reliable:true });
   let opened = false;
@@ -94,9 +102,11 @@ window.tryConnect = function tryConnect(attempt){
     _peerConn = conn;
     setupConn(conn);
   });
+  // 초반은 촘촘히, 뒤로 갈수록 간격을 늘려 총 45초 정도 버틴다
+  const wait = attempt < 4 ? 1500 : 4000;
   setTimeout(() => {
     if(!opened) tryConnect(attempt+1);
-  }, 1500);
+  }, wait);
 }
 
 let _connCloseTimer = null;
@@ -111,10 +121,11 @@ window.startHeartbeat = function startHeartbeat(){
     if(gameOver){ clearInterval(_heartbeatInterval); return; }
     // ping 보냄
     try { sendToPeer({ t:'PING', ts: Date.now() }); } catch(_){}
-    // 12초간 pong 없으면 연결 끊김으로 간주 (이전 30초)
+    // 무응답 판정. 12초는 모바일에서 오탐이 잦아 20초로 늘렸다
+    // (양쪽이 동시에 상대가 끊겼다고 판단하면 둘 다 자기 승리로 처리해 버린다)
     const elapsed = Date.now() - _lastPongTime;
-    if(elapsed > 12000 && !_connCloseTimer && !_hostDisconnected){
-      console.warn('[heartbeat] 12초간 응답 없음 — 연결 끊김 처리');
+    if(elapsed > 20000 && !_connCloseTimer && !_hostDisconnected){
+      console.warn('[heartbeat] 20초간 응답 없음 — 연결 끊김 처리');
       triggerDisconnect();
     }
   }, 3000); // 3초마다 ping (이전 5초)
@@ -179,7 +190,8 @@ window.setupConn = function setupConn(conn){
         hostNick: MY_NICK_P, hostElo: MY_ELO_P, hostUid: MY_UID, hostTag: MY_TAG_P,
         hostTitle: MY_TITLE_NAME || '', hostTitleColor: MY_TITLE_COLOR || '',
         hostPhoto: MY_PHOTO_URL || '',
-        hand: INIT_HAND
+        hand: INIT_HAND,
+        rulesVersion: RULES_VERSION
       };
       console.log('[net] HELLO 송신 (host):', payload);
       sendToPeer(payload);
@@ -188,7 +200,8 @@ window.setupConn = function setupConn(conn){
         t:'HELLO',
         guestNick: MY_NICK_P, guestElo: MY_ELO_P, guestUid: MY_UID, guestTag: MY_TAG_P,
         guestTitle: MY_TITLE_NAME || '', guestTitleColor: MY_TITLE_COLOR || '',
-        guestPhoto: MY_PHOTO_URL || ''
+        guestPhoto: MY_PHOTO_URL || '',
+        rulesVersion: RULES_VERSION
       };
       console.log('[net] HELLO 송신 (guest):', payload);
       sendToPeer(payload);
@@ -220,19 +233,9 @@ window.sendToPeer = function sendToPeer(obj){
 
 window.publishGameState = function publishGameState(){
   if(NET_ROLE !== 'host' || !_fbDb) return;
-  const state = {
-    board: board.map(row => row.map(c => c ? {...c} : null)),
-    hands: { w:{...hands.w}, b:{...hands.b} },
-    turn, kingPlaced:{...kingPlaced},
-    lastMove: lastMove ? {...lastMove} : null,
-    checkStreak:{...checkStreak},
-    totalChecks:{...totalChecks},
-    minsim: (typeof minsim !== 'undefined' && minsim) ? {...minsim} : {w:0,b:0},
-    gold: (typeof gold !== 'undefined' && gold) ? {...gold} : {w:0,b:0},
-    snUpgraded: (typeof snUpgraded !== 'undefined' && snUpgraded) ? {...snUpgraded} : {w:false,b:false},
-    tycoonTurn: (typeof tycoonTurn !== 'undefined' && tycoonTurn) ? {...tycoonTurn} : {w:0,b:0},
-    rating: _gameRatingInfo
-  };
+  // 재동기화와 같은 스냅샷을 쓴다 — 관전자도 moveHistory/xlEscapeUsed를 받아야
+  // 백 체크 금지·흑 캡처 금지·비상탈출 상태가 맞게 보인다.
+  const state = netStateSnapshot();
   _fbDb.ref('rooms/'+ROOM_CODE+'/gameState').set(JSON.stringify(state)).catch(()=>{});
   // 활동 시각 갱신 (유령방 차단용)
   _fbDb.ref('rooms/'+ROOM_CODE+'/lastActivity').set(Date.now()).catch(()=>{});
