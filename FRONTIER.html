@@ -11,18 +11,18 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <!-- 다국어(i18n): 사전 먼저, 그다음 엔진 -->
-<script src="js/i18n-dict.js?v=25"></script>
-<script src="js/i18n.js?v=25"></script>
+<script src="js/i18n-dict.js?v=27"></script>
+<script src="js/i18n.js?v=27"></script>
 <!-- Game modules (split from monolith FRONTIER.html) -->
-<script src="js/game/utils.js?v=25"></script>
-<script src="js/game/pieces.js?v=25"></script>
-<script src="js/game/firebase.js?v=25"></script>
-<script src="js/game/timer.js?v=25"></script>
-<script src="js/game/chat.js?v=25"></script>
-<script src="js/game/elo.js?v=25"></script>
-<script src="js/game/network.js?v=25"></script>
-<link rel="stylesheet" href="css/theme.css?v=25">
-<script src="js/theme.js?v=25"></script>
+<script src="js/game/utils.js?v=27"></script>
+<script src="js/game/pieces.js?v=27"></script>
+<script src="js/game/firebase.js?v=27"></script>
+<script src="js/game/timer.js?v=27"></script>
+<script src="js/game/chat.js?v=27"></script>
+<script src="js/game/elo.js?v=27"></script>
+<script src="js/game/network.js?v=27"></script>
+<link rel="stylesheet" href="css/theme.css?v=27">
+<script src="js/theme.js?v=27"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -150,6 +150,20 @@ input{font-family:inherit;outline:none}
   background:rgba(255,69,58,.24);pointer-events:none;font-size:0;animation:none}
 .cell.move::after{content:'';position:absolute;width:30%;height:30%;background:rgba(48,209,88,.55);border-radius:50%;pointer-events:none}
 .cell.attack::after{content:'';position:absolute;inset:8%;border:3px solid rgba(255,69,58,.65);border-radius:50%;pointer-events:none}
+/* 선택된 방패의 자기 칸 = 방향 전환 버튼. 회전 화살표를 얹는다. */
+.cell.sh-rotate::after{
+  content:'';position:absolute;right:6%;bottom:6%;width:34%;height:34%;
+  pointer-events:none;z-index:3;
+  background:var(--blue);
+  -webkit-mask:var(--rotate-icon) center/contain no-repeat;
+          mask:var(--rotate-icon) center/contain no-repeat;
+}
+:root{
+  --rotate-icon:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><path d='M21 12a9 9 0 1 1-3-6.7'/><path d='M21 3v6h-6'/></svg>");
+}
+.cell.sh-rotate{cursor:pointer}
+@media (hover:hover){ .cell.sh-rotate:hover::after{background:var(--green)} }
+
 /* ===== 호버 강조 =====
    둘 수 있는 칸(점선 배치 구역 · 이동/공격 대상)에 마우스를 올리면 청록으로 채운다.
    금지 칸(.place-check 빨간 점선 / .blocked / .illegal 빨간 점)은 제외 — 못 두는 곳이
@@ -1433,7 +1447,10 @@ body.board-flipped .cell{transform:rotate(180deg)}
 
       <h4>✨ 특수 기물</h4>
       <ul>
-        <li><span class="r-sym spec-w" data-piece="SH"></span> <b>방패</b>: 앞/뒤 1칸 이동. 앞 적을 <b>밀기</b> 가능 — 밀린 적이 벽이나 다른 기물에 부딪히면 죽음 (손패 회수 X)</li>
+        <li><span class="r-sym spec-w" data-piece="SH"></span> <b>방패</b>: 향한 축으로 1칸 이동 (XL은 2칸). 앞 적을 <b>밀기</b> 가능 — 밀린 적이 벽이나 다른 기물에 부딪히면 죽음 (손패 회수 X)<br>
+          <b>방향 전환</b>: 방패를 고른 뒤 자기 칸의 ↻ 를 누르면 세로↔가로로 축을 바꾼다.
+          <b>턴을 소모하지 않지만</b> 바꾼 턴에는 그 방패가 움직일 수 없다 — 측면으로 가려면 한 턴 쉬는 셈이다.
+          현재 방향은 기물의 꺾쇠가 가리키므로 상대도 볼 수 있다.</li>
         <li><span class="r-sym spec-w" data-piece="SN"></span> <b>스나이퍼</b>: 4꼭짓점에만 배치. 이동 불가. 8방향 1~4칸 시야의 적을 저격 (시야가 막히면 정지). <b>3회 공격 후 후퇴</b> (자기 손패로 복귀, 재배치 가능)</li>
         <li><span class="r-sym spec-w" data-piece="JP"></span> <b>어쌔신</b>: 상하좌우 2칸 점프 (중간 무시)</li>
       </ul>
@@ -1490,13 +1507,13 @@ body.board-flipped .cell{transform:rotate(180deg)}
   <div class="replay-list" id="replayList" style="display:none"></div>
 </div>
 
-<script src="js/game/engine.js?v=25"></script>
+<script src="js/game/engine.js?v=27"></script>
 
 <!-- Python AI Worker bridge: AI 대전 URL에 pyai=1이 있을 때 활성화 -->
 <script>
   window.FRONTIER_AI_API = window.FRONTIER_AI_API || 'https://frontier-python-ai.onrender.com';
 </script>
-<script src="js/game/python-ai-client.js?v=25"></script>
+<script src="js/game/python-ai-client.js?v=27"></script>
 
 </body>
 </html>

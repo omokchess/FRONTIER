@@ -256,22 +256,27 @@ function pieceMoves(r, c, piece){
       }
     }
   } else if(k === 'SH'){
-    // 방패: 앞/뒤 1칸만 이동. 인접 적은 밀기 = 공격으로 처리 (킹 체크 가능)
-    const dy = (col === 'w') ? -1 : 1;
-    // XL 강화: 한 번에 두 칸까지 (두 칸은 중간 칸이 비어 있어야 함)
-    const maxStep = IS_XL ? 2 : 1;
-    for(const ddy of [dy, -dy]){
-      for(let step=1; step<=maxStep; step++){
-        const nr = r + ddy*step;
-        if(!inBounds(nr,c)) break;
-        if(step === 2 && board[r+ddy]) { if(board[r+ddy][c]) break; }
-        const t = board[nr][c];
-        if(!t){
-          moves.push([nr,c]);
-        } else {
-          if(t.color !== col) attacks.push([nr,c]);
-          moves.push([nr,c]); // 이동 처리는 trySHMove
-          break;              // 기물을 만나면 그 너머로는 못 감
+    // 방패: 향한 축을 따라 직진. 인접 적은 밀기 = 공격으로 처리 (킹 체크 가능)
+    // 방향을 바꾼 턴에는 움직일 수 없다.
+    if(!shLocked(piece)){
+      const dy = (col === 'w') ? -1 : 1;
+      // 세로축이면 앞/뒤, 가로축이면 좌/우
+      const dirs = shAxis(piece) === 'h' ? [[0,1],[0,-1]] : [[dy,0],[-dy,0]];
+      // XL 강화: 한 번에 두 칸까지 (두 칸은 중간 칸이 비어 있어야 함)
+      const maxStep = IS_XL ? 2 : 1;
+      for(const [dr,dc] of dirs){
+        for(let step=1; step<=maxStep; step++){
+          const nr = r + dr*step, nc = c + dc*step;
+          if(!inBounds(nr,nc)) break;
+          if(step === 2 && board[r+dr][c+dc]) break;
+          const t = board[nr][nc];
+          if(!t){
+            moves.push([nr,nc]);
+          } else {
+            if(t.color !== col) attacks.push([nr,nc]);
+            moves.push([nr,nc]); // 이동 처리는 trySHMove
+            break;               // 기물을 만나면 그 너머로는 못 감
+          }
         }
       }
     }
@@ -432,11 +437,43 @@ function placeIsIllegal(color, kind, r, c){
 // ===================================================================
 // 7. 직렬화 / 스냅샷 (반복 검출 + 5회 체크 복원)
 // ===================================================================
+// 방패가 향한 축. 'v'=세로(앞/뒤, 기본) · 'h'=가로(좌/우).
+// 축을 바꾸는 것은 턴을 소모하지 않지만, 바꾼 턴에는 그 방패가 움직일 수 없다.
+function shAxis(p){ return p && p.axis === 'h' ? 'h' : 'v'; }
+// 이번 턴에 방향을 바꿔서 잠긴 상태인가 (moveHistory는 수가 완료될 때만 늘어난다)
+function shLocked(p){ return p && p.rotatedAt === moveHistory.length; }
+
+// 방패 방향 전환. 턴을 넘기지 않지만 그 턴 동안 해당 방패는 움직일 수 없다.
+// 조작하는 쪽에서만 호출되고, 상대에게는 SH_ROTATE로 그대로 재현시킨다.
+function rotateShield(r, c, fromNet){
+  const p = board[r][c];
+  if(!p || p.kind !== 'SH') return false;
+  if(!fromNet){
+    if(gameOver || IS_REPLAY || IS_SPEC) return false;
+    if(p.color !== turn) return false;
+    if(!isMyTurnLocked()) return false;
+    if(shLocked(p)) return false;          // 한 턴에 한 번만
+  }
+  p.axis = shAxis(p) === 'h' ? 'v' : 'h';
+  p.rotatedAt = moveHistory.length;
+  if(!fromNet){
+    recordReplayAction({ type:'rotate', r, c, axis:p.axis, color:p.color }, null);
+    if(IS_NET) sendToPeer({ t:'SH_ROTATE', r, c, axis:p.axis });
+  }
+  // 선택 중이면 새 축의 이동 후보로 갱신 (이번 턴엔 비어 있다)
+  if(SEL && SEL.kind === 'board' && SEL.r === r && SEL.c === c){
+    HIGHLIGHTS = computeHighlights(r, c, p);
+  }
+  renderAll();
+  return true;
+}
+
 function serializeBoard(){
   let s = turn + '|';
   for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
     const p = board[r][c];
-    s += p ? (p.color + p.kind + ',') : '.';
+    // 방패 축은 국면의 일부다 — 반복 판정에 들어가야 한다
+    s += p ? (p.color + p.kind + (p.kind === 'SH' ? shAxis(p) : '') + ',') : '.';
   }
   s += '|h:' + ['w','b'].map(col =>
     Object.entries(hands[col]).map(([k,v])=>k+v).join('')
@@ -1732,15 +1769,21 @@ function finalizeAfterMove(opponentInCheck, snap, silent=false){
 
 // 방패 이동 처리 (밀기 포함)
 function trySHMove(fr, fc, tr, tc, color){
-  // 앞/뒤 직진. XL 강화 시 두 칸까지 (두 칸은 중간 칸이 비어 있어야 함).
-  const dy = (color === 'w') ? -1 : 1;
+  const shp = board[fr][fc];
+  if(shLocked(shp)) return { ok:false, err:'방향을 바꾼 턴에는 움직일 수 없음', shieldLocked:true };
+  const horiz = shAxis(shp) === 'h';
+  const dRow = tr - fr, dCol = tc - fc;
+  // 향한 축을 벗어나면 거절
+  if(horiz ? dRow !== 0 : dCol !== 0){
+    return { ok:false, err: horiz ? '방패가 가로를 향하고 있음' : '방패가 세로를 향하고 있음' };
+  }
+  const delta = horiz ? dCol : dRow;
   const maxStep = IS_XL ? 2 : 1;
-  const steps = [];
-  for(let n=1; n<=maxStep; n++){ steps.push(fr + dy*n, fr - dy*n); }
-  if(!steps.includes(tr)) return { ok:false, err:'방패는 앞/뒤만' };
-  if(tc !== fc) return { ok:false, err:'방패는 직진만' };
-  const ddy = Math.sign(tr - fr);           // 진행 방향 (±1)
-  if(Math.abs(tr - fr) === 2 && board[fr + ddy][tc]){
+  if(delta === 0 || Math.abs(delta) > maxStep) return { ok:false, err:'방패 이동 거리 초과' };
+  const step = Math.sign(delta);
+  const ddy = horiz ? 0 : step;             // 밀기 방향 (행)
+  const ddx = horiz ? step : 0;             // 밀기 방향 (열)
+  if(Math.abs(delta) === 2 && board[fr + ddy][fc + ddx]){
     return { ok:false, err:'중간 칸이 막힘' };
   }
   const target = board[tr][tc];
@@ -1755,16 +1798,16 @@ function trySHMove(fr, fc, tr, tc, color){
     lastMove = { fr, fc, tr, tc, type:'move' };
     return { ok:true };
   }
-  // 밀기: 다음 칸 검사
-  const pr = tr + ddy;
-  if(!inBounds(pr, tc)){
+  // 밀기: 진행 방향 다음 칸 검사
+  const pr = tr + ddy, pc = tc + ddx;
+  if(!inBounds(pr, pc)){
     // 판 끝 → 밀린 기물 사망 (손패 회수 X)
     board[tr][tc] = board[fr][fc];
     board[fr][fc] = null;
     lastMove = { fr, fc, tr, tc, type:'push' };
     return { ok:true };
   }
-  const beyond = board[pr][tc];
+  const beyond = board[pr][pc];
   if(beyond){
     // 다른 기물에 닿음 → 밀린 기물 사망 (손패 회수 X), beyond는 그대로
     board[tr][tc] = board[fr][fc];
@@ -1773,7 +1816,7 @@ function trySHMove(fr, fc, tr, tc, color){
     return { ok:true };
   }
   // 밀기 성공: target → beyond, SH → target
-  board[pr][tc] = target;
+  board[pr][pc] = target;
   board[tr][tc] = board[fr][fc];
   board[fr][fc] = null;
   lastMove = { fr, fc, tr, tc, type:'push' };
@@ -2059,7 +2102,7 @@ function renderBoard(){
         const span = document.createElement('span');
         const isSpec = SPECIAL_KINDS.includes(p.kind);
         span.className = 'pc ' + p.color + (isSpec?' spec':'');
-        span.innerHTML = pieceSvg(p.kind, p.color);
+        span.innerHTML = pieceSvg(p.kind, p.color, null, undefined, p.axis);
         cell.appendChild(span);
         // 스나이퍼 공격 카운터 (3회 후퇴)
         if(p.kind === 'SN' && p.attacks > 0){
@@ -2437,6 +2480,11 @@ function onCellClick(e){
 
   // 보드 기물 선택됨 → 클릭한 칸이 이동/공격 대상인지
   if(SEL.kind === 'board'){
+    // 방패 자기 칸 = 방향 전환 (선택 해제보다 먼저 잡는다)
+    if(SEL.r === r && SEL.c === c && HIGHLIGHTS.some(h => h.r===r && h.c===c && h.type==='sh-rotate')){
+      rotateShield(r, c);
+      return;
+    }
     if(SEL.r === r && SEL.c === c){
       // 동일 칸 → 선택 해제
       SEL = null; HIGHLIGHTS = []; renderAll();
@@ -2496,6 +2544,10 @@ function classifyHighlight(h, action, piece){
 
 function computeHighlights(r, c, p){
   const out = [];
+  // 선택된 방패는 자기 칸이 '방향 전환' 버튼이 된다 (턴 소모 없음)
+  if(p.kind === 'SH' && !shLocked(p) && !IS_REPLAY && !IS_SPEC && p.color === turn){
+    out.push({ r, c, type:'sh-rotate' });
+  }
   if(p.kind === 'SN'){
     // 시각: 8방향 1~4칸 전체 사정거리 표시 (시야 차단 무관)
     //  · 빈 칸 → 'sniper-range' (주황 동그라미)
@@ -2543,8 +2595,11 @@ function computeHighlights(r, c, p){
     for(const [tr,tc] of moves) out.push({r:tr, c:tc, type:'move'});
     for(const [tr,tc] of attacks) out.push({r:tr, c:tc, type:'attack'});
   }
-  // 둘 수 없는 수도 이유별로 표시 (SN은 위에서 이미 처리)
+  // 둘 수 없는 수도 이유별로 표시 (SN은 위에서 이미 처리).
+  // 이동 후보가 아닌 표식(sh-rotate 등)은 합법성 검사 대상이 아니다 —
+  // 그대로 통과시키지 않으면 '자기 칸으로 이동'으로 판정돼 걸러진다.
   return out.map(h => {
+    if(h.type !== 'move' && h.type !== 'attack') return h;
     const a = { type:'move', fr:r, fc:c, tr:h.r, tc:h.c };
     if(p.kind === 'P' && ((p.color==='w' && h.r===0)||(p.color==='b' && h.r===LAST_IDX))){
       a.promote = 'Q';
@@ -3665,6 +3720,10 @@ function onPeerMessage(data){
   // 정상 메시지 받음 → pong 시각 갱신 + grace 취소
   _lastPongTime = Date.now();
   // PING/PONG (연결 상태 확인용)
+  if(data.t === 'SH_ROTATE'){
+    rotateShield(data.r, data.c, true);
+    return;
+  }
   if(data.t === 'XL_ESCAPE'){
     // 상대의 비상탈출을 그대로 재현 (판정은 보낸 쪽에서 이미 끝났다)
     const k = findKing(data.color);
@@ -4540,6 +4599,12 @@ function replayApplyTo(toIndex){
   replayResetState();
   for(let i=0; i<toIndex; i++){
     const a = _replayData.actions[i].action;
+    if(a.type === 'rotate'){
+      // 방향 전환은 턴을 넘기지 않는 상태 변경 — applyAction 경로가 아니다
+      const p = board[a.r] && board[a.r][a.c];
+      if(p && p.kind === 'SH'){ p.axis = a.axis; }
+      continue;
+    }
     applyAction(a, {silent: true});
   }
   // 마지막 액션의 하이라이트 복원
@@ -4549,6 +4614,8 @@ function replayApplyTo(toIndex){
       lastMove = { fr:-1, fc:-1, tr:lastA.r, tc:lastA.c, type:'place' };
     } else if(lastA.type === 'move'){
       lastMove = { fr:lastA.fr, fc:lastA.fc, tr:lastA.tr, tc:lastA.tc, type:'move' };
+    } else if(lastA.type === 'rotate'){
+      lastMove = { fr:-1, fc:-1, tr:lastA.r, tc:lastA.c, type:'place' };
     }
   } else {
     lastMove = null;
@@ -4591,6 +4658,11 @@ function describeAction(meta, idx){
   const RANKS = Array.from({length:BOARD_N},(_,i)=>String(BOARD_N-i)).join(',').split(',');
   function pos(r,c){ return FILES[c] + RANKS[r]; }
   let text = '';
+  if(a.type === 'rotate'){
+    const piece = pieceSvgInline('SH', aColor, 14, undefined, a.axis);
+    return `<span class="turn-color ${colorClass}">${colorName}</span> ${piece} ` +
+           `${pos(a.r,a.c)} 방향 전환 (${a.axis === 'h' ? '가로' : '세로'})`;
+  }
   if(a.type === 'place'){
     const piece = pieceSvgInline(a.kind, aColor, 14);
     const pname = PIECE_NAMES[a.kind] || a.kind;

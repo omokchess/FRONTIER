@@ -48,9 +48,12 @@
         ${BASE}`,
 
     // ===== 특수 기물 — 행마법이 드러나게 =====
-    // 방패: 방패 몸통 + 위아래 꺾쇠 (앞뒤 직진). 받침대를 공유해 기물로 읽힌다.
-    SH: `<path d="M22.5 6L32 9.5V18c0 7-4.5 11.5-9.5 14-5-2.5-9.5-7-9.5-14V9.5z"/>
-         <path d="M17.5 19l5-5 5 5M17.5 22l5 5 5-5" class="pc-mark"/>
+    // 방패: 방패 몸통 + 향한 축의 꺾쇠. 받침대를 공유해 기물로 읽힌다.
+    // 축('v' 세로 / 'h' 가로)이 상대에게도 보여야 하므로 꺾쇠를 90도 돌린다.
+    SH: axis => `<path d="M22.5 6L32 9.5V18c0 7-4.5 11.5-9.5 14-5-2.5-9.5-7-9.5-14V9.5z"/>
+         <g${axis === 'h' ? ' transform="rotate(90 22.5 20.5)"' : ''}>
+           <path d="M17.5 19l5-5 5 5M17.5 22l5 5 5-5" class="pc-mark"/>
+         </g>
          ${BASE}`,
     // 스나이퍼: 조준경 머리를 얹은 탑 (제자리 원거리). 좌우·위 눈금이 사거리를 뜻한다.
     SN: `<path d="M17.5 17h10l2.5 15H15z"/>
@@ -106,10 +109,12 @@
         <path d="M12.5 25.5h-4M8.5 25.5l2.2-2.2M8.5 25.5l2.2 2.2
                  M32.5 25.5h4M36.5 25.5l-2.2-2.2M36.5 25.5l-2.2 2.2" class="pc-mark"/>
         ${BASE}`,
-    // 강화 방패 — 꺾쇠 두 겹 (한 번에 두 칸)
-    SH: `<path d="M22.5 6L32 9.5V18c0 7-4.5 11.5-9.5 14-5-2.5-9.5-7-9.5-14V9.5z"/>
-         <path d="M17.5 17l5-4 5 4M17.5 21.5l5-4 5 4
-                  M17.5 23.5l5 4 5-4M17.5 28l5 4 5-4" class="pc-mark"/>
+    // 강화 방패 — 꺾쇠 두 겹 (한 번에 두 칸), 축에 따라 회전
+    SH: axis => `<path d="M22.5 6L32 9.5V18c0 7-4.5 11.5-9.5 14-5-2.5-9.5-7-9.5-14V9.5z"/>
+         <g${axis === 'h' ? ' transform="rotate(90 22.5 22.5)"' : ''}>
+           <path d="M17.5 17l5-4 5 4M17.5 21.5l5-4 5 4
+                    M17.5 23.5l5 4 5-4M17.5 28l5 4 5-4" class="pc-mark"/>
+         </g>
          ${BASE}`,
     // 강화 스나이퍼 — 눈금이 판 끝까지 뻗고, 좌우는 관통을 뜻해 끊긴 이중 눈금
     SN: `<path d="M17.5 17h10l2.5 15H15z"/>
@@ -134,9 +139,11 @@
   // 정의되므로 호출 시점에 typeof로 확인한다 (로비에는 IS_XL 자체가 없다).
   const useXl = () => typeof IS_XL !== 'undefined' && IS_XL;
 
-  window.pieceSvg = function pieceSvg(kind, color, size, forceXl){
+  window.pieceSvg = function pieceSvg(kind, color, size, forceXl, axis){
     const xl = forceXl === undefined ? useXl() : forceXl;
-    const shape = (xl && XL_SHAPES[kind]) || SHAPES[kind];
+    const raw = (xl && XL_SHAPES[kind]) || SHAPES[kind];
+    // 방패처럼 상태(축)에 따라 달라지는 기물은 도형이 함수로 정의돼 있다
+    const shape = typeof raw === 'function' ? raw(axis || 'v') : raw;
     if(!shape) return '';
     const p = PALETTE[color] || PALETTE.w;
     const px = size ? `width="${size}" height="${size}"` : 'width="100%" height="100%"';
@@ -151,8 +158,8 @@
   };
 
   // 텍스트 흐름 안에 끼워 넣을 때 (기보/리플레이 로그 등)
-  window.pieceSvgInline = function pieceSvgInline(kind, color, size, forceXl){
+  window.pieceSvgInline = function pieceSvgInline(kind, color, size, forceXl, axis){
     return `<span class="pc-inline" style="width:${size}px;height:${size}px">${
-      window.pieceSvg(kind, color, size, forceXl)}</span>`;
+      window.pieceSvg(kind, color, size, forceXl, axis)}</span>`;
   };
 })();
