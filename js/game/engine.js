@@ -273,8 +273,11 @@ function pieceMoves(r, c, piece){
           if(!t){
             moves.push([nr,nc]);
           } else {
-            if(t.color !== col) attacks.push([nr,nc]);
-            moves.push([nr,nc]); // 이동 처리는 trySHMove
+            // 아군은 밀 수 없다 (Python 엔진과 동일) → 후보에서 제외하고 멈춘다
+            if(t.color !== col){
+              attacks.push([nr,nc]);
+              moves.push([nr,nc]); // 밀기 실행은 trySHMove
+            }
             break;               // 기물을 만나면 그 너머로는 못 감
           }
         }
@@ -1523,6 +1526,7 @@ window.confirmRevive = function(potionId, kind, cost){
   renderAll();
   showFlash(`✨ ${getPieceName(kind)} 부활!`);
   playSnd('place');
+  recordReplayAction({ type:'potion', fx:'revive', kind, r: placePos.r, c: placePos.c, color: myColor }, null);
   if(IS_NET) sendToPeer({ t:'POTION_REVIVE', kind, r: placePos.r, c: placePos.c, color: myColor });
 }
 function countDeadPieces(color){
@@ -1593,6 +1597,7 @@ function tryBlockCellClick(r, c){
   blockedCells.push({r, c, turnsLeft: 3, owner: myColor});
   _pendingBlockClicksLeft--;
   drawBlockedOverlay();
+  recordReplayAction({ type:'potion', fx:'block', r, c, color: myColor }, null);
   if(IS_NET) sendToPeer({ t:'POTION_BLOCK', r, c, color: myColor });
   if(_pendingBlockClicksLeft <= 0){
     const cost = POTION_TYPES.block.cost;
@@ -1629,7 +1634,9 @@ function applyJokerPotion(potionId){
     document.body.classList.toggle('board-flipped');
   }
   consumePotion(potionId, cost);
-  
+  // 리플레이용 — 조커는 판 전체 색을 뒤집으므로 재현하지 않으면 이후가 전부 어긋난다
+  recordReplayAction({ type:'potion', fx:'joker', color: (IS_LOCAL ? turn : MY_COLOR) }, null);
+
   if(p.level === 2){
     showFlash('🃏 조커 강화! 한 번 더 둘 수 있음');
     renderAll();
@@ -1843,6 +1850,7 @@ function trySHMove(fr, fc, tr, tc, color){
     return { ok:false, err:'중간 칸이 막힘' };
   }
   const target = board[tr][tc];
+  if(target && target.color === color) return { ok:false, err:'아군 기물을 밀 수 없음' };
   // 밀어내기도 기물을 죽이므로 캡처 금지에 걸린다
   if(target && captureBanned(color)){
     return { ok:false, err:`흑은 첫 ${BLACK_CAPTURE_BAN_MOVES}수 동안 기물을 잡을 수 없음`, captureRule:true };
@@ -3248,10 +3256,43 @@ const DEFAULT_GENOME = Object.freeze({
   checkGive: 50,
   checkRecv: 80
 });
+// 방패는 향한 축으로만 움직인다. 갈 곳이 아예 없는데 반대 축이면 열리는 방패는
+// 돌려둔다 — 방향 전환은 턴을 소모하지 않으므로 공짜다.
+// 돌린 방패는 이번 턴 잠기니, 수는 나머지 기물로 두면 된다.
+function aiRotateStuckShield(color){
+  // pieceMoves만 보면 안 된다 — 자기 킹이 노출되는 수 등은 거기 남아 있다.
+  // 실제로 둘 수 있는지는 allLegalActions로 판단한다.
+  const canMove = (list, r, c) => list.some(a => a.type === 'move' && a.fr === r && a.fc === c);
+  // 주의: allLegalActions는 내부에서 snapshot/restore를 돌려 board의 기물 객체를
+  // 통째로 새로 만든다. 호출 뒤에는 잡아둔 참조가 낡으므로 매번 board에서 다시 읽는다.
+  const at = (r,c) => board[r][c];
+  for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
+    let p = at(r,c);
+    if(!p || p.kind !== 'SH' || p.color !== color || shLocked(p)) continue;
+    if(canMove(allLegalActions(color), r, c)) continue;        // 이미 갈 곳이 있다
+    p = at(r,c);
+    const prevAxis = p.axis, prevRot = p.rotatedAt;
+    p.axis = shAxis(p) === 'h' ? 'v' : 'h';
+    p.rotatedAt = -1;                                          // 잠금 해제한 상태로 시험
+    const newAxis = p.axis;
+    const opens = canMove(allLegalActions(color), r, c);
+    p = at(r,c);                                               // 복원된 객체로 갱신
+    if(!opens){ p.axis = prevAxis; p.rotatedAt = prevRot; continue; }
+    p.axis = newAxis;
+    p.rotatedAt = moveHistory.length;                          // 확정 — 이번 턴 잠김
+    recordReplayAction({ type:'rotate', r, c, axis:newAxis, color }, null);
+    if(IS_NET) sendToPeer({ t:'SH_ROTATE', r, c, axis:newAxis });
+    return true;   // 한 턴에 하나만
+  }
+  return false;
+}
+
 function aiTurn(){
   if(gameOver) return;
   const aiColor = IS_AIVAI ? turn : 'b';
   if(turn !== aiColor) return;
+  // 수를 고르기 전에 — 잠긴 방패가 후보에서 빠지도록 먼저 돌린다
+  aiRotateStuckShield(aiColor);
   const list = allLegalActions(aiColor);
   if(!list.length) return;
   const diff = IS_AIVAI ? (aiColor === 'w' ? W_DIFF : B_DIFF) : DIFF;
@@ -4663,6 +4704,24 @@ function buildReplayCaptureMarks(){
   marksEl.innerHTML = marks.join('');
 }
 
+// 물약 효과 중 '판을 바꾸는' 것만 재현한다. 인벤토리·포인트·시간·엿보기는
+// 판에 안 남으므로 리플레이에서 볼 필요가 없다.
+function applyPotionFxForReplay(a){
+  if(a.fx === 'revive'){
+    board[a.r][a.c] = (a.kind === 'SN')
+      ? { color:a.color, kind:a.kind, attacks:0 } : { color:a.color, kind:a.kind };
+  } else if(a.fx === 'block'){
+    blockedCells.push({ r:a.r, c:a.c, turnsLeft:3, owner:a.color });
+  } else if(a.fx === 'joker'){
+    for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
+      if(board[r][c]) board[r][c].color = opp(board[r][c].color);
+    }
+    const t = {...hands.w}; hands.w = {...hands.b}; hands.b = t;
+    const kp = kingPlaced.w; kingPlaced.w = kingPlaced.b; kingPlaced.b = kp;
+    blockedCells.forEach(b => { b.owner = opp(b.owner); });
+  }
+}
+
 function replayResetState(){
   const savedHand = parseHandStr(_replayMeta.handStr || '');
   hands = { w: {...savedHand}, b: {...savedHand} };
@@ -4678,6 +4737,7 @@ function replayResetState(){
   tycoonTurn = { w:0, b:0 };
   gameOver = false;
   xlEscapeUsed = { w:false, b:false };
+  blockedCells = [];       // 물약: 차단 칸도 처음부터 다시 쌓는다
   _xlEscape = null;
 }
 
@@ -4694,6 +4754,10 @@ function replayApplyTo(toIndex){
       if(p && p.kind === 'SH'){ p.axis = a.axis; }
       continue;
     }
+    if(a.type === 'potion'){
+      applyPotionFxForReplay(a);
+      continue;
+    }
     applyAction(a, {silent: true});
   }
   // 마지막 액션의 하이라이트 복원
@@ -4703,7 +4767,7 @@ function replayApplyTo(toIndex){
       lastMove = { fr:-1, fc:-1, tr:lastA.r, tc:lastA.c, type:'place' };
     } else if(lastA.type === 'move'){
       lastMove = { fr:lastA.fr, fc:lastA.fc, tr:lastA.tr, tc:lastA.tc, type:'move' };
-    } else if(lastA.type === 'rotate'){
+    } else if(lastA.type === 'rotate' || (lastA.type === 'potion' && lastA.r !== undefined)){
       lastMove = { fr:-1, fc:-1, tr:lastA.r, tc:lastA.c, type:'place' };
     }
   } else {
@@ -4747,6 +4811,12 @@ function describeAction(meta, idx){
   const RANKS = Array.from({length:BOARD_N},(_,i)=>String(BOARD_N-i)).join(',').split(',');
   function pos(r,c){ return FILES[c] + RANKS[r]; }
   let text = '';
+  if(a.type === 'potion'){
+    const label = a.fx === 'revive' ? `${getPieceName(a.kind)} 부활`
+                : a.fx === 'block'  ? `${pos(a.r,a.c)} 차단`
+                : '조커 — 색 교환';
+    return `<span class="turn-color ${colorClass}">${colorName}</span> 🧪 ${label}`;
+  }
   if(a.type === 'rotate'){
     const piece = pieceSvgInline('SH', aColor, 14, undefined, a.axis);
     return `<span class="turn-color ${colorClass}">${colorName}</span> ${piece} ` +
