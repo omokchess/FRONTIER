@@ -1863,17 +1863,16 @@ function allLegalActions(color){
       for(const [tr,tc] of attacks){
         list.push({type:'move', fr:r, fc:c, tr, tc});
       }
-    } else if(p.kind === 'SH'){
-      const dy = (color === 'w') ? -1 : 1;
-      for(const ddy of [dy, -dy]){
-        const nr = r+ddy;
-        if(!inBounds(nr,c)) continue;
-        list.push({type:'move', fr:r, fc:c, tr:nr, tc:c});
-      }
     } else {
+      // 방패 포함 — 행마법은 pieceMoves 한 곳에서만 판정한다.
       const { moves, attacks } = pieceMoves(r, c, p);
-      for(const [tr,tc] of moves) list.push({type:'move', fr:r, fc:c, tr, tc});
-      for(const [tr,tc] of attacks) list.push({type:'move', fr:r, fc:c, tr, tc});
+      const seen = new Set();
+      for(const [tr,tc] of moves.concat(attacks)){
+        const key = tr + ',' + tc;
+        if(seen.has(key)) continue;      // 방패는 밀기 칸이 양쪽에 들어간다
+        seen.add(key);
+        list.push({type:'move', fr:r, fc:c, tr, tc});
+      }
     }
   }
 
@@ -2581,18 +2580,18 @@ function computeHighlights(r, c, p){
     return out.map(h => h.type !== 'attack' ? h
         : classifyHighlight(h, {type:'move', fr:r, fc:c, tr:h.r, tc:h.c}, p))
       .filter(Boolean);
-  } else if(p.kind === 'SH'){
-    const dy = (p.color === 'w') ? -1 : 1;
-    for(const ddy of [dy, -dy]){
-      const nr = r+ddy;
-      if(!inBounds(nr,c)) continue;
-      const t = board[nr][c];
-      if(!t) out.push({r:nr, c, type:'move'});
-      else out.push({r:nr, c, type:'attack'}); // 밀기
-    }
   } else {
+    // 방패도 여기로 온다. 예전엔 방패만 따로 하드코딩(1칸·세로 고정)돼 있어서
+    // XL 2칸 이동과 축 전환이 하이라이트에 안 잡히고, 앞에 적이 있으면
+    // 밀기 링만 남았다. 행마법 판정은 pieceMoves 한 곳에만 있어야 한다.
     const { moves, attacks } = pieceMoves(r, c, p);
-    for(const [tr,tc] of moves) out.push({r:tr, c:tc, type:'move'});
+    // 방패는 같은 칸을 moves와 attacks 양쪽에 넣는다(밀기). 한 칸에 두 표식이
+    // 겹치면 ::after가 하나만 그려지므로 공격 쪽만 남긴다.
+    const atk = new Set(attacks.map(([tr,tc]) => tr + ',' + tc));
+    for(const [tr,tc] of moves){
+      if(atk.has(tr + ',' + tc)) continue;
+      out.push({r:tr, c:tc, type:'move'});
+    }
     for(const [tr,tc] of attacks) out.push({r:tr, c:tc, type:'attack'});
   }
   // 둘 수 없는 수도 이유별로 표시 (SN은 위에서 이미 처리).
