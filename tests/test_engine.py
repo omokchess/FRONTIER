@@ -71,6 +71,44 @@ class EngineTest(unittest.TestCase):
         self.assertTrue(res.ok)
         self.assertTrue(res.opponent_in_check)
 
+    def _capture_state(self, history_len):
+        """흑 차례 + 룩 한 수로 백 폰을 잡을 수 있는 국면."""
+        s = GameState.initial(parse_hand_str('K0Q0R0B0N0P0SH0SN0JP0'))
+        s.king_placed = {'w': True, 'b': True}; s.turn = 'b'
+        s.board[7][7] = Piece('w','K'); s.board[0][0] = Piece('b','K')
+        s.board[3][0] = Piece('b','R'); s.board[3][4] = Piece('w','P')
+        s.history = ['x%d' % i for i in range(history_len)]
+        return s
+
+    def test_black_cannot_capture_on_first_three_moves(self):
+        for history_len in (1, 3, 5):       # 흑의 1~3수째
+            s = self._capture_state(history_len)
+            res = s.apply(Action('move','b',fr=3,fc=0,tr=3,tc=4))
+            self.assertFalse(res.ok, 'history=%d' % history_len)
+            self.assertEqual(s.board[3][4].kind, 'P')   # 폰이 살아 있는지
+            self.assertEqual(s.board[3][0].kind, 'R')   # 룩이 안 움직였는지
+
+    def test_black_can_capture_from_fourth_move(self):
+        s = self._capture_state(7)          # 흑의 4수째
+        res = s.apply(Action('move','b',fr=3,fc=0,tr=3,tc=4))
+        self.assertTrue(res.ok)
+        self.assertEqual(s.board[3][4].kind, 'R')
+
+    def test_black_can_still_move_without_capturing(self):
+        s = self._capture_state(1)
+        res = s.apply(Action('move','b',fr=3,fc=0,tr=3,tc=2))   # 빈 칸으로 이동
+        self.assertTrue(res.ok)
+
+    def test_white_capture_is_never_banned(self):
+        s = GameState.initial(parse_hand_str('K0Q0R0B0N0P0SH0SN0JP0'))
+        s.king_placed = {'w': True, 'b': True}; s.turn = 'w'
+        s.board[7][7] = Piece('w','K'); s.board[0][0] = Piece('b','K')
+        s.board[3][0] = Piece('w','R'); s.board[3][4] = Piece('b','P')
+        s.history = ['x']                   # 백의 1수째
+        res = s.apply(Action('move','w',fr=3,fc=0,tr=3,tc=4))
+        self.assertTrue(res.ok)
+        self.assertEqual(s.board[3][4].kind, 'R')
+
     def test_sniper_returns_after_three_shots(self):
         s = GameState.initial(parse_hand_str('K0Q0R0B0N0P0SH0SN0JP0'))
         s.king_placed = {'w': True, 'b': True}; s.turn = 'w'

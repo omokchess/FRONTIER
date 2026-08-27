@@ -10,6 +10,7 @@ DEFAULT_HAND: dict[str, int] = {"K": 1, "Q": 1, "R": 2, "B": 2, "N": 2, "P": 8, 
 PIECE_VALUES: dict[str, float] = {"K": 0, "Q": 9, "R": 5, "B": 3.25, "N": 3, "P": 1, "SH": 3, "SN": 5.5, "JP": 3.25}
 PROMOTIONS = ("Q", "R", "B", "N")
 WHITE_CHECK_BAN_MOVES = 2   # 백 선공 보정: 첫 N수 체크 금지
+BLACK_CAPTURE_BAN_MOVES = 3 # 후공 보정: 흑은 첫 N수 동안 기물을 잡을 수 없음
 
 
 def opp(color: str) -> str:
@@ -294,6 +295,11 @@ class GameState:
         """선공 보정: 백은 자기 첫 N수 동안 체크를 걸 수 없다 (JS engine.js와 동일 규칙)."""
         return color == "w" and len(self.history) // 2 < WHITE_CHECK_BAN_MOVES
 
+    def capture_banned(self, color: str) -> bool:
+        """후공 보정: 흑은 자기 첫 N수 동안 기물을 잡을 수 없다.
+        백의 체크 금지로 흑이 선 체크를 독점하는 것에 대한 대가."""
+        return color == "b" and len(self.history) // 2 < BLACK_CAPTURE_BAN_MOVES
+
     def position_key(self) -> str:
         cells = []
         for row in self.board:
@@ -312,6 +318,8 @@ class GameState:
         target = self.board[action.tr][action.tc]
         if target and target.color == piece.color:
             return "아군 기물을 밀 수 없음"
+        if target and self.capture_banned(piece.color):
+            return f"흑은 첫 {BLACK_CAPTURE_BAN_MOVES}수 동안 기물을 잡을 수 없음"
         if target is None:
             self.board[action.tr][action.tc], self.board[action.fr][action.fc] = piece, None
         else:
@@ -350,6 +358,8 @@ class GameState:
         elif p.kind == "SN":
             if (action.tr, action.tc) not in self.piece_moves(action.fr, action.fc, p)[1]:
                 return "스나이퍼 공격 불가 위치"
+            if self.board[action.tr][action.tc] is not None and self.capture_banned(p.color):
+                return f"흑은 첫 {BLACK_CAPTURE_BAN_MOVES}수 동안 기물을 잡을 수 없음"
             self.board[action.tr][action.tc] = None
             p.attacks += 1
             if p.attacks >= 3:
@@ -359,6 +369,8 @@ class GameState:
             moves, attacks = self.piece_moves(action.fr, action.fc, p)
             if (action.tr, action.tc) not in moves + attacks:
                 return "이동 불가 위치"
+            if self.board[action.tr][action.tc] is not None and self.capture_banned(p.color):
+                return f"흑은 첫 {BLACK_CAPTURE_BAN_MOVES}수 동안 기물을 잡을 수 없음"
             self.board[action.tr][action.tc], self.board[action.fr][action.fc] = p, None
             if p.kind == "P" and ((p.color == "w" and action.tr == 0) or (p.color == "b" and action.tr == 7)):
                 target = action.promote if action.promote in PROMOTIONS else "Q"

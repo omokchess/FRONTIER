@@ -11,18 +11,18 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <!-- 다국어(i18n): 사전 먼저, 그다음 엔진 -->
-<script src="js/i18n-dict.js?v=24"></script>
-<script src="js/i18n.js?v=24"></script>
+<script src="js/i18n-dict.js?v=25"></script>
+<script src="js/i18n.js?v=25"></script>
 <!-- Game modules (split from monolith FRONTIER.html) -->
-<script src="js/game/utils.js?v=24"></script>
-<script src="js/game/pieces.js?v=24"></script>
-<script src="js/game/firebase.js?v=24"></script>
-<script src="js/game/timer.js?v=24"></script>
-<script src="js/game/chat.js?v=24"></script>
-<script src="js/game/elo.js?v=24"></script>
-<script src="js/game/network.js?v=24"></script>
-<link rel="stylesheet" href="css/theme.css?v=24">
-<script src="js/theme.js?v=24"></script>
+<script src="js/game/utils.js?v=25"></script>
+<script src="js/game/pieces.js?v=25"></script>
+<script src="js/game/firebase.js?v=25"></script>
+<script src="js/game/timer.js?v=25"></script>
+<script src="js/game/chat.js?v=25"></script>
+<script src="js/game/elo.js?v=25"></script>
+<script src="js/game/network.js?v=25"></script>
+<link rel="stylesheet" href="css/theme.css?v=25">
+<script src="js/theme.js?v=25"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -1398,7 +1398,9 @@ body.board-flipped .cell{transform:rotate(180deg)}
       <ul>
         <li>한 게임에서 한 색이 가할 수 있는 <b>총 체크는 5회</b></li>
         <li>5회 초과의 추가 체크 시도는 무효 처리되어 그 수가 거절됨</li>
-        <li><b>백은 첫 2수 동안 체크 금지</b> — 선공 보정. 체크가 되는 수는 거절됨 (흑은 제한 없음)</li>
+        <li><b>백은 첫 2수 동안 체크 금지</b> — 선공 보정. 체크가 되는 수는 거절됨</li>
+        <li><b>흑은 첫 3수 동안 캡처 금지</b> — 후공 보정. 위 규칙으로 흑이 선 체크를 독점하는 대가.
+            잡기·저격·방패 밀어내기 모두 막힌다 (이동 자체는 자유)</li>
       </ul>
 
       <h4>🔲 XL 모드 (12×12)</h4>
@@ -1488,13 +1490,13 @@ body.board-flipped .cell{transform:rotate(180deg)}
   <div class="replay-list" id="replayList" style="display:none"></div>
 </div>
 
-<script src="js/game/engine.js?v=24"></script>
+<script src="js/game/engine.js?v=25"></script>
 
 <!-- Python AI Worker bridge: AI 대전 URL에 pyai=1이 있을 때 활성화 -->
 <script>
   window.FRONTIER_AI_API = window.FRONTIER_AI_API || 'https://frontier-python-ai.onrender.com';
 </script>
-<script src="js/game/python-ai-client.js?v=24"></script>
+<script src="js/game/python-ai-client.js?v=25"></script>
 
 </body>
 </html>

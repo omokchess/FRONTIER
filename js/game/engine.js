@@ -383,6 +383,14 @@ function checkBanned(color){
   return color === 'w' && Math.floor(moveHistory.length / 2) < WHITE_CHECK_BAN_MOVES;
 }
 
+// 후공 보정: 흑은 자기 첫 N수 동안 기물을 잡을 수 없다.
+// 백의 체크 금지(첫 2수, 그중 1수는 킹 배치)로 흑이 선 체크를 독점하게 되어
+// 승률이 흑으로 기운다. 그 대가로 흑의 초반 교환을 묶는다.
+const BLACK_CAPTURE_BAN_MOVES = 3;
+function captureBanned(color){
+  return color === 'b' && Math.floor(moveHistory.length / 2) < BLACK_CAPTURE_BAN_MOVES;
+}
+
 // 지금 이 색이 체크를 걸 수 없는 상태인가?
 //  · 백 첫 N수 (선공 보정)
 //  · 이미 5회를 다 걸어서 다음 체크가 한도 초과
@@ -390,16 +398,22 @@ function checkForbidden(color){
   return checkBanned(color) || (totalChecks[color] || 0) >= 5;
 }
 
+// 지금 이 색이 '규칙 때문에' 막히는 수를 가질 수 있는 상태인가.
+// 아니면 시뮬레이션을 통째로 건너뛴다 (평상시 비용 0).
+function ruleRestricted(color){
+  return checkForbidden(color) || captureBanned(color);
+}
+
 // 그 수가 '체크 금지' 때문에 거절되는가?
 // 판정을 엔진(applyAction)에 직접 물어 로직이 두 벌로 갈리지 않게 한다.
 // 금지 상태가 아니면 시뮬레이션 자체를 건너뛴다.
 function actionBlockedByCheckRule(action){
   const color = action.color || turn;
-  if(!checkForbidden(color)) return false;
+  if(!ruleRestricted(color)) return false;
   const snap = snapshotState();
   const res = applyAction(action, { silent:true });
   restoreState(snap);
-  return !!(res && res.checkRule);
+  return !!(res && (res.checkRule || res.captureRule));
 }
 
 // 그 칸에 놓으면 거절되는가? (배치 하이라이트를 빨갛게 칠하는 판정)
@@ -408,7 +422,7 @@ function placeIsIllegal(color, kind, r, c){
   if(board[r][c]) return false;
   // 킹은 상대 킹 인접이 항상 불법이라 늘 검사. 그 외는 체크 금지 상태에서만
   // 검사하면 되므로 평상시엔 시뮬레이션을 건너뛴다.
-  if(kind !== 'K' && !checkForbidden(color)) return false;
+  if(kind !== 'K' && !ruleRestricted(color)) return false;
   const snap = snapshotState();
   const res = applyAction({ type:'place', color, kind, r, c }, { silent:true });
   restoreState(snap);
@@ -506,6 +520,9 @@ function applyAction(action, opts={}){
       const isAtk = attacks.some(([r,c]) => r===tr && c===tc);
       if(!isAtk) return { ok:false, err:'공격 불가 위치' };
       const target = board[tr][tc];
+      if(target && captureBanned(p.color)){
+        return { ok:false, err:`흑은 첫 ${BLACK_CAPTURE_BAN_MOVES}수 동안 기물을 잡을 수 없음`, captureRule:true };
+      }
       // 타깃은 영구 제거 (손패 회수 X)
       if(target && IS_POTION) awardCapturePoints(target.kind, p.color);
       board[tr][tc] = null;
@@ -525,6 +542,9 @@ function applyAction(action, opts={}){
       const isAtk  = attacks.some(([r,c]) => r===tr && c===tc);
       if(!isMove && !isAtk) return { ok:false, err:'이동 불가' };
       const target = board[tr][tc];
+      if(target && captureBanned(p.color)){
+        return { ok:false, err:`흑은 첫 ${BLACK_CAPTURE_BAN_MOVES}수 동안 기물을 잡을 수 없음`, captureRule:true };
+      }
       // 이동 (일반 캡처: 잡힌 기물은 영구 제거 — 손패 회수 X)
       if(target && IS_POTION) awardCapturePoints(target.kind, p.color);
       board[tr][tc] = p;
@@ -1712,13 +1732,22 @@ function finalizeAfterMove(opponentInCheck, snap, silent=false){
 
 // 방패 이동 처리 (밀기 포함)
 function trySHMove(fr, fc, tr, tc, color){
-  // 앞/뒤 1칸
+  // 앞/뒤 직진. XL 강화 시 두 칸까지 (두 칸은 중간 칸이 비어 있어야 함).
   const dy = (color === 'w') ? -1 : 1;
-  const allowedRows = [fr+dy, fr-dy];
-  if(!allowedRows.includes(tr)) return { ok:false, err:'방패는 앞/뒤만' };
+  const maxStep = IS_XL ? 2 : 1;
+  const steps = [];
+  for(let n=1; n<=maxStep; n++){ steps.push(fr + dy*n, fr - dy*n); }
+  if(!steps.includes(tr)) return { ok:false, err:'방패는 앞/뒤만' };
   if(tc !== fc) return { ok:false, err:'방패는 직진만' };
-  const ddy = tr - fr; // +1 or -1
+  const ddy = Math.sign(tr - fr);           // 진행 방향 (±1)
+  if(Math.abs(tr - fr) === 2 && board[fr + ddy][tc]){
+    return { ok:false, err:'중간 칸이 막힘' };
+  }
   const target = board[tr][tc];
+  // 밀어내기도 기물을 죽이므로 캡처 금지에 걸린다
+  if(target && captureBanned(color)){
+    return { ok:false, err:`흑은 첫 ${BLACK_CAPTURE_BAN_MOVES}수 동안 기물을 잡을 수 없음`, captureRule:true };
+  }
   if(!target){
     // 단순 이동
     board[tr][tc] = board[fr][fc];
@@ -2449,7 +2478,7 @@ function onCellClick(e){
 
 // 하이라이트 후보 하나를 판정한다.
 //   합법            → 그대로 (청록 점 / 빨간 실선 링)
-//   체크 금지로 거절 → 'blocked' (빨간 점)
+//   규칙 위반(체크 금지 / 캡처 금지)으로 거절 → 'blocked' (빨간 점)
 //   자기 킹 노출     → 킹 본인의 이동이면 'illegal' (빨간 점선 원), 아니면 숨김
 // blocked/illegal 둘 다 클릭 가능 타입이 아니라 onCellClick에서 그대로 씹힌다.
 //
@@ -2461,7 +2490,7 @@ function classifyHighlight(h, action, piece){
   const res = applyAction(action, { silent:true });
   restoreState(snap);
   if(res.ok) return h;
-  if(res.checkRule) return { ...h, type:'blocked' };
+  if(res.checkRule || res.captureRule) return { ...h, type:'blocked' };
   return (piece && piece.kind === 'K') ? { ...h, type:'illegal' } : null;
 }
 
