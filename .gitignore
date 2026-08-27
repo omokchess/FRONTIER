@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 .venv/
 _parity.json
+models/*.pkl
+models/az-replay*
