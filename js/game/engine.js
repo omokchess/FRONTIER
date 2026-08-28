@@ -2274,17 +2274,27 @@ const boardEl = document.getElementById('board');
 function setBoardSize(){
   const ww = window.innerWidth;
   const wh = window.innerHeight;
+  // 리플레이 바는 position:fixed라 흐름에서 빠져 있다. 빼주지 않으면 보드가
+  // 뷰포트 전체 높이로 잡혀 바 뒤로 들어간다 (실측 131px 가려졌다).
+  // 높이가 화면 폭에 따라 달라지므로 상수 대신 실측한다.
+  // offsetParent로 '보이는지'를 판정하면 안 된다 — position:fixed 요소는
+  // 보이든 말든 항상 null이다. 실제 높이로 판정한다.
+  const bar = document.getElementById('replayBar');
+  const barBox = bar ? bar.getBoundingClientRect() : null;
+  const barH = (barBox && barBox.height > 0) ? Math.ceil(barBox.height) + 8 : 0;
+  // CSS가 .app 높이를 줄이는 데 쓴다 (FRONTIER.html의 body.replay-mode .app)
+  document.documentElement.style.setProperty('--replay-bar-h', barH + 'px');
   let cellSize;
   if(ww >= 821){
     // 데스크탑: 좌우 패널 240*2 + 패딩
-    const avail = Math.min(ww - 540, wh - 100);
+    const avail = Math.min(ww - 540, wh - 100 - barH);
     cellSize = Math.max(26, Math.min(72, Math.floor(avail / BOARD_N)));
   } else {
     // 모바일/태블릿: 보드 영역의 실제 폭 기준 (이젠 grid가 auto-row라 폭이 결정 인자)
     const wrap = document.querySelector('.board-wrap');
     const availW = wrap ? Math.max(0, wrap.getBoundingClientRect().width - 6) : (ww - 16);
     // 세로 여유도 검사 — 카드+손패+탑바 합쳐 대략 320px 정도 여유 두고 클램프
-    const availH = Math.max(180, wh - 320);
+    const availH = Math.max(180, wh - 320 - barH);
     const sq = Math.min(availW || (ww-16), availH);
     cellSize = Math.max(20, Math.min(56, Math.floor(sq / BOARD_N)));
   }
@@ -3424,46 +3434,23 @@ function openRules(){
 }
 function closeRules(){ document.getElementById('rulesModal').classList.remove('show'); }
 
-// ===== 일일 퀘스트 진행 추적 (localStorage 직접) =====
+// ===== 일일 퀘스트 진행 추적 =====
+// 진행 계산은 js/quests.js 한 곳에만 둔다. 예전엔 여기에 사본이 있었고,
+// 로비 쪽(js/lobby/daily.js)에만 replay_view/spectate 분기가 추가돼
+// '리플레이 보기'·'관전' 퀘스트가 영영 완료되지 않았다.
 function trackQuestProgressLocal(eventType, payload){
-  let data;
-  try { data = JSON.parse(localStorage.getItem('frontier_quests') || 'null'); } catch(_){}
-  if(!data || !data.quests) return; // 퀘스트 미생성 — 다음 로비 방문 시 생성됨
-  let anyChange = false;
-  let anyCompleted = 0;
-  data.quests.forEach(q => {
-    if(q.completed) return;
-    let inc = 0;
-    if(eventType === 'game_end'){
-      const {mode, win, winType, isPotion} = payload || {};
-      if(q.type === 'play') inc = 1;
-      if(q.type === 'win' && win) inc = 1;
-      if(q.type === 'ai' && mode === 'ai') inc = 1;
-      if(q.type === 'mate_win' && win && winType === 'mate') inc = 1;
-      if(q.type === 'omok_win' && win && winType === 'omok') inc = 1;
-      if(q.type === 'potion_play' && isPotion) inc = 1;
-      if(q.type === 'local' && mode === 'local') inc = 1;
+  const q = window.FRONTIER_QUESTS;
+  if(!q) return;
+  const { data, changed } = q.track(eventType, payload);
+  if(!changed || !data) return;
+  // 업적 (FRONTIER.html에선 MY_UID 같이 변수가 다름. Firebase 직접 접근)
+  try {
+    if(window._fbDb && window.MY_UID){
+      const completedCount = data.quests.filter(x => x.completed).length;
+      if(completedCount >= 1) window._fbDb.ref(`users/${window.MY_UID}/achievements/quest_first`).set({unlockedAt:Date.now()}).catch(()=>{});
+      if(completedCount >= 3) window._fbDb.ref(`users/${window.MY_UID}/achievements/quest_all`).set({unlockedAt:Date.now()}).catch(()=>{});
     }
-    if(inc > 0){
-      q.progress = Math.min(q.target, q.progress + inc);
-      if(q.progress >= q.target && !q.completed){
-        q.completed = true;
-        anyCompleted++;
-      }
-      anyChange = true;
-    }
-  });
-  if(anyChange){
-    try { localStorage.setItem('frontier_quests', JSON.stringify(data)); } catch(_){}
-    // 업적 (FRONTIER.html에선 MY_UID 같이 변수가 다름. Firebase 직접 접근)
-    try {
-      if(window._fbDb && window.MY_UID){
-        const completedCount = data.quests.filter(q => q.completed).length;
-        if(completedCount >= 1) window._fbDb.ref(`users/${window.MY_UID}/achievements/quest_first`).set({unlockedAt:Date.now()}).catch(()=>{});
-        if(completedCount >= 3) window._fbDb.ref(`users/${window.MY_UID}/achievements/quest_all`).set({unlockedAt:Date.now()}).catch(()=>{});
-      }
-    } catch(_){}
-  }
+  } catch(_){}
 }
 
 // ===== 업적 검사 =====
@@ -4547,6 +4534,8 @@ function onPeerMessage(data){
 
 // 관전자
 function initSpectator(){
+  // '온라인 방 1번 관전' 퀘스트 (하루 한 번만 센다 — js/quests.js)
+  trackQuestProgressLocal('spectate');
   document.getElementById('chatFab').style.display = '';
   document.getElementById('forfeitBtn').style.display = 'none';
   document.getElementById('chatInput').disabled = true;
@@ -4912,6 +4901,10 @@ function initReplay(){
   }
   _replayData = full;
 
+  // '리플레이 1개 보기' 퀘스트. 여기까지 왔으면 실제로 리플레이가 열린 것이다.
+  // (하루 한 번만 세는 처리는 js/quests.js 안에 있다 — 새로고침 연타 방지)
+  trackQuestProgressLocal('replay_view');
+
   // === 시점 설정: 저장된 myColor 기준, 없으면 백 ===
   // MY_COLOR는 let이라 변경 가능. flipped() 함수가 이걸 사용함.
   MY_COLOR = _replayMeta.myColor || 'w';
@@ -4960,6 +4953,8 @@ function initReplay(){
   // 리플레이 컨트롤 표시
   const bar = document.getElementById('replayBar');
   bar.style.display = '';
+  // 바가 보이게 된 뒤에야 높이를 잴 수 있다 → 보드 크기를 다시 잡는다
+  setBoardSize();
   document.getElementById('replayMetaTitle').textContent = `${wp.nick || '백'} vs ${bp.nick || '흑'}`;
   document.getElementById('replayMetaResult').textContent = resultText;
 

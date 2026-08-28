@@ -262,37 +262,13 @@
       }
 
       window.trackQuestProgress = function(eventType, payload){
-        const data = getDailyQuests();
-        let anyChange = false;
-        let anyCompleted = 0;
-        data.quests.forEach(q => {
-          if(q.completed) return;
-          let inc = 0;
-          if(eventType === 'game_end'){
-            const {mode, win, winType, isPotion} = payload || {};
-            if(q.type === 'play') inc = 1;
-            if(q.type === 'win' && win) inc = 1;
-            if(q.type === 'ai' && mode === 'ai') inc = 1;
-            if(q.type === 'mate_win' && win && winType === 'mate') inc = 1;
-            if(q.type === 'omok_win' && win && winType === 'omok') inc = 1;
-            if(q.type === 'potion_play' && isPotion) inc = 1;
-            if(q.type === 'local' && mode === 'local') inc = 1;
-          } else if(eventType === 'replay_view'){
-            if(q.type === 'replay') inc = 1;
-          } else if(eventType === 'spectate'){
-            if(q.type === 'spectate') inc = 1;
-          }
-          if(inc > 0){
-            q.progress = Math.min(q.target, q.progress + inc);
-            if(q.progress >= q.target && !q.completed){
-              q.completed = true;
-              anyCompleted++;
-            }
-            anyChange = true;
-          }
-        });
-        if(anyChange){
-          try { localStorage.setItem('frontier_quests', JSON.stringify(data)); } catch(_){}
+        // 진행 계산은 js/quests.js 한 곳에만 둔다 (게임 페이지와 공유).
+        const shared = window.FRONTIER_QUESTS;
+        if(!shared) return getDailyQuests();
+        getDailyQuests();                       // 오늘 퀘스트가 없으면 먼저 뽑는다
+        const { data, changed, completed } = shared.track(eventType, payload);
+        if(!data) return getDailyQuests();
+        if(changed){
           if(getUid() && getDb()){
             const completedCount = data.quests.filter(q => q.completed).length;
             if(completedCount >= 1) unlockAchievement('quest_first', 'quest');
@@ -304,7 +280,7 @@
               giveDailyBoxReward();
             }
           }
-          if(anyCompleted > 0) trackQuestStreak();
+          if(completed > 0) trackQuestStreak();
         }
         return data;
       };
