@@ -6,7 +6,20 @@
   const saved = (() => { try { return localStorage.getItem(KEY); } catch (_) { return null; } })();
   const system = () => matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 
-  const apply = t => { html.dataset.theme = t; html.style.colorScheme = t; };
+  // 전환 중에는 트랜지션을 끈다 (theme.css의 .theme-switching 참고).
+  // 끈 상태를 두 프레임 유지해야 새 색이 확정된 뒤에 트랜지션이 되살아난다.
+  const apply = (t, animate) => {
+    if (animate) html.classList.add('theme-switching');
+    html.dataset.theme = t;
+    html.style.colorScheme = t;
+    if (animate) {
+      // rAF는 탭이 숨겨져 있으면 아예 발화하지 않는다 → 클래스가 영영 안 지워져
+      // 트랜지션이 통째로 죽는다. 타이머로 반드시 해제되게 이중으로 건다.
+      const clear = () => html.classList.remove('theme-switching');
+      requestAnimationFrame(() => requestAnimationFrame(clear));
+      setTimeout(clear, 120);
+    }
+  };
   apply(saved === 'light' || saved === 'dark' ? saved : system());
 
   // 저장한 적이 없으면 OS 설정 변경을 따라간다.
@@ -26,7 +39,7 @@
     };
     btn.onclick = () => {
       const next = html.dataset.theme === 'dark' ? 'light' : 'dark';
-      apply(next);
+      apply(next, true);
       try { localStorage.setItem(KEY, next); } catch (_) {}
       label();
     };

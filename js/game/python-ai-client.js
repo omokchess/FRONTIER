@@ -50,6 +50,11 @@
     // Python 엔진은 8x8 고정이고 물약 상태를 모른다 — 두 경우 모두 내장 AI로
     if (IS_POTION) { console.warn('Python AI v1 excludes potion mode; falling back to browser AI.'); return fallbackAiTurn(); }
     if (typeof IS_XL !== 'undefined' && IS_XL) { console.warn('Python AI is 8x8-only; XL falls back to browser AI.'); return fallbackAiTurn(); }
+    // 공성추는 frontier_ai/game.py에 아직 없다. 손패나 판에 하나라도 있으면
+    // 서버가 판을 잘못 읽고 불법 수를 돌려주므로 아예 보내지 않는다.
+    const hasRam = (hands.w.RM > 0 || hands.b.RM > 0) ||
+      board.some(row => row.some(p => p && p.kind === 'RM'));
+    if (hasRam) { console.warn('Python AI does not know the ram (RM); falling back to browser AI.'); return fallbackAiTurn(); }
     showAIThinking(true, IS_AIVAI ? aiColor : null);
     try {
       const action = await requestMove();

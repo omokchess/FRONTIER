@@ -172,6 +172,17 @@
   text-transform:uppercase;
 }
 
+/* 테마 전환 순간에만 트랜지션을 끈다.
+   transition:all이 걸린 버튼들(.btn, .social-btn, .add-btn …)은 data-theme이 바뀔 때
+   배경·글자색도 '전환 대상'으로 보고 .12~.15s에 걸쳐 따라간다. 나머지는 즉시 바뀌니
+   그 버튼들만 뒤늦게 변하는 것처럼 보였다. 선언 29곳을 각각 고치는 대신 여기서 막는다. */
+:root.theme-switching *,
+:root.theme-switching *::before,
+:root.theme-switching *::after{
+  transition:none !important;
+  animation-duration:0s !important;
+}
+
 /* ===== 낮/밤 토글 (theme.js가 주입) ===== */
 .theme-toggle{
   position:fixed;right:14px;bottom:14px;z-index:9000;
@@ -189,6 +200,8 @@
   position:static;width:36px;height:36px;font-size:17px;margin-left:8px;flex:0 0 auto;order:99
 }
 .head .lang-switch{order:98}
+/* 랭킹/리플레이/방 만들기: '← 로비'를 낮/밤 버튼 바로 오른쪽에 */
+.head .back{order:100}
 @media (max-width:600px){
   /* 모바일 하단 탭바(68px)와 겹치지 않게 띄운다 */
   .theme-toggle{width:38px;height:38px;font-size:16px;right:10px;bottom:78px}

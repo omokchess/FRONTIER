@@ -24,7 +24,7 @@ const MY_TITLE_COLOR = Q.get('titleColor') || '#f5c842';
 const MY_TITLE_GRADIENT = Q.get('titleGradient') || '';
 const MY_PHOTO_URL = Q.get('photo') || '';
 // INIT_HAND must be declared BEFORE parsing _handParam to avoid ReferenceError
-const DEFAULT_HAND = {K:1, Q:1, R:2, B:2, N:2, P:8, SH:0, SN:0, JP:0};
+const DEFAULT_HAND = {K:1, Q:1, R:2, B:2, N:2, P:8, SH:0, SN:0, JP:0, RM:0};
 function parseHandStr(s){
   if(!s) return {...DEFAULT_HAND};
   const out = {...DEFAULT_HAND};
@@ -66,13 +66,13 @@ const LAST_IDX = BOARD_N - 1;
 const TYCOON_TURN_INCOME = 5;   // 매 턴 시작 시 골드 수입
 const TYCOON_SKIP_BONUS  = 5;   // 턴 스킵 시 추가 골드 (스킵 턴 = 수입 5 + 보너스 5 = 10)
 const TYCOON_WIN_GOLD    = 50;  // 골드 승리 임계치
-const TYCOON_SN_RANGE    = 8;   // 사거리 강화 후 스나이퍼 사거리(모든 방향)
-const TYCOON_SN_UPGRADE_COST = 5;  // 스나이퍼 사거리 강화 비용 (진영당 1회)
+const TYCOON_SN_RANGE    = 8;   // 사거리 강화 후 발리스타 사거리(모든 방향)
+const TYCOON_SN_UPGRADE_COST = 5;  // 발리스타 사거리 강화 비용 (진영당 1회)
 const TYCOON_PROMO_COST  = 5;   // 폰 승급 비용
 const TYCOON_PROMO_AGE   = 3;   // 승급 가능 폰의 최소 생존 턴 수
 // 구매 가격 (킹은 기본 지급, 퀸은 구매 불가 — 승급으로만 획득)
 const TYCOON_PRICES = { P:5, SN:5, B:10, R:10, N:10, JP:10, SH:10 };
-const TYCOON_SN_MIN_TURN = 2;   // 스나이퍼는 그 진영의 2번째 턴부터 구매 가능
+const TYCOON_SN_MIN_TURN = 2;   // 발리스타는 그 진영의 2번째 턴부터 구매 가능
 const TYCOON_HAND = { K:1, Q:0, R:0, B:0, N:0, P:0, SH:0, SN:0, JP:0 };  // 시작 손패: 킹만
 
 // ===== 물약 모드 =====
@@ -119,7 +119,7 @@ const TIME_INC = parseInt(Q.get('inc') || '0') || 0;
 // ===================================================================
 // 2. 기물 정의
 // ===================================================================
-const PIECE_NAMES = {K:'킹',Q:'퀸',R:'룩',B:'비숍',N:'나이트',P:'폰',SH:'방패',SN:'스나이퍼',JP:'어쌔신'};
+const PIECE_NAMES = {K:'킹',Q:'퀸',R:'룩',B:'비숍',N:'나이트',P:'폰',SH:'방패',SN:'발리스타',JP:'어쌔신',RM:'공성추'};
 const SPECIAL_KINDS = ['SH','SN','JP'];
 
 // ===================================================================
@@ -136,8 +136,8 @@ let snapshots = [];             // undo 또는 5회 체크 초과 시 복원용
 let checkStreak = { w:0, b:0 }; // 연속 체크 (이쪽이 받은)
 let totalChecks = { w:0, b:0 }; // 총 체크 (이쪽이 건)
 let gold = { w:0, b:0 };        // 타이쿤: 진영별 골드
-let snUpgraded = { w:false, b:false };  // 타이쿤: 스나이퍼 사거리 강화 여부 (진영당)
-let tycoonTurn = { w:0, b:0 };  // 타이쿤: 진영별 진행 턴 수 (스나이퍼 2턴 제한용)
+let snUpgraded = { w:false, b:false };  // 타이쿤: 발리스타 사거리 강화 여부 (진영당)
+let tycoonTurn = { w:0, b:0 };  // 타이쿤: 진영별 진행 턴 수 (발리스타 2턴 제한용)
 let gameOver = false;
 let myRoomCode = null;          // 페이지 이탈 시 정리할 방 코드
 
@@ -157,16 +157,152 @@ const algebraic = (r,c) => fileLabel(c) + rankLabel(r);
 const opp = c => c === 'w' ? 'b' : 'w';
 
 // 배치 영역 — 판 크기에 맞춰 스케일.
-//   8x8 : 일반 rows2-5/cols1-6, 킹 rows2-5/cols2-5, 스나이퍼 4꼭짓점
-//   12x12: 일반 rows3-8/cols2-9, 킹 rows2-9/cols2-9 (8x8),
-//          스나이퍼는 바깥 12x12 모서리 4곳 + 안쪽 8x8 영역 모서리 4곳 = 8곳
+//   8x8 : 일반 rows2-5/cols1-6, 킹 rows2-5/cols2-5, 발리스타 4꼭짓점
+//   12x12: 일반·킹 모두 rows2-9/cols2-9 (안쪽 8x8 전체),
+//          발리스타는 바깥 12x12 모서리 4곳 + 안쪽 8x8 영역 모서리 4곳 = 8곳
 const ZONES = IS_XL
-  ? { gen:[3,8,2,9], king:[2,9,2,9], corners:[[0,0],[0,11],[11,0],[11,11],[2,2],[2,9],[9,2],[9,9]] }
+  ? { gen:[2,9,2,9], king:[2,9,2,9], corners:[[0,0],[0,11],[11,0],[11,11],[2,2],[2,9],[9,2],[9,9]] }
   : { gen:[2,5,1,6], king:[2,5,2,5], corners:[[0,0],[0,7],[7,0],[7,7]] };
 
 function inGeneralZone(r,c){ const z=ZONES.gen;  return r>=z[0] && r<=z[1] && c>=z[2] && c<=z[3]; }
 function inKingZone(r,c){    const z=ZONES.king; return r>=z[0] && r<=z[1] && c>=z[2] && c<=z[3]; }
 function inCornerZone(r,c){  return ZONES.corners.some(([zr,zc]) => zr===r && zc===c); }
+
+// ===================================================================
+// 4-B. 공성추 (RM)
+// ===================================================================
+// 판 위 아무 칸이나 목표로 지정한다. 지정은 턴을 쓰고, 한 바퀴 뒤
+// (= 자기 차례가 다시 돌아왔을 때) 실제로 돌진한다.
+//
+// 목표가 직선 위가 아닐 수 있으므로 경로는 브레젠험 직선으로 정의한다.
+// "이동중 부딪힌다"는 말이 성립하려면 경로가 하나로 정해져 있어야 한다.
+const RAM_CHARGE_DELAY = 1;   // 대기 턴 수 (자기 턴 기준)
+
+// 출발 칸을 빼고 목표 칸까지의 칸 목록.
+//
+// 작은 L 계단 — 행과 열을 '한 번에 하나씩만' 밟는다. 대각으로 한 번에 건너뛰면
+// 인접한 두 칸을 검사 없이 지나쳐, 앞을 막고 선 기물 사이로 빠져나가 버린다
+// (브레젠험을 쓸 때 실제로 그랬다). 한 축씩만 움직이면 그 구멍이 사라진다.
+// 대신 순수 대각 돌진도 계단이 되어, 예전보다 훨씬 잘 막힌다 — 의도한 결과다.
+//
+// 긴 축으로 가다가, 짧은 축이 밀릴 만큼 오차가 쌓이면 짧은 축으로 한 칸 옮긴다.
+function ramStaircase(fr, fc, tr, tc){
+  const cells = [];
+  const dr = tr - fr, dc = tc - fc;
+  const adr = Math.abs(dr), adc = Math.abs(dc);
+  const sr = Math.sign(dr), sc = Math.sign(dc);
+  const rowMajor = adr >= adc;
+  const majorN = rowMajor ? adr : adc;      // 긴 축 걸음 수
+  const minorN = rowMajor ? adc : adr;      // 짧은 축 걸음 수
+  let r = fr, c = fc, err = 0, minorLeft = minorN;
+  for(let i = 0; i < majorN; i++){
+    if(rowMajor) r += sr; else c += sc;
+    cells.push([r, c]);
+    err += minorN;
+    if(err >= majorN && minorLeft > 0){
+      err -= majorN; minorLeft--;
+      if(rowMajor) c += sc; else r += sr;
+      cells.push([r, c]);
+    }
+  }
+  // 긴 축이 0인 경우(제자리)는 호출부에서 걸러진다
+  return cells;
+}
+
+// 같은 두 칸을 잇는 경로는 어느 쪽에서 출발하든 같은 칸을 지나야 한다.
+// 그래야 "저 칸이 경로에 걸리나?"의 답이 공성추 위치에 따라 안 바뀐다.
+// → 항상 사전순으로 앞선 끝점에서 계산하고, 필요하면 뒤집어서 진행 순서만 맞춘다.
+function ramPath(fr, fc, tr, tc){
+  const forward = (fr < tr) || (fr === tr && fc <= tc);
+  if(forward) return ramStaircase(fr, fc, tr, tc).filter(([r,c]) => inBounds(r,c));
+  // 사전순 뒷쪽에서 출발하는 경우: 앞쪽 끝점에서 계산해 전체 사슬을 만든 뒤
+  // 통째로 뒤집고 출발 칸을 떼어낸다. 지나는 칸은 같고 순서만 반대가 된다.
+  const chain = [[tr, tc], ...ramStaircase(tr, tc, fr, fc)];   // (tr,tc) … (fr,fc)
+  return chain.reverse().slice(1).filter(([r,c]) => inBounds(r,c));
+}
+
+// 아군 기물을 돌진 방향으로 끝까지 밀어낸다.
+// 도중에 적을 만나면 그 적을 잡고 그 자리에 선다. (요구사항 3-3-1)
+function ramShoveAlly(ar, ac, dr, dc){
+  let r = ar, c = ac, last = [ar, ac];
+  for(;;){
+    const nr = r + dr, nc = c + dc;
+    if(!inBounds(nr, nc)) break;              // 판 끝 → 마지막 빈 칸에 선다
+    const t = board[nr][nc];
+    if(t){
+      if(t.color !== board[ar][ac].color){    // 적 → 잡고 정지
+        board[nr][nc] = null; last = [nr, nc];
+      }
+      break;                                   // 아군에 막히면 그 앞에 정지
+    }
+    r = nr; c = nc; last = [nr, nc];
+  }
+  if(last[0] !== ar || last[1] !== ac){
+    board[last[0]][last[1]] = board[ar][ac];
+    board[ar][ac] = null;
+  }
+  return last;
+}
+
+// 예약된 돌진을 실제로 수행한다. 판을 직접 고치고 최종 착지 칸을 돌려준다.
+function ramResolve(fr, fc){
+  const ram = board[fr][fc];
+  if(!ram || ram.kind !== 'RM' || !ram.charge) return null;
+  const { tr, tc } = ram.charge;
+  const dr = Math.sign(tr - fr), dc = Math.sign(tc - fc);
+  const path = ramPath(fr, fc, tr, tc);
+  const captured = [];
+  let land = [fr, fc], hits = 0;
+
+  for(const [r, c] of path){
+    const t = board[r][c];
+    if(!t){ land = [r, c]; continue; }
+    if(t.color === ram.color){
+      // 아군: 방향 끝쪽으로 밀어내고, 공성추는 그 자리를 지나 계속 간다
+      ramShoveAlly(r, c, dr, dc);
+      land = [r, c];
+      continue;
+    }
+    // 적: 잡는다. 첫 번째면 목적지까지 계속, 두 번째면 그 자리에서 정지.
+    captured.push({ r, c, kind: t.kind, color: t.color });
+    board[r][c] = null;
+    land = [r, c];
+    if(++hits >= 2) break;
+  }
+
+  board[fr][fc] = null;
+  delete ram.charge;
+  // 착지 칸이 비어 있지 않을 수 있다: 밀려난 아군이 하필 그 칸에 멈춘 경우다
+  // (라인 끝으로 밀었는데 그 끝이 목표 칸이었던 상황). 그대로 놓으면 아군이
+  // 덮여 사라진다 → 경로를 되짚어 가장 가까운 빈 칸에 선다.
+  if(board[land[0]][land[1]]){
+    let idx = path.findIndex(([r, c]) => r === land[0] && c === land[1]);
+    while(idx > 0){
+      idx--;
+      const [r, c] = path[idx];
+      if(!board[r][c]){ land = [r, c]; break; }
+    }
+    if(board[land[0]][land[1]]) land = [fr, fc];   // 전부 막혔으면 제자리
+  }
+  board[land[0]][land[1]] = ram;
+  lastMove = { fr, fc, tr: land[0], tc: land[1], type: 'charge' };
+  return { fr, fc, tr: land[0], tc: land[1], captured };
+}
+
+// 차례가 돌아온 색의 공성추 중 대기가 끝난 것을 모두 발동시킨다.
+function ramResolveDue(color){
+  const done = [];
+  for(let r = 0; r < BOARD_N; r++){
+    for(let c = 0; c < BOARD_N; c++){
+      const p = board[r][c];
+      if(!p || p.kind !== 'RM' || p.color !== color || !p.charge) continue;
+      if(p.charge.wait > 0){ p.charge.wait--; continue; }
+      const res = ramResolve(r, c);
+      if(res) done.push(res);
+    }
+  }
+  return done;
+}
 
 // ===================================================================
 // 5. 기물 이동 / 공격 가능 좌표
@@ -283,8 +419,12 @@ function pieceMoves(r, c, piece){
         }
       }
     }
+  } else if(k === 'RM'){
+    // 공성추: 일반 행마 없음. 'charge' 액션으로만 움직인다 (computeHighlights 참고).
+    // 여기서 빈 배열을 돌려줘야 체크 판정이 공성추를 위협으로 세지 않는다 —
+    // 돌진은 예약 후 한 바퀴 뒤에나 발동하므로 '지금 킹을 공격 중'이 아니다.
   } else if(k === 'SN'){
-    // 스나이퍼: 이동 불가. 십자 4칸 / 대각 3칸 시야의 적을 저격. 시야가 막히면 정지.
+    // 발리스타: 이동 불가. 십자 4칸 / 대각 3칸 시야의 적을 사격. 시야가 막히면 정지.
     // 타이쿤 사거리 강화 시: 모든 방향 TYCOON_SN_RANGE(8)칸.
     const up = IS_TYCOON && snUpgraded[col];
     const R8 = TYCOON_SN_RANGE;
@@ -296,7 +436,7 @@ function pieceMoves(r, c, piece){
       [-1,-1, 3],[-1, 1, 3],[ 1,-1, 3],[ 1, 1, 3]    // 대각 4방향: 3칸
     ];
     for(const [dr,dc,maxDist] of dirs){
-      // XL 강화: 사거리를 판 끝까지 늘리고, 기물 하나는 관통해서 그 너머까지 저격.
+      // XL 강화: 사거리를 판 끝까지 늘리고, 기물 하나는 관통해서 그 너머까지 사격.
       const range = IS_XL ? BOARD_N : maxDist;
       let pierced = 0;
       for(let dist=1; dist<=range; dist++){
@@ -304,7 +444,7 @@ function pieceMoves(r, c, piece){
         if(!inBounds(nr,nc)) break;
         const t = board[nr][nc];
         if(t){
-          if(t.color !== col) attacks.push([nr,nc]); // 적이면 저격 가능
+          if(t.color !== col) attacks.push([nr,nc]); // 적이면 사격 가능
           if(!IS_XL) break;                          // 기본: 첫 기물에서 정지
           if(++pierced >= 2) break;                  // XL: 두 번째 기물에서 정지
         }
@@ -473,7 +613,7 @@ function rotateShield(r, c, fromNet){
 
 // 룰 버전 — 접속 시 교환한다. 규칙이 바뀌면 올린다.
 // 한쪽이 캐시된 옛 JS를 물고 있으면 판정이 갈려 조용히 데스싱크가 난다.
-const RULES_VERSION = 3;
+const RULES_VERSION = 4;   // 4: 공성추(RM) 추가
 
 // 판을 그대로 복원하는 데 필요한 전부. 관전 publish와 데스싱크 복구가 같이 쓴다.
 // moveHistory가 반드시 들어가야 한다 — 백 체크 금지·흑 캡처 금지·방패 잠금이
@@ -529,7 +669,11 @@ function serializeBoard(){
   for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
     const p = board[r][c];
     // 방패 축은 국면의 일부다 — 반복 판정에 들어가야 한다
-    s += p ? (p.color + p.kind + (p.kind === 'SH' ? shAxis(p) : '') + ',') : '.';
+    // 방패 축과 공성추 돌진 예약은 국면의 일부다 — 반복 판정에 들어가야 한다
+    let extra = '';
+    if(p && p.kind === 'SH') extra = shAxis(p);
+    else if(p && p.kind === 'RM' && p.charge) extra = '>' + p.charge.tr + '.' + p.charge.tc + '.' + p.charge.wait;
+    s += p ? (p.color + p.kind + extra + ',') : '.';
   }
   s += '|h:' + ['w','b'].map(col =>
     Object.entries(hands[col]).map(([k,v])=>k+v).join('')
@@ -587,7 +731,7 @@ function applyAction(action, opts={}){
     if(!kingPlaced[color] && kind !== 'K') return { ok:false, err:'첫 수는 킹' };
     // 킹은 4x4
     if(kind === 'K' && !inKingZone(r,c)) return { ok:false, err:'킹 영역 밖' };
-    // 스나이퍼: 4꼭짓점
+    // 발리스타: 4꼭짓점
     if(kind === 'SN' && !inCornerZone(r,c)) return { ok:false, err:'꼭짓점만' };
     // 그 외 일반: 6x4 영역
     if(kind !== 'K' && kind !== 'SN' && !inGeneralZone(r,c)) return { ok:false, err:'배치 영역 밖' };
@@ -611,7 +755,7 @@ function applyAction(action, opts={}){
       const result = trySHMove(fr, fc, tr, tc, p.color);
       if(!result.ok) return result;
     } else if(p.kind === 'SN'){
-      // 스나이퍼는 이동 불가, 공격만
+      // 발리스타는 이동 불가, 공격만
       const { attacks } = pieceMoves(fr, fc, p);
       const isAtk = attacks.some(([r,c]) => r===tr && c===tc);
       if(!isAtk) return { ok:false, err:'공격 불가 위치' };
@@ -622,7 +766,7 @@ function applyAction(action, opts={}){
       // 타깃은 영구 제거 (손패 회수 X)
       if(target && IS_POTION) awardCapturePoints(target.kind, p.color);
       board[tr][tc] = null;
-      // 스나이퍼 공격 카운터 증가, 3회 도달 시 후퇴 (자기 손패로 회수)
+      // 발리스타 공격 카운터 증가, 3회 도달 시 후퇴 (자기 손패로 회수)
       p.attacks = (p.attacks || 0) + 1;
       if(p.attacks >= 3){
         // 후퇴: SN을 보드에서 제거하고 소유자의 손패로 복귀
@@ -654,6 +798,20 @@ function applyAction(action, opts={}){
       }
       lastMove = { fr, fc, tr, tc, type:'move' };
     }
+  } else if(action.type === 'charge'){
+    const { fr, fc, tr, tc, color } = action;
+    if(color !== turn) return { ok:false, err:'현재 차례의 색이 아님' };
+    if(!inBounds(fr,fc) || !inBounds(tr,tc)) return { ok:false, err:'판 밖' };
+    const ram = board[fr][fc];
+    if(!ram || ram.kind !== 'RM') return { ok:false, err:'공성추가 아님' };
+    if(ram.color !== color) return { ok:false, err:'상대 기물' };
+    if(ram.charge) return { ok:false, err:'이미 돌진 예약됨' };
+    if(fr === tr && fc === tc) return { ok:false, err:'제자리 지정 불가' };
+    // 예약만 한다 — 실제 이동은 자기 차례가 돌아왔을 때 (finalizeAfterMove).
+    // wait은 '앞으로 더 넘겨야 할 내 차례 수'다. 지정한 턴이 이미 대기 1턴에
+    // 해당하므로, 기본(DELAY=1)이면 다음 내 차례에 바로 터진다 → wait 0.
+    ram.charge = { tr, tc, wait: RAM_CHARGE_DELAY - 1 };
+    lastMove = { fr, fc, tr, tc, type:'charge-set' };
   } else if(action.type === 'skip'){
     // 타이쿤: 턴 스킵 (+5G 보너스 후 턴 넘김)
     if(!IS_TYCOON) return { ok:false, err:'스킵 불가' };
@@ -863,7 +1021,7 @@ function buyPiece(kind){
   const price = TYCOON_PRICES[kind];
   if(price == null){ showFlash('구매할 수 없는 기물'); return; }
   if(kind === 'SN' && (tycoonTurn[actor]||0) < TYCOON_SN_MIN_TURN){
-    showFlash('🎯 스나이퍼는 2번째 턴부터 구매 가능'); return;
+    showFlash('🎯 발리스타는 2번째 턴부터 구매 가능'); return;
   }
   if((gold[actor]||0) < price){ showFlash('💰 골드 부족'); return; }
   gold[actor] -= price;
@@ -874,7 +1032,7 @@ function buyPiece(kind){
   renderAll();
 }
 
-// 스나이퍼 사거리 강화 (진영당 1회)
+// 발리스타 사거리 강화 (진영당 1회)
 function upgradeSniper(){
   if(!tycoonCanAct()) return;
   const actor = tycoonActor();
@@ -884,7 +1042,7 @@ function upgradeSniper(){
   snUpgraded[actor] = true;
   if(IS_NET) sendToPeer({ t:'TYCOON_UPGRADE', color:actor });
   if(NET_ROLE === 'host') publishGameState();
-  showFlash((window.t ? window.t('🎯 스나이퍼 사거리 강화! (모든 방향 {n}칸)', {n:TYCOON_SN_RANGE}) : '🎯 스나이퍼 사거리 강화! (모든 방향 ' + TYCOON_SN_RANGE + '칸)'));
+  showFlash((window.t ? window.t('🎯 발리스타 사거리 강화! (모든 방향 {n}칸)', {n:TYCOON_SN_RANGE}) : '🎯 발리스타 사거리 강화! (모든 방향 ' + TYCOON_SN_RANGE + '칸)'));
   renderAll();
 }
 
@@ -959,7 +1117,7 @@ function renderTycoon(){
       const snLocked = (k==='SN' && (tycoonTurn[actor]||0) < TYCOON_SN_MIN_TURN);
       return btn(`${T(PIECE_NAMES[k]||k)} ${price}G`, g >= price && !snLocked, `buyPiece('${k}')`);
     }).join('');
-    shop += btn(snUpgraded[actor] ? T('저격강화 ✓') : `${T('저격강화')} ${TYCOON_SN_UPGRADE_COST}G`, !snUpgraded[actor] && g >= TYCOON_SN_UPGRADE_COST, 'upgradeSniper()');
+    shop += btn(snUpgraded[actor] ? T('사거리강화 ✓') : `${T('사거리강화')} ${TYCOON_SN_UPGRADE_COST}G`, !snUpgraded[actor] && g >= TYCOON_SN_UPGRADE_COST, 'upgradeSniper()');
     shop += btn(`${T('⬆폰승급')} ${TYCOON_PROMO_COST}G`, g >= TYCOON_PROMO_COST, 'startTycoonPromote()');
     shop += btn(`${T('⏭스킵')} +${TYCOON_SKIP_BONUS}G`, true, 'skipTurn()');
     shop = `<span style="color:#888;font-size:10px;white-space:nowrap;margin-right:2px">${T('{c} 상점 (턴 소모 없이 구매)',{c:T(actor==='w'?'백':'흑')})}</span>` + shop;
@@ -1565,7 +1723,7 @@ function findRevivePosition(kind, color){
   return null;
 }
 function getPieceName(kind){
-  return {K:'킹',Q:'퀸',R:'룩',B:'비숍',N:'나이트',P:'폰',SH:'방패',SN:'스나이퍼',JP:'어쌔신'}[kind] || kind;
+  return {K:'킹',Q:'퀸',R:'룩',B:'비숍',N:'나이트',P:'폰',SH:'방패',SN:'발리스타',JP:'어쌔신',RM:'공성추'}[kind] || kind;
 }
 function pieceGlyph(color, kind){
   return pieceSvgInline(kind, color, 20);
@@ -1781,6 +1939,17 @@ function finalizeAfterMove(opponentInCheck, snap, silent=false){
   // 차례 넘김
   turn = opp(turn);
 
+  // 예약된 돌진 발동 — 자기 차례가 돌아온 시점.
+  // 5연속 검사보다 앞이어야 돌진으로 완성된 오목도 잡힌다.
+  const ramDone = ramResolveDue(turn);
+  if(ramDone.length && kingPlaced[opp(turn)] && isInCheck(opp(turn))){
+    // 돌진이 상대를 체크로 몰았다면 그 체크도 카운터에 반영한다.
+    // (한도 초과 무효화까지는 하지 않는다 — 이미 확정된 이동이라 되돌릴 수 없다)
+    opponentInCheck = true;
+    totalChecks[turn]++;
+    checkStreak[opp(turn)]++;
+  }
+
   // 타이쿤: 새 턴 색에 골드 수입 +5G, 폰 나이 +1, 50G 선점 승리 체크 (silent 제외)
   if(IS_TYCOON && !silent){
     handleTycoonIncome(turn);
@@ -1922,7 +2091,16 @@ function allLegalActions(color){
   for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
     const p = board[r][c];
     if(!p || p.color !== color) continue;
-    if(p.kind === 'SN'){
+    if(p.kind === 'RM'){
+      // 공성추: 판 위 아무 칸이나 목표로 지정 (이미 예약 중이면 못 한다).
+      // 후보가 BOARD_N²개라 탐색이 무거워진다 → AI 쪽에서 따로 추린다.
+      if(!p.charge){
+        for(let tr=0;tr<BOARD_N;tr++) for(let tc=0;tc<BOARD_N;tc++){
+          if(tr === r && tc === c) continue;
+          list.push({type:'charge', fr:r, fc:c, tr, tc, color});
+        }
+      }
+    } else if(p.kind === 'SN'){
       const { attacks } = pieceMoves(r, c, p);
       for(const [tr,tc] of attacks){
         list.push({type:'move', fr:r, fc:c, tr, tc});
@@ -2128,6 +2306,16 @@ function logicalCoords(dr, dc){
 
 function renderBoard(){
   boardEl.innerHTML = '';
+  // 예약된 돌진의 목표 칸을 한 번만 모은다 (칸마다 판을 다시 훑으면 O(N⁴))
+  // 목표 칸과 '지나갈 칸'을 함께 모은다. 경로가 계단이라 눈으로 짐작하기
+  // 어렵기 때문에, 어디를 밟고 갈지 판 위에 직접 보여준다.
+  const ramAim = new Set(), ramVia = new Set();
+  for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
+    const q = board[r][c];
+    if(!(q && q.kind === 'RM' && q.charge)) continue;
+    ramAim.add(q.charge.tr + ',' + q.charge.tc);
+    for(const [pr, pc] of ramPath(r, c, q.charge.tr, q.charge.tc)) ramVia.add(pr + ',' + pc);
+  }
   for(let dr=0; dr<BOARD_N; dr++){
     for(let dc=0; dc<BOARD_N; dc++){
       const [r,c] = logicalCoords(dr, dc);
@@ -2167,7 +2355,7 @@ function renderBoard(){
         span.className = 'pc ' + p.color + (isSpec?' spec':'');
         span.innerHTML = pieceSvg(p.kind, p.color, null, undefined, p.axis);
         cell.appendChild(span);
-        // 스나이퍼 공격 카운터 (3회 후퇴)
+        // 발리스타 공격 카운터 (3회 후퇴)
         if(p.kind === 'SN' && p.attacks > 0){
           const ctr = document.createElement('span');
           ctr.className = 'sn-counter';
@@ -2193,7 +2381,7 @@ function renderBoard(){
           // 배치는 빨간 하이라이트 (단일 칸)
           if(lastMove.tr === r && lastMove.tc === c) cell.classList.add('last-place');
         } else {
-          // 이동/저격/밀기는 금색 하이라이트 (출발+도착)
+          // 이동/사격/밀기는 금색 하이라이트 (출발+도착)
           if((lastMove.fr === r && lastMove.fc === c) || (lastMove.tr === r && lastMove.tc === c)){
             cell.classList.add('last');
           }
@@ -2211,6 +2399,13 @@ function renderBoard(){
           cell.classList.add(h.type);
         }
       }
+
+      // 돌진 예약 — 방패 축과 같은 이유로 판 위에서 읽혀야 한다.
+      // 알림으로 흘리면 상대가 놓치고, 예약은 한 바퀴 뒤에 터지므로
+      // 대응할 시간을 주려면 어디를 노리는지가 계속 보여야 한다.
+      if(p && p.kind === 'RM' && p.charge) cell.classList.add('ram-armed');
+      if(ramVia.has(r + ',' + c)) cell.classList.add('ram-via');
+      if(ramAim.has(r + ',' + c)) cell.classList.add('ram-aim');
 
       // 체크된 킹
       if(p && p.kind === 'K' && isInCheck(p.color)){
@@ -2554,6 +2749,13 @@ function onCellClick(e){
       return;
     }
     const p = board[SEL.r][SEL.c];
+    // 공성추 목표 지정 — 아군 기물이 있는 칸도 고를 수 있어야 하므로
+    // '같은 색 클릭 = 선택 변경'보다 먼저 처리한다.
+    if(p && p.kind === 'RM' && HIGHLIGHTS.some(h => h.r === r && h.c === c && h.type === 'ram-target')){
+      submitAction({ type:'charge', fr:SEL.r, fc:SEL.c, tr:r, tc:c });
+      SEL = null; HIGHLIGHTS = [];
+      return;
+    }
     // 같은 색 기물 클릭 → 다른 기물로 선택 변경
     if(board[r][c] && board[r][c].color === myCol){
       SEL = { kind:'board', r, c };
@@ -2610,6 +2812,18 @@ function computeHighlights(r, c, p){
   // 선택된 방패는 자기 칸이 '방향 전환' 버튼이 된다 (턴 소모 없음)
   if(p.kind === 'SH' && !shLocked(p) && !IS_REPLAY && !IS_SPEC && p.color === turn){
     out.push({ r, c, type:'sh-rotate' });
+  }
+  if(p.kind === 'RM'){
+    // 공성추: 판 위 아무 칸이나 목표. 이미 예약 중이면 고를 게 없다.
+    // 후보가 판 전체(최대 143칸)라 classifyHighlight로 전수 검증하면 그 자리에서
+    // 멈춘다 — 돌진은 예약일 뿐 판을 안 건드리므로, 자기 킹이 체크로 노출될
+    // 일도 없어 검증이 필요 없다.
+    if(p.charge) return out;
+    for(let tr=0; tr<BOARD_N; tr++) for(let tc=0; tc<BOARD_N; tc++){
+      if(tr === r && tc === c) continue;
+      out.push({ r:tr, c:tc, type:'ram-target' });
+    }
+    return out;
   }
   if(p.kind === 'SN'){
     // 시각: 8방향 1~4칸 전체 사정거리 표시 (시야 차단 무관)
@@ -2814,9 +3028,9 @@ function submitAction(action){
     playSnd('move');
   }
 
-  // 스나이퍼 후퇴 알림
+  // 발리스타 후퇴 알림
   if(lastMove && lastMove.type === 'snipe' && lastMove.retreat){
-    showFlash('🎯 스나이퍼 3회 공격 완료 — 손패로 후퇴', 2200);
+    showFlash('🎯 발리스타 3회 공격 완료 — 손패로 후퇴', 2200);
   }
 
   // 액션 성공: 선택/하이라이트 초기화 후 렌더 (잔상 제거)
@@ -3245,11 +3459,30 @@ const PIECE_VALUES = { K:0, Q:9, R:5, B:3, N:3, P:1, SH:3, SN:5, JP:3 };
 const DEFAULT_GENOME = Object.freeze({
   // 기물 가치 (8)
   Q: 90, R: 50, B: 35, N: 30, P: 10, SH: 25, SN: 60, JP: 35,
-  // 라인 위협 (4) — 5목 추구
+  // 라인 위협 (4) — 5목 추구. 5칸 창에 아군이 몇 개인지만 센다.
   threat2: 20,
   threat3: 200,
   threat4: 2000,
   threat5: 100000,
+  // 열린 위협 보너스 — 연속 런의 양끝이 비었는지로 구분한다.
+  // 창 방식은 '열린 3'과 '한쪽 막힌 3'을 똑같이 취급하는데, 오목에선
+  // 열린 3이 다음 수에 열린 4가 되어 사실상 승부가 난다. 그 차이를 준다.
+  // 0으로 두면 기존 동작과 완전히 동일 — A/B 대조용.
+  // 아래 셋은 아레나 측정을 통과하지 못해 0으로 꺼둔 상태다.
+  //   openThree/openFour: 24판 B 득점률 41.7% ± 19.7% → 개선 아님.
+  //     openFour 12000이 과대평가로 보인다. 여기선 열린 4가 승리가 아니고
+  //     (줄 기물을 잡으면 풀린다) fragileMul은 '지금 당장' 공격받는 경우만 깎는다.
+  //   doubleThreat: 아직 미측정.
+  // 0이면 예전 동작과 정확히 같다 → tools/arena_browser.js 로 A/B가 가능하다.
+  openThree: 0,       // 양끝 열린 3
+  openFour: 0,        // 양끝 열린 4 (오목이면 즉승, 여기선 잡히면 풀린다)
+  // 이중 위협 — 한 수로 '5목을 완성하는 자리'가 둘 이상 생기면 상대는 하나만
+  // 막을 수 있다. 오목에서 실제로 이기는 방법이 사실상 이것뿐이다.
+  // 창/런 점수는 위협을 '더하기'만 해서 이 결정적 차이를 못 잡는다.
+  doubleThreat: 0,
+  // 잡기가 있는 게임이라 오목 이론을 그대로 못 쓴다. 줄을 이루는 기물이
+  // 상대에게 잡히면 위협이 사라지므로, 공격받는 런은 가치를 깎는다.
+  fragileMul: 0.35,
   // 손패 자원 (1)
   handRatio: 0.5,
   // 체크 관련 (2)
@@ -3395,13 +3628,37 @@ function aiNormal(list, myColor, genome){
 // 면적에 비례시킨다 (8x8=1200ms, 12x12=2400ms 상한).
 // 참고: 1차 채점은 병목이 아니다 — 12x12 후보 330개를 20ms에 다 돈다.
 // 예산이 쓰이는 곳은 반복 심화(alphaBetaSearch)다.
-const AI_HARD_TIME_MS = Math.min(2400, Math.round(1200 * (BOARD_N * BOARD_N) / 64));
+// let: tools/arena_browser.js가 A/B 측정 때 낮춰 잡는다(양쪽 동일하므로 공정).
+let AI_HARD_TIME_MS = Math.min(2400, Math.round(1200 * (BOARD_N * BOARD_N) / 64));
 const AI_HARD_MAX_DEPTH = 5;       // 최대 탐색 깊이 (반복 = 5수 lookahead)
 const AI_HARD_TT_MAX = 100000;     // 트랜스포지션 테이블 최대 엔트리
+
+// 공성추 돌진 후보는 판 전체(최대 143칸)라, 기물 하나가 나머지 전부보다
+// 많은 후보를 만든다. 전수로 두면 탐색이 그 기물에 잡아먹힌다.
+// 쓸모 있는 목표는 사실상 '적 기물이 있는 칸'과 '경로에 적이 걸리는 칸'뿐이므로,
+// 적 기물 칸 + 그 너머 연장선만 남긴다.
+function pruneRamActions(list){
+  const rams = list.filter(a => a.type === 'charge');
+  if(rams.length <= 12) return list;
+  const foes = [];
+  for(let r=0;r<BOARD_N;r++) for(let c=0;c<BOARD_N;c++){
+    const p = board[r][c];
+    if(p) foes.push([r, c]);            // 아군 칸도 남긴다 — 밀어내기가 전술이다
+  }
+  const keep = new Set(foes.map(([r,c]) => r + ',' + c));
+  const rest = list.filter(a => a.type !== 'charge');
+  const kept = rams.filter(a => keep.has(a.tr + ',' + a.tc));
+  // 목표가 하나도 안 남으면(빈 판) 무작위 몇 개라도 남겨 수가 끊기지 않게 한다
+  return rest.concat(kept.length ? kept : rams.slice(0, 8));
+}
 
 function aiHard(list, myColor, genome){
   const g = genome || DEFAULT_GENOME;
   const oppC = opp(myColor);
+  list = pruneRamActions(list);
+  // 시계는 여기서 시작한다. 아래로 내려두면 1·2단계가 예산 밖이 되어
+  // AI_HARD_TIME_MS를 아무리 줄여도 실제 사고 시간이 줄지 않는다.
+  const startTime = Date.now();
   // 1. 즉시 승리 검사 (5목 또는 체크메이트)
   for(const a of list){
     const snap = snapshotState();
@@ -3417,12 +3674,14 @@ function aiHard(list, myColor, genome){
   if(block) return block;
 
   // 3. 모든 합법수 1차 평가 + 반복 카운트 (반복 회피 사전 점수 적용)
-  const startTime = Date.now();
   const tt = new Map();
   const allScored = [];
   // 순서를 섞는다. 평소엔 다 돌지만 판이 더 커지거나 기물이 많아져 시간이
   // 모자라면, 원래 순서로는 항상 목록 뒤쪽(= 특정 기물·특정 방향)만 통째로
   // 빠져 편향된 후보군이 된다.
+  // 반복 횟수는 후보마다 기보 전체를 훑을 필요가 없다 — 한 번 집계해 둔다.
+  const repSeen = new Map();
+  for(const h of moveHistory) repSeen.set(h, (repSeen.get(h) || 0) + 1);
   const shuffled = list.slice();
   for(let i=shuffled.length-1; i>0; i--){
     const j = Math.floor(Math.random()*(i+1));
@@ -3440,7 +3699,7 @@ function aiHard(list, myColor, genome){
     else if(isInCheck(myColor) && isCheckmate(myColor)) baseScore = -99000;
     else if(r.suicide) baseScore = -99000;
     const ser = serializeBoard();
-    const repCount = moveHistory.filter(s => s === ser).length;
+    const repCount = repSeen.get(ser) || 0;
     restoreState(snap);
     allScored.push({a, baseScore, repCount});
   }
@@ -3673,7 +3932,82 @@ function evaluatePosition(color, genome){
   }
   // 오목 위협
   score += countLineThreats(color, g) - countLineThreats(opp(color), g);
+  score += countOpenThreats(color, g) - countOpenThreats(opp(color), g);
+  if(g.doubleThreat){
+    // 승리 칸이 2개 이상 = 이중 위협. 상대가 하나만 막을 수 있다.
+    const mine = countWinningSquares(color), theirs = countWinningSquares(opp(color));
+    if(mine >= 2) score += g.doubleThreat;
+    if(theirs >= 2) score -= g.doubleThreat;
+  }
   return score;
+}
+
+// 연속 런의 양끝이 열려 있는지로 위협의 질을 구분한다.
+// countLineThreats(5칸 창)가 못 잡는 부분을 보완한다.
+//
+// FRONTIER 보정: 오목에선 열린 4가 즉승이지만 여기선 아니다 — 상대가 줄을
+// 이루는 기물 하나를 '잡아' 버리면 풀린다. 그래서 런의 기물이 공격받고 있으면
+// 가치를 깎는다. 이 검사는 비싸므로 길이 3 이상인 런에만 한다.
+function countOpenThreats(col, genome){
+  const g = genome || DEFAULT_GENOME;
+  if(!g.openThree && !g.openFour) return 0;
+  const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+  const foe = opp(col);
+  let total = 0;
+  for(let r=0;r<BOARD_N;r++){
+    for(let c=0;c<BOARD_N;c++){
+      const p = board[r][c];
+      if(!p || p.color !== col) continue;
+      for(const [dr,dc] of dirs){
+        // 런의 시작점에서만 센다 (이전 칸이 같은 색이면 건너뜀)
+        const pr = r-dr, pc = c-dc;
+        if(inBounds(pr,pc) && board[pr][pc] && board[pr][pc].color === col) continue;
+        let len = 0, nr = r, nc = c;
+        while(inBounds(nr,nc) && board[nr][nc] && board[nr][nc].color === col){
+          len++; nr += dr; nc += dc;
+        }
+        if(len < 3) continue;                       // 열린 2는 창 점수로 충분
+        const headOpen = inBounds(pr,pc) && !board[pr][pc];
+        const tailOpen = inBounds(nr,nc) && !board[nr][nc];
+        if(!(headOpen && tailOpen)) continue;       // 양끝이 열려야 '열린 위협'
+        let value = len >= 4 ? g.openFour : g.openThree;
+        // 런 구성 기물이 잡히면 위협이 풀린다 — 하나라도 공격받으면 깎는다
+        let fragile = false;
+        for(let i=0;i<len;i++){
+          if(canAttack(foe, r+dr*i, c+dc*i)){ fragile = true; break; }
+        }
+        if(fragile) value *= (g.fragileMul !== undefined ? g.fragileMul : 1);
+        total += value;
+      }
+    }
+  }
+  return total;
+}
+
+// 지금 판에서 col이 '한 수로 5목을 완성할 수 있는 칸'의 개수.
+// 둘 이상이면 상대가 하나밖에 못 막으므로 사실상 승부가 난 것이다.
+// (다만 여기선 잡기가 있어 절대적이지 않다 — countOpenThreats와 같은 이유로
+//  가중치를 무한대로 두지 않는다.)
+function countWinningSquares(col){
+  const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+  const seen = new Set();
+  for(let r=0;r<BOARD_N;r++){
+    for(let c=0;c<BOARD_N;c++){
+      if(board[r][c]) continue;                 // 빈 칸만 후보
+      for(const [dr,dc] of dirs){
+        // 이 칸에 col 기물이 놓였다고 치고 양방향으로 같은 색을 센다
+        let run = 1;
+        for(const sign of [1,-1]){
+          let nr = r + dr*sign, nc = c + dc*sign;
+          while(inBounds(nr,nc) && board[nr][nc] && board[nr][nc].color === col){
+            run++; nr += dr*sign; nc += dc*sign;
+          }
+        }
+        if(run >= 5){ seen.add(r + ',' + c); break; }
+      }
+    }
+  }
+  return seen.size;
 }
 
 function countLineThreats(col, genome){
@@ -4765,6 +5099,8 @@ function replayApplyTo(toIndex){
     const lastA = _replayData.actions[toIndex-1].action;
     if(lastA.type === 'place'){
       lastMove = { fr:-1, fc:-1, tr:lastA.r, tc:lastA.c, type:'place' };
+    } else if(lastA.type === 'charge'){
+      lastMove = { fr:lastA.fr, fc:lastA.fc, tr:lastA.tr, tc:lastA.tc, type:'charge-set' };
     } else if(lastA.type === 'move'){
       lastMove = { fr:lastA.fr, fc:lastA.fc, tr:lastA.tr, tc:lastA.tc, type:'move' };
     } else if(lastA.type === 'rotate' || (lastA.type === 'potion' && lastA.r !== undefined)){
@@ -4822,6 +5158,11 @@ function describeAction(meta, idx){
     return `<span class="turn-color ${colorClass}">${colorName}</span> ${piece} ` +
            `${pos(a.r,a.c)} 방향 전환 (${a.axis === 'h' ? '가로' : '세로'})`;
   }
+  if(a.type === 'charge'){
+    const piece = pieceSvgInline('RM', aColor, 14);
+    return `<span class="turn-color ${colorClass}">${colorName}</span> ${piece} ` +
+           `${pos(a.fr,a.fc)} → ${pos(a.tr,a.tc)} 돌진 예약`;
+  }
   if(a.type === 'place'){
     const piece = pieceSvgInline(a.kind, aColor, 14);
     const pname = PIECE_NAMES[a.kind] || a.kind;
@@ -4830,7 +5171,7 @@ function describeAction(meta, idx){
     const from = pos(a.fr, a.fc);
     const to = pos(a.tr, a.tc);
     if(meta.moveType === 'snipe'){
-      text = `⊕ 저격 ${from}→${to}`;
+      text = `⊕ 사격 ${from}→${to}`;
       if(meta.retreat) text += ' (3회 완료, 후퇴)';
     } else if(meta.moveType === 'push'){
       text = `⬢ 밀기 ${from}→${to}`;

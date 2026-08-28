@@ -29,10 +29,10 @@ s = mk(); s.board[0][0]=Piece('w','K'); s.board[7][7]=Piece('b','K')
 s.board[4][4]=Piece('w','SH'); s.board[3][4]=Piece('b','P')
 add('방패-적앞', s)
 
-# 3) 스나이퍼 사격
+# 3) 발리스타 사격
 s = mk(); s.board[0][7]=Piece('w','K'); s.board[7][0]=Piece('b','K')
 s.board[0][0]=Piece('w','SN'); s.board[0][3]=Piece('b','P'); s.board[3][0]=Piece('b','R')
-add('스나이퍼', s)
+add('발리스타', s)
 
 # 4) 흑 캡처 금지 구간
 s = mk(turn='b', hist=3); s.board[0][0]=Piece('b','K'); s.board[7][7]=Piece('w','K')
@@ -54,7 +54,7 @@ s = mk(hand='K0Q0R0B0N0P1SH0SN0JP0'); s.board[7][7]=Piece('w','K'); s.board[0][7
 s.board[1][2]=Piece('w','P')
 add('폰-프로모션', s)
 
-# 8) 손패 배치 (일반 + 스나이퍼 코너)
+# 8) 손패 배치 (일반 + 발리스타 코너)
 s = mk(hand='K0Q1R1B0N0P0SH0SN1JP0'); s.board[7][7]=Piece('w','K'); s.board[0][7]=Piece('b','K')
 add('배치', s)
 

@@ -4,3 +4,9 @@ __pycache__/
 _parity.json
 models/*.pkl
 models/az-replay*
+
+# 학습 산출물 (수백 MB) — 저장소에 넣지 않는다
+models/*.pt
+
+# 로컬 개발용 서버 설정
+.claude/

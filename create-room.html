@@ -10,10 +10,11 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <!-- 다국어(i18n): 사전 먼저, 그다음 엔진 -->
-<script src="js/i18n-dict.js?v=31"></script>
-<script src="js/i18n.js?v=31"></script>
-<link rel="stylesheet" href="css/theme.css?v=31">
-<script src="js/theme.js?v=31"></script>
+<script src="js/i18n-dict.js?v=38"></script>
+<script src="js/i18n.js?v=38"></script>
+<link rel="stylesheet" href="css/theme.css?v=38">
+<script src="js/theme.js?v=38"></script>
+<script src="js/game/pieces.js?v=38"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -60,7 +61,8 @@ input,textarea{font-family:inherit;outline:none}
 
 /* 기물 카운터 */
 .piece{display:flex;align-items:center;gap:10px;padding:10px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
-.piece .sym{font-size:24px;width:32px;text-align:center;line-height:1;color:var(--text)}
+.piece .sym{width:32px;height:32px;flex:0 0 32px;line-height:0}
+.piece .sym svg{width:100%;height:100%}
 .piece .info{flex:1;min-width:0}
 .piece .pname{font-weight:700;font-size:13px}
 .piece .pdesc{font-size:11px;color:var(--muted);line-height:1.3}
@@ -180,7 +182,7 @@ input,textarea{font-family:inherit;outline:none}
         <input type="checkbox" id="tycoonMode" style="width:18px;height:18px;accent-color:#f5c842">
         <div style="flex:1">
           <div style="font-weight:700;font-size:13px">타이쿤 활성화</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">매 턴 +5G로 기물 구매·턴 스킵·스나이퍼 강화·폰 승급. 50G 선점 또는 오목/체크메이트로 승리. (킹만 기본 지급)</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">매 턴 +5G로 기물 구매·턴 스킵·발리스타 강화·폰 승급. 50G 선점 또는 오목/체크메이트로 승리. (킹만 기본 지급)</div>
         </div>
       </label>
 
@@ -229,6 +231,9 @@ fbInit();
 // =============== URL params ===============
 const Q = new URLSearchParams(location.search);
 const MY_UID = Q.get('uid');
+// 로컬 2인도 같은 화면을 쓴다 (index.html의 별도 모달을 없앴다).
+// 온라인 전용 요소(방 코드/이름/비번/설명, 대기 화면)만 감추고 나머지는 그대로다.
+const IS_LOCAL = Q.get('local') === '1';
 const MY_NICK = Q.get('nick') || '익명';
 const MY_TAG = Q.get('tag') || '';
 const MY_ELO = parseInt(Q.get('elo')||'1200');
@@ -279,12 +284,13 @@ const PIECE_DEFS = {
   N:{sym:'♘',name:'나이트',desc:'L자 점프',def:2,max:4},
   P:{sym:'♙',name:'폰',desc:'1칸 전진, 대각 공격',def:8,max:8},
   SH:{sym:'⬢',name:'방패',desc:'앞/뒤 1칸, 기물 밀기 가능',def:0,max:2},
-  SN:{sym:'⊕',name:'스나이퍼',desc:'4꼭짓점 배치, 8방향 1-4칸 저격',def:0,max:1},
-  JP:{sym:'✦',name:'어쌔신',desc:'상하좌우 2칸 점프',def:0,max:2}
+  SN:{sym:'⊕',name:'발리스타',desc:'4꼭짓점 배치, 8방향 1-4칸 사격',def:0,max:1},
+  JP:{sym:'✦',name:'어쌔신',desc:'상하좌우 2칸 점프',def:0,max:2},
+  RM:{sym:'⛨',name:'공성추',desc:'아무 칸이나 지정, 1턴 뒤 돌진',def:0,max:1}
 };
-const PIECE_ORDER = ['Q','R','B','N','P','SH','SN','JP'];
+const PIECE_ORDER = ['Q','R','B','N','P','SH','SN','JP','RM'];
 const NORMAL_KEYS = ['Q','R','B','N','P'];
-const SPEC_KEYS = ['SH','SN','JP'];
+const SPEC_KEYS = ['SH','SN','JP','RM'];
 
 let counts = {K:1};
 PIECE_ORDER.forEach(k=> counts[k] = PIECE_DEFS[k].def);
@@ -301,7 +307,7 @@ function renderRow(k){
   const c = counts[k];
   return `
   <div class="piece">
-    <div class="sym">${d.sym}</div>
+    <div class="sym">${pieceSvg(k, 'w', 0)}</div>
     <div class="info">
       <div class="pname">${d.name}</div>
       <div class="pdesc">${d.desc}</div>
@@ -365,6 +371,17 @@ let _waitTimer = null;
 let _roomWatcher = null;
 
 async function createRoom(){
+  if(IS_LOCAL){
+    // 로컬은 방을 만들 게 없다 — 설정만 붙여 바로 게임으로.
+    const params = new URLSearchParams({ mode:'local', hand:buildHandStr(), time:SEL_TIME, inc:SEL_INC });
+    if(document.getElementById('potionMode').checked) params.set('potion','1');
+    if(document.getElementById('tycoonMode').checked) params.set('tycoon','1');
+    if(MY_NICK) params.set('nick', MY_NICK);
+    if(MY_TITLE_NAME) params.set('title', MY_TITLE_NAME);
+    if(MY_TITLE_COLOR) params.set('titleColor', MY_TITLE_COLOR);
+    location.href = 'FRONTIER.html?' + params.toString();
+    return;
+  }
   if(!MY_UID){ alert('로그인이 필요합니다.'); return; }
   document.getElementById('createBtn').disabled = true;
 
@@ -466,6 +483,23 @@ window.addEventListener('beforeunload', ()=>{
 
 // =============== 초기화 ===============
 renderPieces();
+
+// 로컬 모드: 온라인에만 있는 항목을 감추고 문구를 바꾼다.
+if(IS_LOCAL){
+  document.title = '로컬 2인 — FRONTIER';
+  const tag = document.querySelector('.head .tag');
+  if(tag) tag.textContent = '로컬 2인';
+  const codeBox = document.querySelector('.code-box');
+  if(codeBox) codeBox.style.display = 'none';
+  ['roomName','roomPw','roomDesc'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el && el.closest('.field')) el.closest('.field').style.display = 'none';
+  });
+  const info = document.querySelector('.cols .card h3');
+  if(info) info.textContent = '한 기기에서 두 명이 번갈아 둡니다';
+  const btn = document.getElementById('createBtn');
+  if(btn) btn.textContent = '게임 시작';
+}
 renderTimes();
 renderIncs();
 updateSummary();

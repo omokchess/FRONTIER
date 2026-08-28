@@ -11,18 +11,18 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <!-- 다국어(i18n): 사전 먼저, 그다음 엔진 -->
-<script src="js/i18n-dict.js?v=31"></script>
-<script src="js/i18n.js?v=31"></script>
+<script src="js/i18n-dict.js?v=38"></script>
+<script src="js/i18n.js?v=38"></script>
 <!-- Game modules (split from monolith FRONTIER.html) -->
-<script src="js/game/utils.js?v=31"></script>
-<script src="js/game/pieces.js?v=31"></script>
-<script src="js/game/firebase.js?v=31"></script>
-<script src="js/game/timer.js?v=31"></script>
-<script src="js/game/chat.js?v=31"></script>
-<script src="js/game/elo.js?v=31"></script>
-<script src="js/game/network.js?v=31"></script>
-<link rel="stylesheet" href="css/theme.css?v=31">
-<script src="js/theme.js?v=31"></script>
+<script src="js/game/utils.js?v=38"></script>
+<script src="js/game/pieces.js?v=38"></script>
+<script src="js/game/firebase.js?v=38"></script>
+<script src="js/game/timer.js?v=38"></script>
+<script src="js/game/chat.js?v=38"></script>
+<script src="js/game/elo.js?v=38"></script>
+<script src="js/game/network.js?v=38"></script>
+<link rel="stylesheet" href="css/theme.css?v=38">
+<script src="js/theme.js?v=38"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -191,13 +191,28 @@ input{font-family:inherit;outline:none}
   content:'';position:absolute;width:26%;height:26%;
   background:rgba(255,69,58,.85);border-radius:50%;pointer-events:none;
   box-shadow:0 0 0 5px rgba(255,69,58,.14)}
-/* 스나이퍼 사정거리 시각화 */
+/* 발리스타 사정거리 시각화 */
 .cell.sniper-range::after{content:'';position:absolute;width:32%;height:32%;
   border:2.5px solid rgba(255,159,10,.85);background:rgba(255,159,10,.18);
   border-radius:50%;pointer-events:none}
 .cell.sniper-blocked::after{content:'';position:absolute;inset:8%;
   border:3px dashed rgba(255,69,58,.45);border-radius:50%;pointer-events:none;
   background:rgba(255,69,58,.06)}
+/* 공성추 목표 후보 — 판 전체가 후보라 아주 옅게. 안 그러면 판이 통째로 물든다 */
+.cell.ram-target::after{content:'';position:absolute;inset:22%;
+  border:2px solid rgba(191,90,242,.55);border-radius:4px;
+  background:rgba(191,90,242,.12);pointer-events:none}
+.cell.ram-target:hover::after{border-color:rgba(191,90,242,1);
+  background:rgba(191,90,242,.35);inset:14%}
+/* 돌진 예약된 공성추와 그 목표 칸 — 상대에게도 보여야 한다 */
+.cell.ram-armed{box-shadow:inset 0 0 0 3px rgba(191,90,242,.9)}
+/* 지나갈 칸: 경로가 계단이라 눈으로 짐작이 안 된다 → 밟을 칸을 직접 깐다.
+   ::before를 쓰는 이유는 목표 칸(ram-aim)이 ::after를 이미 쓰기 때문. */
+.cell.ram-via::before{content:'';position:absolute;inset:36%;
+  background:rgba(191,90,242,.5);border-radius:3px;pointer-events:none}
+.cell.ram-aim::after{content:'';position:absolute;inset:18%;
+  border:3px dashed rgba(191,90,242,.9);border-radius:50%;pointer-events:none;
+  background:rgba(191,90,242,.15)}
 .cell.sel{background:rgba(245,200,66,.5)!important}
 /* 진화 학습 모드 — 보드 등 다 숨김 */
 body.evolve-mode > *:not(#evolvePanel){display:none !important}
@@ -1414,26 +1429,27 @@ body.board-flipped .cell{transform:rotate(180deg)}
         <li>5회 초과의 추가 체크 시도는 무효 처리되어 그 수가 거절됨</li>
         <li><b>백은 첫 2수 동안 체크 금지</b> — 선공 보정. 체크가 되는 수는 거절됨</li>
         <li><b>흑은 첫 3수 동안 캡처 금지</b> — 후공 보정. 위 규칙으로 흑이 선 체크를 독점하는 대가.
-            잡기·저격·방패 밀어내기 모두 막힌다 (이동 자체는 자유)</li>
+            잡기·사격·방패 밀어내기 모두 막힌다 (이동 자체는 자유)</li>
       </ul>
 
       <h4>🔲 XL 모드 (12×12)</h4>
       <ul>
-        <li><b>승리는 오목으로만</b> — 체크메이트는 아래 비상탈출을 다 쓴 뒤에만 패배로 이어짐</li>
+        <li><b>체크메이트되어도 즉시 패배가 아님</b> — 아래 비상탈출을 다 쓴 뒤에야 패배로 이어짐</li>
         <li><b>비상탈출</b>: 체크메이트되면 킹이 <b>게임당 1회</b> 주위 5×5의 안전한 빈 칸으로 대피.
             대가로 자기 기물 1개를 잃는다. (3×3이 아닌 이유 — 체크메이트 시점엔 인접 칸이 전부 막혀 있음)</li>
         <li><b>강화 기물</b>: 퀸=아마존(퀸+나이트) · 룩=챈슬러(룩+나이트) · 비숍=아크비숍(비숍+나이트) ·
             나이트=켄타우로스(나이트+킹) · 폰은 옆으로 한 칸 이동 가능</li>
-        <li><b>특수 기물 강화</b>: 방패는 한 번에 두 칸 · 스나이퍼는 사거리 무제한 + 기물 1개 관통 ·
+        <li><b>특수 기물 강화</b>: 방패는 한 번에 두 칸 · 발리스타는 사거리 무제한 + 기물 1개 관통 ·
             어쌔신은 알리바바(상하좌우·대각 2칸 점프)</li>
-        <li>스나이퍼 배치 자리 8곳 — 바깥 모서리 4곳 + 안쪽 8×8 영역 모서리 4곳</li>
+        <li>발리스타 배치 자리 8곳 — 바깥 모서리 4곳 + 안쪽 8×8 영역 모서리 4곳</li>
+        <li><b>배치 영역도 8×8</b> — 킹과 일반 기물 모두 안쪽 8×8 전체에 놓을 수 있음</li>
       </ul>
 
       <h4>📐 보드 영역</h4>
       <ul>
         <li><b>4×4 킹 영역</b> (중앙): 킹 배치 가능 — 첫 수는 무조건 킹</li>
-        <li><b>6×4 일반 영역</b> (중앙 확장): 킹/스나이퍼 외 모든 기물 배치</li>
-        <li><b>4 꼭짓점</b> (a1, a8, h1, h8): 스나이퍼 전용 배치 자리</li>
+        <li><b>6×4 일반 영역</b> (중앙 확장): 킹/발리스타 외 모든 기물 배치</li>
+        <li><b>4 꼭짓점</b> (a1, a8, h1, h8): 발리스타 전용 배치 자리</li>
       </ul>
 
       <h4>♟ 일반 기물 행마</h4>
@@ -1451,14 +1467,21 @@ body.board-flipped .cell{transform:rotate(180deg)}
           <b>방향 전환</b>: 방패를 고른 뒤 자기 칸의 ↻ 를 누르면 세로↔가로로 축을 바꾼다.
           <b>턴을 소모하지 않지만</b> 바꾼 턴에는 그 방패가 움직일 수 없다 — 측면으로 가려면 한 턴 쉬는 셈이다.
           현재 방향은 기물의 꺾쇠가 가리키므로 상대도 볼 수 있다.</li>
-        <li><span class="r-sym spec-w" data-piece="SN"></span> <b>스나이퍼</b>: 4꼭짓점에만 배치. 이동 불가. 8방향 1~4칸 시야의 적을 저격 (시야가 막히면 정지). <b>3회 공격 후 후퇴</b> (자기 손패로 복귀, 재배치 가능)</li>
+        <li><span class="r-sym spec-w" data-piece="SN"></span> <b>발리스타</b>: 4꼭짓점에만 배치. 이동 불가. 8방향 1~4칸 시야의 적을 사격 (시야가 막히면 정지). <b>3회 공격 후 후퇴</b> (자기 손패로 복귀, 재배치 가능)</li>
         <li><span class="r-sym spec-w" data-piece="JP"></span> <b>어쌔신</b>: 상하좌우 2칸 점프 (중간 무시)</li>
+        <li><span class="r-sym spec-w" data-piece="RM"></span> <b>공성추</b>: 판 위 <b>아무 칸이나</b> 목표로 지정 (지정이 그 턴을 쓴다).
+          <b>다음 자기 차례에 그 칸까지 돌진</b>한다. 예약하면 공성추·<b>지나갈 칸</b>·목표 칸이 모두 보라색으로 표시되므로 상대도 대비할 수 있다.<br>
+          <b>경로</b>: 상하좌우 한 칸씩만 밟는 계단으로 간다 (긴 축으로 가다가 짧은 축으로 한 칸씩 꺾음).
+          대각으로 건너뛰지 않으므로, 앞을 막고 선 기물 사이로 빠져나갈 수 없다.<br>
+          <b>돌진 중 충돌</b>: 적을 만나면 잡고 계속 간다. <b>두 번째</b> 기물에 부딪히면 그것도 잡고 그 자리에 선다.<br>
+          아군을 만나면 잡지 않고 <b>돌진 방향 라인 끝까지 밀어낸다</b> — 밀리는 도중 적을 만나면 그 적을 잡고 아군이 멈춘다.<br>
+          예약 중에 공성추가 잡히면 돌진은 없던 일이 된다.</li>
       </ul>
 
       <h4>🎴 캡처 규칙</h4>
       <ul>
         <li>모든 캡처는 <b>영구 제거</b> — 잡힌 기물은 손패 회수 안 됨</li>
-        <li>스나이퍼는 3회 공격 후 본인이 자기 손패로 후퇴해 재배치 가능</li>
+        <li>발리스타는 3회 공격 후 본인이 자기 손패로 후퇴해 재배치 가능</li>
       </ul>
 
       <h4>📋 순서</h4>
@@ -1507,13 +1530,13 @@ body.board-flipped .cell{transform:rotate(180deg)}
   <div class="replay-list" id="replayList" style="display:none"></div>
 </div>
 
-<script src="js/game/engine.js?v=31"></script>
+<script src="js/game/engine.js?v=38"></script>
 
 <!-- Python AI Worker bridge: AI 대전 URL에 pyai=1이 있을 때 활성화 -->
 <script>
   window.FRONTIER_AI_API = window.FRONTIER_AI_API || 'https://frontier-python-ai.onrender.com';
 </script>
-<script src="js/game/python-ai-client.js?v=31"></script>
+<script src="js/game/python-ai-client.js?v=38"></script>
 
 </body>
 </html>

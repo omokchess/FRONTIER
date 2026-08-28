@@ -56,13 +56,13 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <!-- 다국어(i18n): 사전 먼저, 그다음 엔진 -->
-<script src="js/i18n-dict.js?v=31"></script>
-<script src="js/i18n.js?v=31"></script>
-<script src="js/game/pieces.js?v=31"></script>
-<script src="js/lobby/daily.js?v=31"></script>
-<script src="js/lobby/titles.js?v=31"></script>
-<link rel="stylesheet" href="css/theme.css?v=31">
-<script src="js/theme.js?v=31"></script>
+<script src="js/i18n-dict.js?v=38"></script>
+<script src="js/i18n.js?v=38"></script>
+<script src="js/game/pieces.js?v=38"></script>
+<script src="js/lobby/daily.js?v=38"></script>
+<script src="js/lobby/titles.js?v=38"></script>
+<link rel="stylesheet" href="css/theme.css?v=38">
+<script src="js/theme.js?v=38"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -82,6 +82,23 @@ input{font-family:inherit;outline:none}
 .head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
 .brand{display:flex;align-items:baseline;gap:14px}
 /* 언어 선택기 */
+/* 헤더 안 배치 순서: 로고 … 언어(98) → 낮/밤(99, theme.css) → 프로필(100).
+   높이는 고정값 대신 align-self:stretch로 준다 — 프로필 카드 높이가 칭호/티어에
+   따라 달라져도 언어·테마 버튼이 알아서 따라간다. 토글은 aspect-ratio로 정사각 유지. */
+/* --head-ctl = 프로필 카드 높이(아바타40 + 패딩20 + 테두리2 + pinfo 여유).
+   stretch로 자동 추종을 시도했으나, flex 행에서 aspect-ratio가 정사각 폭을 못 잡아
+   토글이 26px로 찌그러졌다. 두 컨트롤 모두 같은 고정값을 쓴다. */
+.head{--head-ctl:66px}
+.head .lang-switch{margin-left:auto;order:98}
+.head .profile{order:100;margin-left:0}
+.head .lang-switch .lang-select,
+.head .lang-switch .lang-btns button{
+  height:var(--head-ctl);padding:0 16px;font-size:15px;border-radius:12px
+}
+.head .theme-toggle.theme-toggle-inline{
+  width:var(--head-ctl);height:var(--head-ctl);
+  font-size:calc(var(--head-ctl) * .4);border-radius:12px;margin-left:0
+}
 .lang-switch{margin-left:auto}
 .lang-select{background:var(--panel2,#1a1a1e);color:var(--text,#eee);border:1px solid var(--border,#333);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
 .lang-select:hover{border-color:var(--gold,#f5c842)}
@@ -1044,7 +1061,7 @@ body{background:var(--bg)}
     <div class="profile" id="profile">
       <div class="avatar" id="avatar">?</div>
       <div class="pinfo">
-        <div class="pname"><span id="nick">로딩…</span><button class="edit" onclick="changeNick()">✎</button></div>
+        <div class="pname"><span id="nick">로딩…</span><span class="usertag" id="nickTag">#—</span><button class="edit" onclick="changeNick()">✎</button></div>
         <div class="pelo">
           <span id="elo">—</span>
           <span class="tier" id="tier" style="background:#CD7F32">—</span>
@@ -1052,7 +1069,7 @@ body{background:var(--bg)}
         </div>
       </div>
       <div class="social-btns">
-        <a class="social-btn discord" href="https://discord.gg/DpnhvexpE" target="_blank" rel="noopener" title="Discord 서버 참가">
+        <a class="social-btn discord" href="https://discord.gg/JtuxefJt8x" target="_blank" rel="noopener" title="Discord 서버 참가">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
         </a>
         <a class="social-btn kakao" href="https://open.kakao.com/o/gxsDP6ti" target="_blank" rel="noopener" title="카카오톡 오픈채팅">
@@ -1098,7 +1115,7 @@ body{background:var(--bg)}
         <button class="mode mode-xl" onclick="openXlStartModal()">
           <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></div>
           <div class="mt">XL</div>
-          <div class="md">12×12 판에 강화 기물, 오목만으로 승부</div>
+          <div class="md">12×12 판에 강화 기물</div>
         </button>
         <button class="mode mode-tycoon" onclick="openTycoonStartModal()">
           <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.5 9a2.5 2 0 0 0-2.5-1.5c-1.5 0-2.5.8-2.5 2s1 1.7 2.5 2 2.5.8 2.5 2-1 2-2.5 2a2.5 2 0 0 1-2.5-1.5"/><path d="M12 6v1.5M12 16.5V18"/></svg></div>
@@ -1181,7 +1198,7 @@ body{background:var(--bg)}
           <div data-lang-switch></div>
         </div>
         <div class="big-social">
-          <a class="social-btn discord" href="https://discord.gg/DpnhvexpE" target="_blank" rel="noopener" title="Discord 서버 참가">
+          <a class="social-btn discord" href="https://discord.gg/JtuxefJt8x" target="_blank" rel="noopener" title="Discord 서버 참가">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
           </a>
           <a class="social-btn kakao" href="https://open.kakao.com/o/gxsDP6ti" target="_blank" rel="noopener" title="카카오톡 오픈채팅">
@@ -1390,7 +1407,7 @@ body{background:var(--bg)}
     <div class="modal-card" style="max-width:420px;width:92%">
       <h3 style="text-align:center;margin-bottom:8px">XL 모드 시작</h3>
       <p style="font-size:13px;color:var(--muted);text-align:center;margin-bottom:14px">
-        12×12 판 · 모든 기물 강화 · <b>오목으로만 승리</b><br>
+        12×12 판 · 모든 기물 강화<br>
         체크메이트되면 킹이 1회 비상탈출 (기물 1개 희생)
       </p>
       <div class="opts">
@@ -1662,7 +1679,7 @@ body{background:var(--bg)}
 // 모든 버튼 핸들러를 window에 즉시 부착하여 후속 스크립트가 실패해도 클릭이 살아 있게 한다.
 
 // ----- 로컬 설정 상태 -----
-window._localCounts = {Q:1, R:2, B:2, N:2, P:8, SH:0, SN:0, JP:0};
+window._localCounts = {Q:1, R:2, B:2, N:2, P:8, SH:0, SN:0, JP:0, RM:0};
 window._localTime = '300';
 const _LOCAL_PIECE_DEFS = {
   Q:{sym:'♕',name:'퀸',  desc:'8방향 직선 이동',         max:2},
@@ -1671,10 +1688,11 @@ const _LOCAL_PIECE_DEFS = {
   N:{sym:'♘',name:'나이트',desc:'L자 점프',              max:4},
   P:{sym:'♙',name:'폰',  desc:'1칸 전진, 대각 공격',     max:8},
   SH:{sym:'⬢',name:'방패',desc:'앞/뒤 1칸, 기물 밀기 가능',max:2,spec:true},
-  SN:{sym:'⊕',name:'스나이퍼',desc:'4꼭짓점 배치, 8방향 1-4칸 저격',max:1,spec:true},
-  JP:{sym:'✦',name:'어쌔신',desc:'상하좌우 2칸 점프',    max:2,spec:true}
+  SN:{sym:'⊕',name:'발리스타',desc:'4꼭짓점 배치, 8방향 1-4칸 사격',max:1,spec:true},
+  JP:{sym:'✦',name:'어쌔신',desc:'상하좌우 2칸 점프',    max:2,spec:true},
+  RM:{sym:'⛨',name:'공성추',desc:'아무 칸 지정, 1턴 뒤 돌진',max:1,spec:true}
 };
-const _LOCAL_PIECE_ORDER = ['Q','R','B','N','P','SH','SN','JP'];
+const _LOCAL_PIECE_ORDER = ['Q','R','B','N','P','SH','SN','JP','RM'];
 const _LOCAL_TIME_OPTS = [
   {v:'30',l:'30초'},{v:'60',l:'1분'},{v:'300',l:'5분'},
   {v:'600',l:'10분'},{v:'1800',l:'30분'},{v:'3600',l:'1시간'},
@@ -1737,7 +1755,7 @@ function renderLocalSetup(){
     총 시간: <b style="color:var(--gold)">${tlabel}</b> (체스식 누적)`;
 }
 
-// XL 손패 — 12x12 일반 배치 영역(6x8=48칸) 기준. 스나이퍼 자리가 8곳이라 2개.
+// XL 손패 — 12x12 일반 배치 영역(안쪽 8x8=64칸) 기준. 발리스타 자리가 8곳이라 2개.
 const XL_HAND = 'K1Q1R2B2N2P12SH1SN2JP1';
 
 window.openXlStartModal = function(){
@@ -1800,7 +1818,7 @@ window.startLocalGame = function(){
 };
 
 // ----- AI 모드 (난이도 + 기물 + 시간) -----
-window._aiCounts = {Q:1, R:2, B:2, N:2, P:8, SH:1, SN:0, JP:0};
+window._aiCounts = {Q:1, R:2, B:2, N:2, P:8, SH:1, SN:0, JP:0, RM:0};
 window._aiTime = '300';
 window._aiDiff = 'normal';
 
@@ -1882,7 +1900,7 @@ window.startAiGame = function(){
 // ----- AI vs AI 모드 -----
 window._aivaiWDiff = 'hard';
 window._aivaiBDiff = 'hard';
-window._aivaiCounts = {Q:1, R:2, B:2, N:2, P:8, SH:1, SN:0, JP:0};
+window._aivaiCounts = {Q:1, R:2, B:2, N:2, P:8, SH:1, SN:0, JP:0, RM:0};
 window._aivaiTime = '300';
 
 window.openAiVaiModal = function(){
@@ -1981,11 +1999,7 @@ window.startPotionMode = function(mode){
       if(cb) cb.checked = true;
     }, 50);
   } else if(mode === 'local'){
-    openLocalModal();
-    setTimeout(()=>{
-      const cb = document.getElementById('localPotion');
-      if(cb) cb.checked = true;
-    }, 50);
+    location.href = 'create-room.html?local=1&potion=1';
   } else if(mode === 'online'){
     // 온라인 방 만들기 페이지로 + potion 자동 활성 플래그
     if(!MY_UID){ alert('로그인이 완료되지 않았습니다. 잠시 후 다시 시도하세요.'); return; }
@@ -1996,7 +2010,15 @@ window.startPotionMode = function(mode){
 };
 
 // 호환용 (이전 코드가 goLocal을 부르는 경우 대비)
-window.goLocal = window.openLocalModal;
+// 로컬 2인도 온라인과 같은 방 만들기 화면을 쓴다 (create-room.html?local=1).
+// index.html 안의 별도 모달은 같은 설정을 두 벌로 유지해야 해서 계속 어긋났다.
+window.goLocal = function(){
+  const params = new URLSearchParams({ local:'1' });
+  if(window.MY_NICK) params.set('nick', window.MY_NICK);
+  if(window.MY_TITLE_NAME) params.set('title', window.MY_TITLE_NAME);
+  if(window.MY_TITLE_COLOR) params.set('titleColor', window.MY_TITLE_COLOR);
+  location.href = 'create-room.html?' + params.toString();
+};
 
 // ----- 튜토리얼 -----
 window.askTutorial = function(){
@@ -3568,6 +3590,8 @@ window.startTutorial = function(){
     }
     document.getElementById('avatar').textContent = MY_NICK.charAt(0).toUpperCase();
     document.getElementById('nick').innerHTML = titlePrefix + escapeHtml(MY_NICK);
+    const nickTag = document.getElementById('nickTag');
+    if(nickTag) nickTag.textContent = MY_TAG ? '#' + MY_TAG : '';
     document.getElementById('elo').textContent = MY_ELO + ' ELO';
     document.getElementById('record').textContent = `${MY_W}승 ${MY_L}패${MY_D?` ${MY_D}무`:''}`;
     const t = tierOf(MY_ELO);
@@ -3760,8 +3784,9 @@ window.startTutorial = function(){
     N:{sym:'♘',name:'나이트',def:2,spec:false},
     P:{sym:'♙',name:'폰',def:8,spec:false},
     SH:{sym:'⬢',name:'방패',def:0,spec:true},
-    SN:{sym:'⊕',name:'스나이퍼',def:0,spec:true},
-    JP:{sym:'✦',name:'어쌔신',def:0,spec:true}
+    SN:{sym:'⊕',name:'발리스타',def:0,spec:true},
+    JP:{sym:'✦',name:'어쌔신',def:0,spec:true},
+    RM:{sym:'⛨',name:'공성추',def:0,spec:true}
   };
   const PIECE_KEYS_LOBBY = ['K','Q','R','B','N','P','SH','SN','JP'];
 

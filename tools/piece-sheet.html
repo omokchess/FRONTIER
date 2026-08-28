@@ -1,0 +1,34 @@
+<!doctype html><meta charset="utf-8"><title>기물 SVG 대조</title>
+<style>
+ body{background:#20242a;color:#ddd;font:13px system-ui;margin:0;padding:20px}
+ h2{font-size:14px;margin:22px 0 8px;color:#f5c842}
+ .row{display:flex;flex-wrap:wrap;gap:10px}
+ .cell{width:104px;text-align:center}
+ .sq{width:88px;height:88px;display:grid;place-items:center;border-radius:6px}
+ .lt{background:#EDE6D6}.dk{background:#7A6A55}
+ .nm{margin-top:4px;font-size:11px;color:#aaa}
+</style>
+<div id="out"></div>
+<script src="../js/game/pieces.js"></script>
+<script>
+const KINDS=[['K','킹'],['Q','퀸'],['R','룩'],['B','비숍'],['N','나이트'],['P','폰'],
+             ['SH','방패'],['SN','발리스타'],['JP','어쌔신']];
+let h='';
+for(const [xl,label] of [[false,'기본 (8×8)'],[true,'XL 강화']]){
+  h+=`<h2>${label}</h2><div class="row">`;
+  for(const [k,nm] of KINDS){
+    for(const col of ['w','b']){
+      const bg = col==='w' ? 'dk' : 'lt';
+      h+=`<div class="cell"><div class="sq ${bg}">${pieceSvg(k,col,72,xl,'v')}</div>
+          <div class="nm">${nm} ${col==='w'?'백':'흑'}</div></div>`;
+    }
+  }
+  h+='</div>';
+}
+h+='<h2>방패 가로축(축 표시 확인)</h2><div class="row">';
+for(const xl of [false,true]) for(const col of ['w','b'])
+  h+=`<div class="cell"><div class="sq ${col==='w'?'dk':'lt'}">${pieceSvg('SH',col,72,xl,'h')}</div>
+      <div class="nm">${xl?'XL':'기본'} ${col==='w'?'백':'흑'}</div></div>`;
+h+='</div>';
+document.getElementById('out').innerHTML=h;
+</script>

@@ -7,8 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/theme.css?v=31">
-<script src="js/theme.js?v=31"></script>
+<link rel="stylesheet" href="css/theme.css?v=38">
+<script src="js/theme.js?v=38"></script>
+<script src="js/game/pieces.js?v=38"></script>
 <style>
 :root{
   --bg:#1c1c1e; --panel:#2c2c30; --panel2:#1f1f22; --border:#3a3a3e;
@@ -58,10 +59,9 @@ button{font-family:inherit;cursor:pointer;border:none;outline:none;color:inherit
   font-size:calc(var(--bs) * .65);position:relative;line-height:1}
 .demo-cell.lt{background:var(--board-light)}
 .demo-cell.dk{background:var(--board-dark)}
-.demo-cell .pc{color:#fff;text-shadow:
-  0 0 2px #000,0 0 2px #000,0 1px 1px #000,0 -1px 1px #000,1px 0 1px #000,-1px 0 1px #000;z-index:1}
-.demo-cell .pc.b{color:#1a1a1a;text-shadow:
-  0 0 2px #fff,0 0 2px #fff,0 1px 1px #fff,0 -1px 1px #fff,1px 0 1px #fff,-1px 0 1px #fff}
+.demo-cell .pc{z-index:1;display:block;width:88%;height:88%;line-height:0}
+.pc-inline{display:inline-block;vertical-align:-.22em;line-height:0}
+.demo-cell .pc svg{width:100%;height:100%}
 .demo-cell.move::after{content:'';position:absolute;width:35%;height:35%;border-radius:50%;
   background:rgba(48,209,88,.55);border:2px solid var(--green)}
 .demo-cell.attack::after{content:'';position:absolute;width:80%;height:80%;border-radius:50%;
@@ -145,8 +145,9 @@ function miniBoard(opts){
   // opts: {size:5|7, piece:{kind, color, r, c}, moves:[[r,c],...], attacks:[[r,c],...], zones:{type:[[r,c]...]}}
   const size = opts.size || 5;
   const cls = 'size' + size;
-  const SYM = { K:{w:'♔',b:'♚'}, Q:{w:'♕',b:'♛'}, R:{w:'♖',b:'♜'}, B:{w:'♗',b:'♝'},
-    N:{w:'♘',b:'♞'}, P:{w:'♙',b:'♟'}, SH:{w:'⬢',b:'⬢'}, SN:{w:'⊕',b:'⊕'}, JP:{w:'✦',b:'✦'} };
+  // 기물은 판 위와 같은 SVG를 쓴다 — 유니코드 글리프는 특수 기물이 ⬢/⊕/✦ 라
+  // 튜토리얼에서 뭘 배우는 건지 알 수 없었다. (forceXl=false: 튜토리얼은 8x8 기준)
+  const sym = (kind, color) => pieceSvg(kind, color, 0, false, 'v');
   let html = `<div class="demo-board ${cls}">`;
   for(let r=0; r<size; r++){
     for(let c=0; c<size; c++){
@@ -170,14 +171,13 @@ function miniBoard(opts){
       // piece
       if(opts.piece && opts.piece.r===r && opts.piece.c===c){
         const p = opts.piece;
-        const sym = SYM[p.kind][p.color] || '?';
-        inner = `<span class="pc ${p.color}">${sym}</span>`;
+        inner = `<span class="pc ${p.color}">${sym(p.kind, p.color)}</span>`;
       }
       // extra pieces (for sniper demo etc)
       if(opts.others){
         for(const ep of opts.others){
           if(ep.r===r && ep.c===c){
-            inner = `<span class="pc ${ep.color}">${SYM[ep.kind][ep.color]}</span>`;
+            inner = `<span class="pc ${ep.color}">${sym(ep.kind, ep.color)}</span>`;
           }
         }
       }
@@ -223,13 +223,13 @@ const STEPS = [
       })}
       <ul>
         <li><span style="color:var(--green)">●</span> <b>킹 영역 (4×4)</b> — 첫 수에 무조건 킹 배치</li>
-        <li><span style="color:var(--gold)">●</span> <b>일반 영역 (6×4)</b> — 킹 영역 + 좌우 1줄. 킹/스나이퍼 외 모든 기물 배치 가능</li>
-        <li><span style="color:var(--red)">●</span> <b>꼭짓점 4곳</b> — 스나이퍼 전용 자리</li>
+        <li><span style="color:var(--gold)">●</span> <b>일반 영역 (6×4)</b> — 킹 영역 + 좌우 1줄. 킹/발리스타 외 모든 기물 배치 가능</li>
+        <li><span style="color:var(--red)">●</span> <b>꼭짓점 4곳</b> — 발리스타 전용 자리</li>
       </ul>
       <div class="tut-callout info">💡 백이 먼저 시작합니다. 첫 수는 양쪽 모두 무조건 <b>킹 배치</b>입니다.</div>`
   },
   {
-    title:'♕ 퀸 — 가장 강력한 기물',
+    title:`${pieceSvgInline("Q","w",22)} 퀸 — 가장 강력한 기물`,
     body:`
       <p>퀸은 <em>8방향 어디든</em> 직선으로 무제한 이동 가능합니다. (체스의 퀸과 동일)</p>
       ${miniBoard({
@@ -241,7 +241,7 @@ const STEPS = [
       <p>가로/세로/대각선 — 막히는 자리(다른 기물)까지 갈 수 있고, 그 자리에 적이 있으면 캡처합니다.</p>`
   },
   {
-    title:'♖ 룩 — 직선의 지배자',
+    title:`${pieceSvgInline("R","w",22)} 룩 — 직선의 지배자`,
     body:`
       <p>룩은 <em>가로/세로 4방향</em>으로만 무제한 이동합니다.</p>
       ${miniBoard({
@@ -252,7 +252,7 @@ const STEPS = [
       <p>대각선으로는 못 갑니다. 5목을 만들 때 가로/세로 라인을 점거하기 좋습니다.</p>`
   },
   {
-    title:'♗ 비숍 — 대각선 전문가',
+    title:`${pieceSvgInline("B","w",22)} 비숍 — 대각선 전문가`,
     body:`
       <p>비숍은 <em>대각선 4방향</em>만 이동합니다.</p>
       ${miniBoard({
@@ -263,7 +263,7 @@ const STEPS = [
       <p>같은 색 칸만 다닙니다 (밝은 칸 비숍은 평생 밝은 칸).</p>`
   },
   {
-    title:'♘ 나이트 — L자 점프',
+    title:`${pieceSvgInline("N","w",22)} 나이트 — L자 점프`,
     body:`
       <p>나이트는 <em>L자 (2칸+1칸) 점프</em>를 합니다. 중간에 기물이 있어도 무시하고 넘어감.</p>
       ${miniBoard({
@@ -274,7 +274,7 @@ const STEPS = [
       <p>막힘이 없는 유일한 일반 기물. 좁은 공간에서 위협적입니다.</p>`
   },
   {
-    title:'♙ 폰 — 작지만 핵심',
+    title:`${pieceSvgInline("P","w",22)} 폰 — 작지만 핵심`,
     body:`
       <p>폰은 <em>한 칸 전진</em> (앞이 비어있을 때만), 대각선 한 칸으로 적 공격합니다.</p>
       ${miniBoard({
@@ -291,7 +291,7 @@ const STEPS = [
       <div class="tut-callout">💡 폰 8개로 5목 라인 만들기가 핵심 전술입니다.</div>`
   },
   {
-    title:'⬢ 방패 — 밀어내기 특수',
+    title:`${pieceSvgInline("SH","w",22)} 방패 — 밀어내기 특수`,
     body:`
       <p>방패는 <em>앞/뒤 1칸</em>으로만 이동하며, 앞 칸에 적이 있으면 <em>밀어낼 수 있습니다</em>.</p>
       ${miniBoard({
@@ -307,10 +307,10 @@ const STEPS = [
       <div class="tut-callout warn">⚠ 방패는 양 옆/대각으로 못 갑니다. 앞뒤 직선 전용.</div>`
   },
   {
-    title:'⊕ 스나이퍼 — 꼭짓점 저격수',
+    title:`${pieceSvgInline("SN","w",22)} 발리스타 — 꼭짓점 사수`,
     body:`
-      <p>스나이퍼는 <em>4꼭짓점에만 배치</em>됩니다. 이동은 못 하지만 8방향(십자+대각선) 1~4칸 시야의 적을 <em>저격</em>합니다.</p>
-      <p>스나이퍼를 선택하면 사정거리가 화면에 표시됩니다:</p>
+      <p>발리스타는 <em>4꼭짓점에만 배치</em>됩니다. 이동은 못 하지만 8방향(십자+대각선) 1~4칸 시야의 적을 <em>사격</em>합니다.</p>
+      <p>발리스타를 선택하면 사정거리가 화면에 표시됩니다:</p>
       ${miniBoard({
         size:5,
         piece:{kind:'SN', color:'w', r:0, c:0},
@@ -330,11 +330,11 @@ const STEPS = [
         <li><span style="color:rgba(255,69,58,.5)">○</span> <b>흐린 빨강 점선</b>: 시야가 막혀 공격 불가한 적</li>
         <li>우군 기물 칸은 표시 없음 — 그 너머 시야는 막혀도 사정거리는 그대로 표시</li>
       </ul>
-      <div class="tut-callout">🎯 <b>3회 공격 후 후퇴</b>: 스나이퍼가 3번 저격하면 자기 손패로 복귀해 재배치할 수 있습니다.</div>
-      <div class="tut-callout warn">⚠ 저격된 기물은 <b>영구 제거</b> (손패 회수 안 됨).</div>`
+      <div class="tut-callout">🎯 <b>3회 공격 후 후퇴</b>: 발리스타가 3번 사격하면 자기 손패로 복귀해 재배치할 수 있습니다.</div>
+      <div class="tut-callout warn">⚠ 사격된 기물은 <b>영구 제거</b> (손패 회수 안 됨).</div>`
   },
   {
-    title:'✦ 어쌔신 — 점프 암살자',
+    title:`${pieceSvgInline("JP","w",22)} 어쌔신 — 점프 암살자`,
     body:`
       <p>어쌔신은 <em>상하좌우 정확히 2칸 점프</em>합니다. 중간 무시.</p>
       ${miniBoard({
@@ -343,6 +343,26 @@ const STEPS = [
         moves:[[0,2],[4,2],[2,0],[2,4]]
       })}
       <p>대각선 점프는 불가. 나이트와 비슷하지만 <b>4방향만</b> 가능합니다.</p>`
+  },
+  {
+    title:`${pieceSvgInline("RM","w",22)} 공성추 — 예고된 돌진`,
+    body:`
+      <p>공성추는 <em>판 위 아무 칸이나</em> 목표로 찍습니다. 찍는 것이 그 턴을 쓰고,
+         <em>다음 자기 차례</em>에 그 칸까지 돌진합니다.</p>
+      <p>경로는 <em>상하좌우 한 칸씩 밟는 계단</em>입니다 — 대각으로 건너뛰지 않으므로
+         앞을 막고 선 기물 사이로 빠져나갈 수 없습니다. 예약하면 지나갈 칸이 판에 표시됩니다.</p>
+      ${miniBoard({
+        size:7,
+        piece:{kind:'RM', color:'w', r:3, c:0},
+        others:[{kind:'P', color:'b', r:3, c:3}, {kind:'B', color:'w', r:3, c:5}],
+        range:[[3,1],[3,2],[3,4]],
+        attacks:[[3,3]],
+        moves:[[3,6]]
+      })}
+      <div class="tut-callout">🎯 <b>적</b>을 만나면 잡고 계속 갑니다. <b>두 번째</b> 기물에 부딪히면 그것도 잡고 거기서 멈춥니다.</div>
+      <div class="tut-callout">🛡 <b>아군</b>은 잡지 않고 돌진 방향 <b>라인 끝까지 밀어냅니다</b>.
+        밀리는 도중 적을 만나면 그 적을 잡고 아군이 멈춥니다.</div>
+      <div class="tut-callout warn">⚠ 예약은 <b>보라색으로 상대에게도 보입니다</b>. 대기 중에 공성추가 잡히면 돌진은 취소됩니다.</div>`
   },
   {
     title:'🏆 승리 조건',
@@ -373,12 +393,12 @@ const STEPS = [
       <h3>백 선공 보정 — 첫 2수 체크 금지</h3>
       <p>먼저 두는 <b>백</b>은 자기 <b>첫 2수 동안 체크를 걸 수 없습니다</b>. 체크가 되는 수는 무효 처리되어 거절되니 다른 수를 두세요.</p>
       <h3>흑 후공 보정 — 첫 3수 캡처 금지</h3>
-      <p>대신 <b>흑</b>은 자기 <b>첫 3수 동안 기물을 잡을 수 없습니다</b>. 잡기·스나이퍼 저격·방패 밀어내기가 모두 막히지만, 이동 자체는 자유입니다.</p>
+      <p>대신 <b>흑</b>은 자기 <b>첫 3수 동안 기물을 잡을 수 없습니다</b>. 잡기·발리스타 사격·방패 밀어내기가 모두 막히지만, 이동 자체는 자유입니다.</p>
       <div class="tut-callout">⚖ 백의 체크 금지(그중 1수는 킹 배치)로 흑이 선 체크를 독점하게 되는데, 그 이득을 초반 교환 제한으로 상쇄합니다.</div>
       <h3>캡처 규칙</h3>
       <ul>
         <li>모든 캡처는 <b>영구 제거</b> — 잡힌 기물은 손패에 돌아오지 않음</li>
-        <li>스나이퍼만 예외: <b>3회 공격 후 본인이 자기 손패로 후퇴</b>해서 재배치 가능</li>
+        <li>발리스타만 예외: <b>3회 공격 후 본인이 자기 손패로 후퇴</b>해서 재배치 가능</li>
       </ul>
       <h3>전략 팁</h3>
       <ul>

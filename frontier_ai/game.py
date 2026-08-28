@@ -362,7 +362,7 @@ class GameState:
             if err: return err
         elif p.kind == "SN":
             if (action.tr, action.tc) not in self.piece_moves(action.fr, action.fc, p)[1]:
-                return "스나이퍼 공격 불가 위치"
+                return "발리스타 공격 불가 위치"
             if self.board[action.tr][action.tc] is not None and self.capture_banned(p.color):
                 return f"흑은 첫 {BLACK_CAPTURE_BAN_MOVES}수 동안 기물을 잡을 수 없음"
             self.board[action.tr][action.tc] = None
