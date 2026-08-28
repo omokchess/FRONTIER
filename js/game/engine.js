@@ -257,6 +257,10 @@ function ramResolve(fr, fc){
   for(const [r, c] of path){
     const t = board[r][c];
     if(!t){ land = [r, c]; continue; }
+    // 킹은 잡을 수 없다. 돌진은 pieceMoves에 안 잡혀 체크 판정이 못 보므로,
+    // 그냥 두면 체크·체크메이트를 건너뛰고 킹이 판에서 사라진다.
+    // 아군이든 적이든 통과 불가 장애물로 보고 그 앞에서 멈춘다.
+    if(t.kind === 'K') break;
     if(t.color === ram.color){
       // 아군: 방향 끝쪽으로 밀어내고, 공성추는 그 자리를 지나 계속 간다
       ramShoveAlly(r, c, dr, dc);
@@ -807,6 +811,8 @@ function applyAction(action, opts={}){
     if(ram.color !== color) return { ok:false, err:'상대 기물' };
     if(ram.charge) return { ok:false, err:'이미 돌진 예약됨' };
     if(fr === tr && fc === tc) return { ok:false, err:'제자리 지정 불가' };
+    const tgt = board[tr][tc];
+    if(tgt && tgt.kind === 'K') return { ok:false, err:'킹이 있는 칸은 지정할 수 없음' };
     // 예약만 한다 — 실제 이동은 자기 차례가 돌아왔을 때 (finalizeAfterMove).
     // wait은 '앞으로 더 넘겨야 할 내 차례 수'다. 지정한 턴이 이미 대기 1턴에
     // 해당하므로, 기본(DELAY=1)이면 다음 내 차례에 바로 터진다 → wait 0.
@@ -2097,6 +2103,8 @@ function allLegalActions(color){
       if(!p.charge){
         for(let tr=0;tr<BOARD_N;tr++) for(let tc=0;tc<BOARD_N;tc++){
           if(tr === r && tc === c) continue;
+          const t = board[tr][tc];
+          if(t && t.kind === 'K') continue;   // 킹 칸은 지정 불가
           list.push({type:'charge', fr:r, fc:c, tr, tc, color});
         }
       }
@@ -2758,6 +2766,13 @@ function onCellClick(e){
       SEL = null; HIGHLIGHTS = [];
       return;
     }
+    // 공성추 선택 중 적 킹 칸 클릭 = 못 고르는 자리 → 클릭을 씹는다(선택 유지).
+    // 금지 칸에서 선택이 풀리면 다시 고르는 게 번거롭다는 기존 방침과 같다.
+    // 자기 킹은 '그 기물을 고르려는' 의도일 수 있어 아래 선택 전환으로 넘긴다.
+    if(p && p.kind === 'RM'){
+      const t = board[r][c];
+      if(t && t.kind === 'K' && t.color !== p.color) return;
+    }
     // 같은 색 기물 클릭 → 다른 기물로 선택 변경
     if(board[r][c] && board[r][c].color === myCol){
       SEL = { kind:'board', r, c };
@@ -2827,6 +2842,8 @@ function computeHighlights(r, c, p){
     if(kingPlaced[p.color] && isInCheck(p.color)) return out;
     for(let tr=0; tr<BOARD_N; tr++) for(let tc=0; tc<BOARD_N; tc++){
       if(tr === r && tc === c) continue;
+      const t = board[tr][tc];
+      if(t && t.kind === 'K') continue;      // 킹 칸은 지정 불가
       out.push({ r:tr, c:tc, type:'ram-target' });
     }
     return out;

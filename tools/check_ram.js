@@ -102,6 +102,25 @@ board = blank(); ram(3, 1, 4, 3); put(3, 2, 'b', 'P'); put(4, 2, 'b', 'P');
 res = ramResolve(3, 1);
 eq(res.captured.length > 0, true, '막고 선 기물을 그냥 지나치지 않는다');
 
+// 킹은 잡을 수 없다 — 경로에 있으면 그 앞에서 멈춘다
+board = blank(); ram(4, 0, 4, 7); put(4, 4, 'b', 'K');
+res = ramResolve(4, 0);
+eq(at(4, 4), 'bK', '적 킹은 그대로 남는다');
+eq(res.captured.length, 0, '킹을 잡지 않는다');
+eq([res.tr, res.tc], [4, 3], '킹 앞 칸에 선다');
+
+// 아군 킹도 통과 불가 (밀어내지도 않는다)
+board = blank(); ram(4, 0, 4, 7); put(4, 3, 'w', 'K');
+res = ramResolve(4, 0);
+eq(at(4, 3), 'wK', '아군 킹은 밀리지 않는다');
+eq([res.tr, res.tc], [4, 2], '아군 킹 앞 칸에 선다');
+
+// 킹 앞에 적이 있으면 그건 잡는다
+board = blank(); ram(4, 0, 4, 7); put(4, 2, 'b', 'P'); put(4, 5, 'b', 'K');
+res = ramResolve(4, 0);
+eq(res.captured.length, 1, '킹 앞의 적은 잡는다');
+eq([res.tr, res.tc], [4, 4], '킹 앞 칸까지 간다');
+
 // 예약이 없으면 아무 일도 없다
 board = blank(); put(2, 2, 'w', 'RM');
 eq(ramResolve(2, 2), null, '예약 없으면 null');
