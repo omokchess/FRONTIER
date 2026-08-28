@@ -73,7 +73,7 @@ const TYCOON_PROMO_AGE   = 3;   // 승급 가능 폰의 최소 생존 턴 수
 // 구매 가격 (킹은 기본 지급, 퀸은 구매 불가 — 승급으로만 획득)
 const TYCOON_PRICES = { P:5, SN:5, B:10, R:10, N:10, JP:10, SH:10 };
 const TYCOON_SN_MIN_TURN = 2;   // 발리스타는 그 진영의 2번째 턴부터 구매 가능
-const TYCOON_HAND = { K:1, Q:0, R:0, B:0, N:0, P:0, SH:0, SN:0, JP:0 };  // 시작 손패: 킹만
+const TYCOON_HAND = { K:1, Q:0, R:0, B:0, N:0, P:0, SH:0, SN:0, JP:0, RM:0 };  // 시작 손패: 킹만
 
 // ===== 물약 모드 =====
 const POTION_TYPES = {
@@ -120,7 +120,7 @@ const TIME_INC = parseInt(Q.get('inc') || '0') || 0;
 // 2. 기물 정의
 // ===================================================================
 const PIECE_NAMES = {K:'킹',Q:'퀸',R:'룩',B:'비숍',N:'나이트',P:'폰',SH:'방패',SN:'발리스타',JP:'어쌔신',RM:'공성추'};
-const SPECIAL_KINDS = ['SH','SN','JP'];
+const SPECIAL_KINDS = ['SH','SN','JP','RM'];
 
 // ===================================================================
 // 3. 게임 상태
@@ -2496,7 +2496,9 @@ function renderHands(){
   oppSheetEl.innerHTML = oppHandHTML;
 }
 function renderHandList(color, interactive){
-  const order = ['K','Q','R','B','N','P','SH','SN','JP'];
+  // DEFAULT_HAND의 키 순서를 그대로 쓴다. 예전엔 여기에 종류를 손으로 적어둬서
+  // 기물을 추가해도 손패 패널에만 안 나왔다 (공성추가 실제로 그랬다).
+  const order = Object.keys(DEFAULT_HAND);
   return order.map(k => {
     const n = hands[color][k] || 0;
     const sym = pieceSvgInline(k, color, 22);
@@ -2819,6 +2821,10 @@ function computeHighlights(r, c, p){
     // 멈춘다 — 돌진은 예약일 뿐 판을 안 건드리므로, 자기 킹이 체크로 노출될
     // 일도 없어 검증이 필요 없다.
     if(p.charge) return out;
+    // 체크 중에는 돌진 예약이 하나도 합법이 아니다 — 예약은 판을 안 바꾸므로
+    // 체크를 풀 수 없고 applyAction이 전부 거절한다. 후보를 띄워두면
+    // 63칸을 보라색으로 칠해놓고 누를 때마다 빨간 오류만 나온다.
+    if(kingPlaced[p.color] && isInCheck(p.color)) return out;
     for(let tr=0; tr<BOARD_N; tr++) for(let tc=0; tc<BOARD_N; tc++){
       if(tr === r && tc === c) continue;
       out.push({ r:tr, c:tc, type:'ram-target' });
@@ -3451,14 +3457,14 @@ function trackQuestProgressLocal(eventType, payload){
 // 13. AI
 // ===================================================================
 // 기물 가치 — 평가 함수의 기본 (호환성 유지용 상수)
-const PIECE_VALUES = { K:0, Q:9, R:5, B:3, N:3, P:1, SH:3, SN:5, JP:3 };
+const PIECE_VALUES = { K:0, Q:9, R:5, B:3, N:3, P:1, SH:3, SN:5, JP:3, RM:4 };
 
 // === 진화 가능한 평가 가중치 (Genome) ===
 // 진화 알고리즘의 대상. 모든 평가 가중치를 한 객체에 모아놓음.
 // 개체별로 약간씩 다른 유전자 → 다른 플레이 스타일
 const DEFAULT_GENOME = Object.freeze({
   // 기물 가치 (8)
-  Q: 90, R: 50, B: 35, N: 30, P: 10, SH: 25, SN: 60, JP: 35,
+  Q: 90, R: 50, B: 35, N: 30, P: 10, SH: 25, SN: 60, JP: 35, RM: 45,
   // 라인 위협 (4) — 5목 추구. 5칸 창에 아군이 몇 개인지만 센다.
   threat2: 20,
   threat3: 200,
