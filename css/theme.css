@@ -200,8 +200,12 @@
   position:static;width:36px;height:36px;font-size:17px;margin-left:8px;flex:0 0 auto;order:99
 }
 .head .lang-switch{order:98}
-/* 랭킹/리플레이/방 만들기: '← 로비'를 낮/밤 버튼 바로 오른쪽에 */
-.head .back{order:100}
+/* 랭킹/리플레이/방 만들기: '← 로비'를 낮/밤 버튼 바로 오른쪽에.
+   .head가 space-between이라 항목이 셋이면 토글이 가운데로 벌어진다.
+   margin-left:auto로 남는 공간을 앞에 몰아, 토글+로비를 오른쪽에 붙인다.
+   (로비 페이지는 언어 선택기가 그 역할을 하므로 index.html에서 0으로 덮는다) */
+.head .theme-toggle.theme-toggle-inline{margin-left:auto}
+.head .back{order:100;margin-left:8px}
 @media (max-width:600px){
   /* 모바일 하단 탭바(68px)와 겹치지 않게 띄운다 */
   .theme-toggle{width:38px;height:38px;font-size:16px;right:10px;bottom:78px}
