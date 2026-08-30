@@ -7,9 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/theme.css?v=49">
-<script src="js/theme.js?v=49"></script>
-<script src="js/game/pieces.js?v=49"></script>
+<link rel="stylesheet" href="css/theme.css?v=50">
+<script src="js/theme.js?v=50"></script>
+<script src="js/game/pieces.js?v=50"></script>
 <style>
 :root{
   --bg:#1c1c1e; --panel:#2c2c30; --panel2:#1f1f22; --border:#3a3a3e;
@@ -418,7 +418,7 @@ const POTION_STEPS = [
     sub:'FRONTIER의 변형 모드 — 5종 물약 시스템',
     body:`
       <p>물약 모드는 기본 FRONTIER 게임에 <b>5가지 특수 물약</b>을 추가한 변형 모드입니다.</p>
-      <p>일반 게임의 모든 규칙은 그대로이고, 매 턴 무작위 물약을 받아 전략적으로 사용할 수 있습니다.</p>
+      <p>일반 게임의 모든 규칙은 그대로이고, <b>기물을 잡아 모은 포인트로 상점에서 물약을 사서</b> 전략적으로 사용합니다.</p>
       <ul>
         <li>5종 물약과 효과</li>
         <li>인벤토리 + 포인트 시스템</li>
@@ -429,21 +429,20 @@ const POTION_STEPS = [
   },
   {
     title:'🎒 인벤토리와 포인트',
-    sub:'매 턴 1개 자동 획득',
+    sub:'잡아서 벌고, 사서 쓴다',
     body:`
       <p>물약 모드 시작 시:</p>
       <ul>
-        <li>양쪽 인벤에 <b>물약 1개씩</b> 시작 지급</li>
-        <li>시작 <b>5P</b>씩 보유</li>
-        <li>매 턴 시작 시 <b>무작위 물약 1개 자동 획득</b></li>
+        <li>인벤토리는 <b>비어 있습니다</b> — 물약은 자동으로 들어오지 않습니다</li>
+        <li>시작 <b>10P</b>씩 보유 (가챠 1회 또는 엿보기 1개를 바로 살 수 있는 양)</li>
         <li>인벤 최대 <b>8개</b></li>
       </ul>
       <p><b>포인트(P)는 어떻게 얻나요?</b></p>
       <ul>
-        <li>시작 보유분 (5P)</li>
-        <li>상점에서 물약 판매</li>
+        <li><b>기물을 하나 잡을 때마다 +5P</b> — 주 수입원입니다</li>
+        <li>상점에서 물약을 팔면 <b>+5P</b> (★합체 물약은 +10P)</li>
       </ul>
-      <div class="tut-callout">💡 기물을 잡아도 P는 늘지 않습니다. 신중히 사용하세요.</div>`
+      <div class="tut-callout">💡 공격적으로 둘수록 물약을 많이 삽니다. 잡기가 곧 돈입니다.</div>`
   },
   {
     title:'🧪 5종 물약',
@@ -499,21 +498,23 @@ const POTION_STEPS = [
     title:'🏪 상점',
     sub:'구매 / 판매 / 뽑기',
     body:`
-      <p>인벤 모달 안 <b>🏪 상점</b> 버튼으로 진입.</p>
-      <p><b>📥 구매</b> — P로 원하는 물약 구매</p>
+      <p>물약을 얻는 <b>유일한</b> 곳입니다. 인벤 모달 안 <b>🏪 상점</b> 버튼으로 진입.</p>
+      <p><b>📥 구매</b> — 판을 얼마나 바꾸는지에 따라 값이 다릅니다</p>
       <ul>
-        <li>부활 5P / 차단 4P / 조커 8P / 시간 3P / 엿보기 2P</li>
+        <li><b>조커 14P</b> — 색을 통째로 바꿉니다. 한 방에 판이 뒤집힙니다</li>
+        <li><b>부활 12P</b> — 잃은 기물이 돌아옵니다. 물질 손실을 되돌리는 유일한 수단</li>
+        <li><b>차단 8P</b> — 3턴간 칸 봉쇄. 강하지만 국지적</li>
+        <li><b>시간 7P</b> — 시계만 건드립니다. 판에는 영향 없음</li>
+        <li><b>엿보기 6P</b> — 정보만 얻습니다. 가장 약합니다</li>
       </ul>
-      <p><b>📤 판매</b> — 보유 물약을 P로 환금</p>
+      <p><b>📤 판매</b> — 종류와 무관하게 <b>1개당 +5P</b> (★합체는 2개분 +10P)</p>
+      <p><b>🎰 뽑기 — 10P</b></p>
       <ul>
-        <li>일반 1~3P / ★ 강화는 2배</li>
+        <li>5종 중 무작위 1개 획득 (평균 기댓값 9.4P)</li>
+        <li><b>12% 확률로 ★합체 물약</b>이 나옵니다 — 이게 뽑기의 값어치입니다</li>
       </ul>
-      <p><b>🎰 뽑기 — 3P</b></p>
-      <ul>
-        <li>5종 중 무작위 1개 획득</li>
-        <li>장기적으로 가장 효율적</li>
-      </ul>
-      <div class="tut-callout">💡 자기 차례에만 상점 이용 가능</div>`
+      <div class="tut-callout">💡 자기 차례에만 상점 이용 가능</div>
+      <div class="tut-callout warn">⚠ 모든 물약이 판매가(5P)보다 비쌉니다. 사서 되파는 걸로는 포인트가 늘지 않습니다.</div>`
   },
   {
     title:'🎯 전략 팁',

@@ -942,17 +942,25 @@ function handlePotionTurnStart(newTurnColor){
   }
   // 로컬: turn 색 인벤 동기 (자기 인벤만 보이게)
   if(IS_LOCAL) syncLocalInventory();
-  if(_potionAwardedThisTurn[newTurnColor]) return;
-  _potionAwardedThisTurn[newTurnColor] = true;
-  _potionAwardedThisTurn[opp(newTurnColor)] = false;
-  awardRandomPotion(newTurnColor);
+  // 턴마다 물약을 공짜로 주던 코드는 없앴다. 이제 상점에서 사야 한다.
   updatePointsUI();
 }
 
-// 기물 잡았을 때 P 획득 — 비활성화 (사용자 요청)
+// 기물을 잡으면 +5P. 물약을 사는 주된 수입원이다.
+const CAPTURE_POINTS = 5;
 function awardCapturePoints(capturedKind, captorColor){
-  // no-op: 기물 캡처로 P 획득 안 함
-  return;
+  if(!IS_POTION) return;
+  if(IS_LOCAL){
+    // 로컬은 색깔별로 지갑이 따로다. 지금 화면에 보이는 쪽만 myPoints에 반영된다.
+    if(!window._localPts) window._localPts = { w:0, b:0 };
+    window._localPts[captorColor] = (window._localPts[captorColor] || 0) + CAPTURE_POINTS;
+    syncLocalInventory();
+  } else if(captorColor === MY_COLOR){
+    myPoints += CAPTURE_POINTS;
+  } else {
+    oppPoints += CAPTURE_POINTS;
+  }
+  updatePointsUI();
 }
 
 function initPotionMode(){
@@ -960,20 +968,16 @@ function initPotionMode(){
   myInventory = [];
   oppInventoryCount = 0;
   oppInventoryRevealed = null;
-  myPoints = 5;
-  oppPoints = 5;
+  // 물약은 상점에서만 얻는다 → 손패는 비우고 포인트로 시작한다.
+  // 10P면 가챠 한 번이나 제일 싼 엿보기(6P)를 바로 살 수 있다.
+  myPoints = POTION_START_POINTS;
+  oppPoints = POTION_START_POINTS;
   blockedCells = [];
   _potionAwardedThisTurn = { w:false, b:false };
-  // 로컬: 양쪽 인벤/포인트 별도 변수
   if(IS_LOCAL){
     window._localInv = { w:[], b:[] };
-    window._localPts = { w:5, b:5 };
+    window._localPts = { w:POTION_START_POINTS, b:POTION_START_POINTS };
   }
-  // 게임 시작 시 양쪽 손에 첫 물약 1개씩
-  awardRandomPotion('w');
-  awardRandomPotion('b');
-  // 시작 시 자기 턴 (white)이라면 미리 1개 더 (자기 턴 첫 시작도 자동 획득)
-  _potionAwardedThisTurn.w = false;
   // 로컬: turn 색 인벤 동기
   if(IS_LOCAL) syncLocalInventory();
   renderPotionUI();
@@ -1434,14 +1438,30 @@ function mergePotions(srcId, tgtId){
 }
 
 // ===== 상점 =====
+// 물약은 이제 자동으로 들어오지 않는다 — 전부 여기서 사야 한다.
+// 구매가는 중요도(판을 얼마나 바꾸는가)순으로 매긴다.
+//   조커 14 : 색을 통째로 바꾼다. 한 방에 판이 뒤집힌다.
+//   부활 12 : 잃은 기물이 돌아온다. 물질 손실을 되돌리는 유일한 수단.
+//   차단  8 : 3턴간 칸 봉쇄. 강하지만 국지적.
+//   시간  7 : 시계만 건드린다. 판에는 영향 없음.
+//   엿보기 6 : 정보만 얻는다. 가장 약하다.
+//
+// ⚠ 판매가가 5P 고정이므로 구매가는 반드시 5보다 커야 한다.
+//   하나라도 5 이하면 사서 되파는 무한 포인트 루프가 생긴다.
+const POTION_SELL_PRICE = 5;      // 물약 1개 판매 = +5P (합체는 2개분 = 10P)
 const SHOP_PRICES = {
-  revive: { buy: 5, sell: 2 },
-  block:  { buy: 4, sell: 2 },
-  joker:  { buy: 8, sell: 3 },
-  time:   { buy: 3, sell: 1 },
-  peek:   { buy: 2, sell: 1 }
+  revive: { buy: 12 },
+  block:  { buy: 8 },
+  joker:  { buy: 14 },
+  time:   { buy: 7 },
+  peek:   { buy: 6 }
 };
-const GACHA_COST = 3;
+// 가챠 평균 기댓값은 (12+8+14+7+6)/5 = 9.4P로 10P보다 약간 낮다.
+// 그대로면 상점보다 손해라 아무도 안 쓴다 → 낮은 확률로 합체 물약이 나와
+// 도박에 값어치를 준다.
+const GACHA_COST = 10;
+const GACHA_MERGE_CHANCE = 0.12;  // 12% 확률로 레벨2(합체) 물약
+const POTION_START_POINTS = 10;
 let _shopTab = 'buy';
 
 window.openPotionShop = function(){
@@ -1481,6 +1501,7 @@ function renderShop(){
               <div class="shop-card-img">${potionSvg(type, 48)}</div>
               <div class="shop-card-name">${t.name}</div>
               <div class="shop-card-desc">${t.desc}</div>
+              <div class="shop-card-desc" style="opacity:.75">판매 시 +${POTION_SELL_PRICE}P</div>
               <button class="shop-card-btn buy" ${canBuy?'':'disabled'} onclick="shopBuy('${type}')">
                 💰 ${price}P 구매
               </button>
@@ -1498,7 +1519,7 @@ function renderShop(){
       <div class="shop-grid">
         ${myInventory.map(p => {
           const t = POTION_TYPES[p.type];
-          const price = SHOP_PRICES[p.type].sell * (p.level === 2 ? 2 : 1);
+          const price = POTION_SELL_PRICE * (p.level === 2 ? 2 : 1);
           return `
             <div class="shop-card" style="--pot-color:${t.color}">
               <div class="shop-card-img">${potionSvg(p.type, 48)}</div>
@@ -1532,8 +1553,12 @@ function renderShop(){
           </svg>
         </div>
         <h3>랜덤 뽑기</h3>
-        <p style="color:var(--muted);font-size:13px;margin:8px 0 14px">
+        <p style="color:var(--muted);font-size:13px;margin:8px 0 6px">
           5종 물약 중 하나를 무작위로 획득합니다.
+        </p>
+        <p style="color:var(--muted);font-size:12px;margin:0 0 14px">
+          평균 기댓값 9.4P — 상점보다 조금 손해지만,
+          <b style="color:#bf5af2">${Math.round(GACHA_MERGE_CHANCE*100)}% 확률로 ★합체★ 물약</b>이 나옵니다.
         </p>
         <button class="shop-gacha-btn ${canPull?'':'disabled'}" ${canPull?'':'disabled'} onclick="shopGacha()">
           💰 ${GACHA_COST}P — 뽑기!
@@ -1565,7 +1590,8 @@ window.shopBuy = function(type){
 window.shopSell = function(potionId){
   const p = myInventory.find(x => x.id === potionId);
   if(!p) return;
-  const price = SHOP_PRICES[p.type].sell * (p.level === 2 ? 2 : 1);
+  // 종류와 무관하게 1개당 5P. 합체 물약은 2개를 합친 것이라 2개분.
+  const price = POTION_SELL_PRICE * (p.level === 2 ? 2 : 1);
   myInventory = myInventory.filter(x => x.id !== potionId);
   myPoints += price;
   if(IS_LOCAL){
@@ -1583,12 +1609,13 @@ window.shopGacha = function(){
   if(myInventory.length >= MAX_INVENTORY_SIZE){ showFlash('인벤토리 가득참'); return; }
   myPoints -= GACHA_COST;
   const type = POTION_KEYS[Math.floor(Math.random() * POTION_KEYS.length)];
-  myInventory.push({ id: genPotionId(), type, level: 1, color: IS_LOCAL ? turn : MY_COLOR });
+  const level = Math.random() < GACHA_MERGE_CHANCE ? 2 : 1;
+  myInventory.push({ id: genPotionId(), type, level, color: IS_LOCAL ? turn : MY_COLOR });
   if(IS_LOCAL){
     window._localInv[turn] = myInventory;
     window._localPts[turn] = myPoints;
   }
-  showFlash(`🎰 ${POTION_TYPES[type].name} 획득!`, 2000);
+  showFlash(level === 2 ? `🎰✨ ${POTION_TYPES[type].name} ★합체★ 획득!` : `🎰 ${POTION_TYPES[type].name} 획득!`, 2000);
   renderShop();
   renderPotionUI();
   if(IS_NET) sendToPeer({ t:'POTION_SHOP_BUY' });
