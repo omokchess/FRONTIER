@@ -9,6 +9,8 @@ const m = src.match(/function countWinningSquares\(col\)\{[\s\S]*?\n\}/);
 if (!m) throw new Error('countWinningSquares를 engine.js에서 못 찾음');
 
 let board, BOARD_N = 8;
+// 승리 연속 개수. engine.js에서는 IS_XL로 정해지지만 여기선 8x8 기준으로 고정한다.
+const LINE_WIN = 5;
 const inBounds = (r, c) => r >= 0 && c >= 0 && r < BOARD_N && c < BOARD_N;
 const countWinningSquares = eval('(' + m[0].replace(/^function /, 'function ') + ')');
 
