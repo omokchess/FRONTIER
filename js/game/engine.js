@@ -164,6 +164,10 @@ const ZONES = IS_XL
   ? { gen:[2,9,2,9], king:[2,9,2,9], corners:[[0,0],[0,11],[11,0],[11,11],[2,2],[2,9],[9,2],[9,9]] }
   : { gen:[2,5,1,6], king:[2,5,2,5], corners:[[0,0],[0,7],[7,0],[7,7]] };
 
+// 승리에 필요한 연속 개수. XL은 판이 12x12로 넓어 5목이 너무 쉽게 나온다 → 6목.
+// 이 값이 바뀌면 승리 판정·AI 위협 계산·차단 로직이 전부 따라와야 한다.
+const LINE_WIN = IS_XL ? 6 : 5;
+
 function inGeneralZone(r,c){ const z=ZONES.gen;  return r>=z[0] && r<=z[1] && c>=z[2] && c<=z[3]; }
 function inKingZone(r,c){    const z=ZONES.king; return r>=z[0] && r<=z[1] && c>=z[2] && c<=z[3]; }
 function inCornerZone(r,c){  return ZONES.corners.some(([zr,zc]) => zr===r && zc===c); }
@@ -517,7 +521,7 @@ function checkFiveInRow(){
           count++;
           nr+=dr; nc+=dc;
         }
-        if(count >= 5) return p.color;
+        if(count >= LINE_WIN) return p.color;
       }
     }
   }
@@ -2273,7 +2277,7 @@ function applyXlEscapeSacrifice(sr, sc){
   turn = opp(color);
   renderAll();
   if(five){
-    endGame('🏆','오목 승리!', (window.t ? window.t('{c}이 5목을 완성했습니다.', {c:window.t(five==='w'?'백':'흑')}) : `${five==='w'?'백':'흑'}이 5목을 완성했습니다.`), five);
+    endGame('🏆','오목 승리!', `${five==='w'?'백':'흑'}이 ${LINE_WIN}목을 완성했습니다.`, five);
     return;
   }
   showFlash('✅ 비상탈출 완료 — 이제 탈출권이 없습니다', 3000);
@@ -3120,7 +3124,7 @@ function submitAction(action){
 function postMoveCheck(r){
   const T = (s,p)=> (window.t ? window.t(s,p) : s);
   if(r.fiveWin){
-    endGame('🏆','오목 승리!', T('{c}이 5목을 완성했습니다.', {c:T(r.fiveWin==='w'?'백':'흑')}), r.fiveWin);
+    endGame('🏆','오목 승리!', `${r.fiveWin==='w'?'백':'흑'}이 ${LINE_WIN}목을 완성했습니다.`, r.fiveWin);
     return;
   }
   if(r.checkmate){
@@ -3904,19 +3908,20 @@ function findBlock4(list, threatColor){
   for(let r=0;r<BOARD_N;r++){
     for(let c=0;c<BOARD_N;c++){
       for(const [dr,dc] of dirs){
-        // 4 연속 검사
+        // 승리 직전(LINE_WIN-1) 연속 검사
+        const need = LINE_WIN - 1;
         const cells = [];
-        for(let i=0;i<4;i++){
+        for(let i=0;i<need;i++){
           const nr=r+dr*i, nc=c+dc*i;
           if(!inBounds(nr,nc)) break;
           cells.push([nr,nc]);
         }
-        if(cells.length<4) continue;
+        if(cells.length<need) continue;
         const allMy = cells.every(([nr,nc]) => board[nr][nc] && board[nr][nc].color===threatColor);
         if(!allMy) continue;
         // 양 끝 빈칸
         const before = [r-dr, c-dc];
-        const after = [r+dr*4, c+dc*4];
+        const after = [r+dr*need, c+dc*need];
         for(const [tr,tc] of [before, after]){
           if(inBounds(tr,tc) && !board[tr][tc]) threats.push([tr,tc]);
         }
@@ -4003,11 +4008,11 @@ function countOpenThreats(col, genome){
         while(inBounds(nr,nc) && board[nr][nc] && board[nr][nc].color === col){
           len++; nr += dr; nc += dc;
         }
-        if(len < 3) continue;                       // 열린 2는 창 점수로 충분
+        if(len < LINE_WIN - 2) continue;            // 승리-2개 미만은 창 점수로 충분
         const headOpen = inBounds(pr,pc) && !board[pr][pc];
         const tailOpen = inBounds(nr,nc) && !board[nr][nc];
         if(!(headOpen && tailOpen)) continue;       // 양끝이 열려야 '열린 위협'
-        let value = len >= 4 ? g.openFour : g.openThree;
+        let value = len >= LINE_WIN - 1 ? g.openFour : g.openThree;
         // 런 구성 기물이 잡히면 위협이 풀린다 — 하나라도 공격받으면 깎는다
         let fragile = false;
         for(let i=0;i<len;i++){
@@ -4040,7 +4045,7 @@ function countWinningSquares(col){
             run++; nr += dr*sign; nc += dc*sign;
           }
         }
-        if(run >= 5){ seen.add(r + ',' + c); break; }
+        if(run >= LINE_WIN){ seen.add(r + ',' + c); break; }
       }
     }
   }
@@ -4055,7 +4060,7 @@ function countLineThreats(col, genome){
     for(let c=0;c<BOARD_N;c++){
       for(const [dr,dc] of dirs){
         let count=0;
-        for(let i=0;i<5;i++){
+        for(let i=0;i<LINE_WIN;i++){
           const nr=r+dr*i, nc=c+dc*i;
           if(!inBounds(nr,nc)){ count=-99; break; }
           const p = board[nr][nc];
@@ -4064,10 +4069,11 @@ function countLineThreats(col, genome){
           else { count=-99; break; }
         }
         if(count<0) continue;
-        if(count>=5) total += g.threat5;
-        else if(count===4) total += g.threat4;
-        else if(count===3) total += g.threat3;
-        else if(count===2) total += g.threat2;
+        // 위협 등급은 '승리까지 몇 개 남았나'로 센다 (XL 6목이면 5개가 리치)
+        if(count>=LINE_WIN)         total += g.threat5;
+        else if(count===LINE_WIN-1) total += g.threat4;
+        else if(count===LINE_WIN-2) total += g.threat3;
+        else if(count===LINE_WIN-3) total += g.threat2;
       }
     }
   }
@@ -4233,7 +4239,7 @@ function onPeerMessage(data){
     turn = opp(data.color);
     renderAll();
     const five = checkFiveInRow();
-    if(five) endGame('🏆','오목 승리!', `${five==='w'?'백':'흑'}이 5목을 완성했습니다.`, five);
+    if(five) endGame('🏆','오목 승리!', `${five==='w'?'백':'흑'}이 ${LINE_WIN}목을 완성했습니다.`, five);
     return;
   }
   if(data.t === 'PING'){
@@ -5181,6 +5187,9 @@ window.replayToggleList = function(){
   list.style.display = list.style.display === 'none' ? '' : 'none';
 };
 
+// 반환 모양은 항상 { text, colorName, colorClass, captured } 여야 한다.
+// 예전엔 물약·방향 전환·돌진만 문자열로 조기 반환해서, 기보 목록이 d.text를
+// 읽을 때 undefined가 찍혔다. 돌진을 추가하며 같은 함정에 다시 빠졌다.
 function describeAction(meta, idx){
   // meta: {action, captured, moveType, retreat}
   const a = meta.action;
@@ -5196,17 +5205,17 @@ function describeAction(meta, idx){
     const label = a.fx === 'revive' ? `${getPieceName(a.kind)} 부활`
                 : a.fx === 'block'  ? `${pos(a.r,a.c)} 차단`
                 : '조커 — 색 교환';
-    return `<span class="turn-color ${colorClass}">${colorName}</span> 🧪 ${label}`;
+    return { text:`🧪 ${label}`, colorName, colorClass, captured: meta.captured };
   }
   if(a.type === 'rotate'){
     const piece = pieceSvgInline('SH', aColor, 14, undefined, a.axis);
-    return `<span class="turn-color ${colorClass}">${colorName}</span> ${piece} ` +
-           `${pos(a.r,a.c)} 방향 전환 (${a.axis === 'h' ? '가로' : '세로'})`;
+    return { text:`${piece} ${pos(a.r,a.c)} 방향 전환 (${a.axis === 'h' ? '가로' : '세로'})`,
+             colorName, colorClass, captured: meta.captured };
   }
   if(a.type === 'charge'){
     const piece = pieceSvgInline('RM', aColor, 14);
-    return `<span class="turn-color ${colorClass}">${colorName}</span> ${piece} ` +
-           `${pos(a.fr,a.fc)} → ${pos(a.tr,a.tc)} 돌진 예약`;
+    return { text:`${piece} ${pos(a.fr,a.fc)} → ${pos(a.tr,a.tc)} 돌진 예약`,
+             colorName, colorClass, captured: meta.captured };
   }
   if(a.type === 'place'){
     const piece = pieceSvgInline(a.kind, aColor, 14);

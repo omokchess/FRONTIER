@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>FRONTIER — 체스 × 오목 하이브리드 보드게임 | 무료 온라인 플레이</title>
+<title>FRONTIER GAME — 고등학생이 혼자 만든 오목체스 게임</title>
 <!-- ===== SEO / 검색 노출 ===== -->
 <meta name="google-site-verification" content="egXSFyRhZBb6tFdqr4xijc45BG2vUyFUXNkmk94Wifk" />
-<meta name="description" content="FRONTIER(프론티어)는 체스의 전략과 오목(5목)의 짜릿함을 합친 무료 온라인 보드게임입니다. AI 대전, 친구와 온라인 대국, 물약·타이쿤·XL 변형 모드, ELO 랭킹과 칭호를 즐겨보세요.">
+<meta name="description" content="고등학생이 혼자 만든 오목체스 게임. AI 대전, 친구와 온라인 대국, 물약·타이쿤·XL 변형 모드, ELO 랭킹과 칭호까지. 무료로 플레이하세요.">
 <meta name="keywords" content="FRONTIER, 프론티어, 프론티어 뒤엎기, 체스 오목, 오목 체스, 보드게임, 온라인 보드게임, 체스 게임, 오목 게임, 웹게임, AI 체스, 5목">
 <meta name="author" content="omokchess">
 <meta name="robots" content="index, follow">
@@ -14,9 +14,9 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <!-- Open Graph (카카오톡/디스코드/페이스북 공유 카드) -->
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="FRONTIER">
-<meta property="og:title" content="FRONTIER — 체스 × 오목 하이브리드 보드게임">
-<meta property="og:description" content="체스의 전략 + 오목의 짜릿함. AI 대전 · 온라인 대국 · 변형 모드까지. 무료로 플레이하세요.">
+<meta property="og:site_name" content="FRONTIER GAME">
+<meta property="og:title" content="FRONTIER GAME">
+<meta property="og:description" content="고등학생이 혼자 만든 오목체스 게임">
 <meta property="og:url" content="https://frontier-5h9.pages.dev/">
 <meta property="og:image" content="https://frontier-5h9.pages.dev/og-image.png">
 <meta property="og:image:width" content="1200">
@@ -27,17 +27,17 @@
 <meta property="og:locale:alternate" content="zh_CN">
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="FRONTIER — 체스 × 오목 하이브리드 보드게임">
-<meta name="twitter:description" content="체스의 전략 + 오목의 짜릿함. AI 대전 · 온라인 대국 · 변형 모드. 무료 플레이.">
+<meta name="twitter:title" content="FRONTIER GAME">
+<meta name="twitter:description" content="고등학생이 혼자 만든 오목체스 게임">
 <meta name="twitter:image" content="https://frontier-5h9.pages.dev/og-image.png">
 <!-- JSON-LD 구조화 데이터 -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "VideoGame",
-  "name": "FRONTIER",
-  "alternateName": "프론티어 뒤엎기",
-  "description": "체스와 오목(5목)을 합친 하이브리드 온라인 보드게임. AI 대전, 온라인 대국, 변형 모드, ELO 랭킹과 칭호.",
+  "name": "FRONTIER GAME",
+  "alternateName": "프론티어",
+  "description": "고등학생이 혼자 만든 오목체스 게임.",
   "url": "https://frontier-5h9.pages.dev/",
   "image": "https://frontier-5h9.pages.dev/og-image.png",
   "inLanguage": ["ko", "en", "ja", "zh"],
@@ -56,14 +56,14 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <!-- 다국어(i18n): 사전 먼저, 그다음 엔진 -->
-<script src="js/i18n-dict.js?v=50"></script>
-<script src="js/i18n.js?v=50"></script>
-<script src="js/game/pieces.js?v=50"></script>
-<script src="js/quests.js?v=50"></script>
-<script src="js/lobby/daily.js?v=50"></script>
-<script src="js/lobby/titles.js?v=50"></script>
-<link rel="stylesheet" href="css/theme.css?v=50">
-<script src="js/theme.js?v=50"></script>
+<script src="js/i18n-dict.js?v=51"></script>
+<script src="js/i18n.js?v=51"></script>
+<script src="js/game/pieces.js?v=51"></script>
+<script src="js/quests.js?v=51"></script>
+<script src="js/lobby/daily.js?v=51"></script>
+<script src="js/lobby/titles.js?v=51"></script>
+<link rel="stylesheet" href="css/theme.css?v=51">
+<script src="js/theme.js?v=51"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -117,6 +117,9 @@ input{font-family:inherit;outline:none}
   display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;flex-shrink:0}
 .pinfo{display:flex;flex-direction:column;gap:2px;min-width:0}
 .pname{font-weight:700;font-size:15px;display:flex;align-items:center;gap:6px}
+.nick-copy{cursor:pointer;border-radius:6px;padding:1px 3px;margin:-1px -3px;transition:background .12s}
+.nick-copy:hover{background:rgba(245,200,66,.14)}
+.nick-copy.copied .usertag{color:var(--green);background:rgba(48,209,88,.15)}
 .pname .edit{background:transparent;color:var(--muted);font-size:12px;padding:0;cursor:pointer}
 .pname .edit:hover{color:var(--gold)}
 .pelo{font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center}
@@ -1012,7 +1015,7 @@ body{background:var(--bg)}
 <!-- 로그인 게이트 (전체 화면) -->
 <div id="loginGate" class="login-gate">
   <div class="login-card">
-    <h1 class="login-logo">FRONTIER</h1>
+    <h1 class="login-logo">FRONTIER GAME</h1>
     <div class="login-sub">체스 × 오목 하이브리드</div>
     <p class="login-seo">체스의 전략과 오목(5목)의 짜릿함을 합친 무료 온라인 보드게임. AI 대전, 친구와의 온라인 대국, 물약·타이쿤·XL 변형 모드, ELO 랭킹과 칭호까지.</p>
 
@@ -1055,14 +1058,14 @@ body{background:var(--bg)}
 <div class="wrap">
   <div class="head">
     <div class="brand">
-      <div class="logo">FRONTIER</div>
-      <div class="tagline">체스 × 오목 하이브리드</div>
+      <div class="logo">FRONTIER GAME</div>
+      <div class="tagline">고등학생이 혼자 만든 오목체스 게임</div>
     </div>
     <div data-lang-switch class="lang-switch" title="언어 / Language"></div>
     <div class="profile" id="profile">
       <div class="avatar" id="avatar">?</div>
       <div class="pinfo">
-        <div class="pname"><span id="nick">로딩…</span><span class="usertag" id="nickTag">#—</span><button class="edit" onclick="changeNick()">✎</button></div>
+        <div class="pname"><span class="nick-copy" id="nickCopy" onclick="copyMyTag(this)" title="클릭하여 닉네임#코드 복사"><span id="nick">로딩…</span><span class="usertag" id="nickTag">#—</span></span><button class="edit" onclick="changeNick()">✎</button></div>
         <div class="pelo">
           <span id="elo">—</span>
           <span class="tier" id="tier" style="background:#CD7F32">—</span>
@@ -1116,7 +1119,7 @@ body{background:var(--bg)}
         <button class="mode mode-xl" onclick="openXlStartModal()">
           <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></div>
           <div class="mt">XL</div>
-          <div class="md">12×12 판에 강화 기물</div>
+          <div class="md">12×12 판에 강화 기물, 6목 승리</div>
         </button>
         <button class="mode mode-tycoon" onclick="openTycoonStartModal()">
           <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.5 9a2.5 2 0 0 0-2.5-1.5c-1.5 0-2.5.8-2.5 2s1 1.7 2.5 2 2.5.8 2.5 2-1 2-2.5 2a2.5 2 0 0 1-2.5-1.5"/><path d="M12 6v1.5M12 16.5V18"/></svg></div>
@@ -1408,7 +1411,7 @@ body{background:var(--bg)}
     <div class="modal-card" style="max-width:420px;width:92%">
       <h3 style="text-align:center;margin-bottom:8px">XL 모드 시작</h3>
       <p style="font-size:13px;color:var(--muted);text-align:center;margin-bottom:14px">
-        12×12 판 · 모든 기물 강화<br>
+        12×12 판 · 모든 기물 강화 · <b>6목 승리</b><br>
         체크메이트되면 킹이 1회 비상탈출 (기물 1개 희생)
       </p>
       <div class="opts">
@@ -3719,28 +3722,31 @@ window.startTutorial = function(){
     });
   };
 
-  window.copyMyTag = function(){
+  // 누른 자리에서 피드백을 준다. 인자가 없으면 내 페이지의 큰 코드 뱃지.
+  // 헤더 프로필(닉네임+코드)에서도 같은 함수를 쓴다.
+  window.copyMyTag = function(srcEl){
     if(!MY_TAG) return;
     const fullCode = MY_NICK + '#' + MY_TAG;
-    const el = document.getElementById('bigTagFull');
+    const el = srcEl || document.getElementById('bigTagFull');
     const doCopy = () => {
       if(navigator.clipboard && navigator.clipboard.writeText){
         return navigator.clipboard.writeText(fullCode);
       }
-      // Fallback: prompt
-      prompt('친구 코드 (복사하세요):', fullCode);
+      // clipboard API는 http나 오래된 브라우저에서 없다 → 직접 고르게 띄운다
+      prompt('닉네임#코드 (복사하세요):', fullCode);
       return Promise.resolve();
     };
     doCopy().then(()=>{
-      if(el){
-        const orig = el.textContent;
-        el.classList.add('copied');
-        el.textContent = '✓ 복사됨';
-        setTimeout(()=>{
-          el.classList.remove('copied');
-          el.textContent = '#' + MY_TAG;
-        }, 1500);
-      }
+      if(!el) return;
+      el.classList.add('copied');
+      // 큰 뱃지는 글자를 통째로 바꾸고, 헤더는 닉네임을 지우면 안 되니 코드 칸만 바꾼다
+      const tagEl = el.id === 'bigTagFull' ? el : el.querySelector('.usertag');
+      const restore = tagEl ? tagEl.textContent : null;
+      if(tagEl) tagEl.textContent = '✓ 복사됨';
+      setTimeout(()=>{
+        el.classList.remove('copied');
+        if(tagEl) tagEl.textContent = restore;
+      }, 1500);
     }).catch(()=>{});
   };
 

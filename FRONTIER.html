@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>FRONTIER — 게임</title>
+<title>FRONTIER GAME — 게임</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Cinzel:wght@600;800&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -11,18 +11,18 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <!-- 다국어(i18n): 사전 먼저, 그다음 엔진 -->
-<script src="js/i18n-dict.js?v=50"></script>
-<script src="js/i18n.js?v=50"></script>
+<script src="js/i18n-dict.js?v=51"></script>
+<script src="js/i18n.js?v=51"></script>
 <!-- Game modules (split from monolith FRONTIER.html) -->
-<script src="js/game/utils.js?v=50"></script>
-<script src="js/game/pieces.js?v=50"></script>
-<script src="js/game/firebase.js?v=50"></script>
-<script src="js/game/timer.js?v=50"></script>
-<script src="js/game/chat.js?v=50"></script>
-<script src="js/game/elo.js?v=50"></script>
-<script src="js/game/network.js?v=50"></script>
-<link rel="stylesheet" href="css/theme.css?v=50">
-<script src="js/theme.js?v=50"></script>
+<script src="js/game/utils.js?v=51"></script>
+<script src="js/game/pieces.js?v=51"></script>
+<script src="js/game/firebase.js?v=51"></script>
+<script src="js/game/timer.js?v=51"></script>
+<script src="js/game/chat.js?v=51"></script>
+<script src="js/game/elo.js?v=51"></script>
+<script src="js/game/network.js?v=51"></script>
+<link rel="stylesheet" href="css/theme.css?v=51">
+<script src="js/theme.js?v=51"></script>
 <style>
 :root{
   --bg:#2C2C2E; --panel:#3A3A3C; --panel2:#48484A; --border:#555558;
@@ -1094,7 +1094,7 @@ body.board-flipped .cell{transform:rotate(180deg)}
     <div class="tb-left">
       <button class="tb-btn" onclick="confirmLeave()">← 로비</button>
     </div>
-    <div class="tb-mid">FRONTIER</div>
+    <div class="tb-mid">FRONTIER GAME</div>
     <div class="tb-right">
       <div class="topbar-timer" id="topbarTimer" style="display:none">
         <span class="tt-side w" id="ttWhite"><span class="ti" id="ttwIcon">♔</span><span class="tt-time" id="ttwTime">--:--</span></span>
@@ -1449,6 +1449,7 @@ body.board-flipped .cell{transform:rotate(180deg)}
             어쌔신은 알리바바(상하좌우·대각 2칸 점프)</li>
         <li>발리스타 배치 자리 8곳 — 바깥 모서리 4곳 + 안쪽 8×8 영역 모서리 4곳</li>
         <li><b>배치 영역도 8×8</b> — 킹과 일반 기물 모두 안쪽 8×8 전체에 놓을 수 있음</li>
+        <li><b>승리는 6목</b> — 판이 12×12로 넓어 5목은 너무 쉽게 나온다</li>
       </ul>
 
       <h4>📐 보드 영역</h4>
@@ -1536,14 +1537,14 @@ body.board-flipped .cell{transform:rotate(180deg)}
   <div class="replay-list" id="replayList" style="display:none"></div>
 </div>
 
-<script src="js/quests.js?v=50"></script>
-<script src="js/game/engine.js?v=50"></script>
+<script src="js/quests.js?v=51"></script>
+<script src="js/game/engine.js?v=51"></script>
 
 <!-- Python AI Worker bridge: AI 대전 URL에 pyai=1이 있을 때 활성화 -->
 <script>
   window.FRONTIER_AI_API = window.FRONTIER_AI_API || 'https://frontier-python-ai.onrender.com';
 </script>
-<script src="js/game/python-ai-client.js?v=50"></script>
+<script src="js/game/python-ai-client.js?v=51"></script>
 
 </body>
 </html>
