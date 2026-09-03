@@ -36,6 +36,7 @@ const CFG = {
   sigma:  arg('sigma', 0.25),
   time:   arg('time', 100),
   maxPly: arg('maxPly', 120),
+  sprtMax: arg('sprtMax', 160),   // SPRT가 결론을 못 내면 여기서 포기(= 교체 안 함)
   hand:   arg('hand', 'K1Q1R2B2N2P8SH1SN1JP1RM0'),
   resume: !!arg('resume', false),
   verify: arg('verify', 0)
@@ -104,6 +105,43 @@ function playGame(whiteG, blackG) {
   return 0.5;
 }
 
+/* 챔피언 교체 판정 — SPRT (순차 확률비 검정).
+ *
+ * 왜 필요한가: 원래는 "6판에서 60% 넘고, 재대결 12판에서 55% 넘으면 교체"였다.
+ * 계산해 보니 실력이 완전히 같은 개체도 이 기준을 세대당 38% 확률로 통과한다.
+ * 120세대면 노이즈만으로 46회 교체가 기대되고, 실제 관측이 38회였다.
+ * 즉 그 교체들은 실력 향상의 증거가 전혀 아니었다. 개체군이 5시간 동안
+ * 무작위 보행을 한 것이다.
+ *
+ * SPRT는 스톡피시(Fishtest)가 쓰는 방식이다. 판을 하나씩 두면서
+ * "H0: 향상 없음" 대 "H1: 이만큼 향상"의 우도비를 누적해, 확실해지는 순간
+ * 멈춘다. 확실한 개선은 적은 판으로 통과하고, 애매한 것은 끝내 통과 못 한다.
+ */
+function sprt(challenger, champion, opts = {}) {
+  const alpha = opts.alpha ?? 0.05;   // 가짜를 통과시킬 확률
+  const beta  = opts.beta  ?? 0.05;   // 진짜를 놓칠 확률
+  const p0 = opts.p0 ?? 0.50;         // H0: 그냥 대등하다
+  const p1 = opts.p1 ?? 0.60;         // H1: 이 정도는 낫다
+  const maxGames = opts.maxGames ?? 200;
+  const lower = Math.log(beta / (1 - alpha));
+  const upper = Math.log((1 - beta) / alpha);
+
+  let llr = 0, played = 0, score = 0;
+  const lw = Math.log(p1 / p0), ll = Math.log((1 - p1) / (1 - p0));
+
+  while (played < maxGames) {
+    const asWhite = played % 2 === 0;   // 색 교대로 선공 이득 상쇄
+    const r = playGame(asWhite ? challenger : champion, asWhite ? champion : challenger);
+    const s = asWhite ? r : 1 - r;
+    played++; score += s;
+    // 무승부는 0.5승 0.5패로 나눠 넣는다
+    llr += s * lw + (1 - s) * ll;
+    if (llr >= upper) return { pass: true,  played, rate: score / played };
+    if (llr <= lower) return { pass: false, played, rate: score / played };
+  }
+  return { pass: false, played, rate: score / played, inconclusive: true };
+}
+
 // 색을 번갈아 줘 선공 이득을 상쇄한다
 function matchVs(challenger, champion, games) {
   let s = 0;
@@ -165,19 +203,20 @@ function run() {
     const order = pop.map((_, i) => i).sort((a, b) => scores[b] - scores[a]);
     const bestIdx = order[0], bestScore = scores[bestIdx];
 
-    // 적은 판수의 요행으로 챔피언이 바뀌면 개체군이 표류한다 → 재대결로 확인
-    let replaced = false;
-    if (bestScore > 0.6) {
-      const confirm = matchVs(pop[bestIdx], champion, CFG.games * 2);
-      totalGames += CFG.games * 2;
-      if (confirm > 0.55) { champion = { ...pop[bestIdx] }; replaced = true; }
+    // 챔피언 교체는 SPRT로만. 고정 판수 임계값은 노이즈를 못 걸러낸다.
+    let replaced = false, sprtInfo = '';
+    if (bestScore > 0.5) {
+      const t = sprt(pop[bestIdx], champion, { maxGames: CFG.sprtMax });
+      totalGames += t.played;
+      sprtInfo = `  [SPRT ${t.played}판 ${(t.rate*100).toFixed(0)}% ${t.pass ? '통과' : t.inconclusive ? '미결' : '기각'}]`;
+      if (t.pass) { champion = { ...pop[bestIdx] }; replaced = true; }
     }
 
     const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
     history.push({ gen: gen + 1, best: +bestScore.toFixed(3), avg: +avg.toFixed(3), replaced });
     const mins = ((Date.now() - t0) / 60000).toFixed(1);
     console.log(`[${gen + 1}/${CFG.gens}] 최고 ${bestScore.toFixed(2)} 평균 ${avg.toFixed(2)}` +
-                `${replaced ? '  ★챔피언 교체' : ''}  (${totalGames}판, ${mins}분)`);
+                `${sprtInfo}${replaced ? ' ★교체' : ''}  (${totalGames}판, ${mins}분)`);
 
     const next = order.slice(0, CFG.elite).map(i => ({ ...pop[i] }));
     while (next.length < CFG.pop) next.push(mutate(crossover(tournament(pop, scores), tournament(pop, scores)), CFG.mutRate, CFG.sigma));
