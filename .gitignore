@@ -10,3 +10,6 @@ models/*.pt
 
 # 로컬 개발용 서버 설정
 .claude/
+
+# 진화 중간 상태 (세대마다 갱신됨)
+models/evolve-state.json
