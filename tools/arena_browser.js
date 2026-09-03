@@ -6,6 +6,14 @@
  * 쓰는 법: 게임 페이지(FRONTIER.html)를 열고 콘솔에 붙여넣은 뒤
  *   await arenaRun({games: 40})
  */
+// 숨겨진 탭에서 setTimeout(0)은 1초 이상으로 스로틀된다(실측 4.5초).
+// 24판 아레나가 27분 걸린 진짜 이유였다. MessageChannel은 스로틀되지 않는다.
+const _arenaChan = typeof MessageChannel !== 'undefined' ? new MessageChannel() : null;
+function yieldSoon(){
+  if(!_arenaChan) return Promise.resolve();
+  return new Promise(res => { _arenaChan.port1.onmessage = () => res(); _arenaChan.port2.postMessage(0); });
+}
+
 window.arenaRun = async function arenaRun(opts = {}){
   const games   = opts.games   || 20;
   const maxPly  = opts.maxPly  || 160;
@@ -60,7 +68,7 @@ window.arenaRun = async function arenaRun(opts = {}){
       if(r.suicide){ winner = r.winner; reason = 'suicide'; break; }
       if(r.stalemate || r.repetition){ reason = r.stalemate ? 'stale' : 'rep'; break; }
       // 물약/타이쿤 없음 — 순수 대국
-      if(ply % 8 === 0) await new Promise(rs => setTimeout(rs, 0));   // UI 양보
+      if(ply % 8 === 0) await yieldSoon();   // 이벤트 루프 양보 (스로틀 안 되는 방식)
     }
     res.plies.push(ply); res.done = gi + 1;
     res.reasons[reason] = (res.reasons[reason] || 0) + 1;
