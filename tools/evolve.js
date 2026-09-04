@@ -14,6 +14,8 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { fork } = require('child_process');
 const { createEngineContext } = require('./headless');
 
 const ROOT = path.join(__dirname, '..');
@@ -36,7 +38,9 @@ const CFG = {
   sigma:  arg('sigma', 0.25),
   time:   arg('time', 100),
   maxPly: arg('maxPly', 120),
-  sprtMax: arg('sprtMax', 160),   // SPRT가 결론을 못 내면 여기서 포기(= 교체 안 함)
+  sprtMax: arg('sprtMax', 200),   // SPRT가 결론을 못 내면 여기서 포기(= 교체 안 함)
+  // 대국은 개체마다 독립이라 그냥 나눠 돌리면 된다. 코어를 놀리는 게 아까웠다.
+  workers: arg('workers', Math.max(1, Math.min(10, os.cpus().length - 2))),
   hand:   arg('hand', 'K1Q1R2B2N2P8SH1SN1JP1RM0'),
   resume: !!arg('resume', false),
   verify: arg('verify', 0)
@@ -92,6 +96,43 @@ function tournament(pop, scores, k = 3) {
   return pop[best];
 }
 
+// ---------- 워커 풀 ----------
+// 부모는 대국을 직접 두지 않고 워커에 나눠준다. 12코어를 1개만 쓰던 걸 고친다.
+let POOL = null, nextId = 1;
+function startPool(n) {
+  const procs = [];
+  for (let i = 0; i < n; i++) {
+    const p = fork(path.join(__dirname, 'evolve-worker.js'), [], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
+    p.pending = new Map();
+    p.on('message', m => {
+      const cb = p.pending.get(m.id);
+      if (cb) { p.pending.delete(m.id); cb(m); }
+    });
+    procs.push(p);
+  }
+  return procs;
+}
+function ask(proc, payload) {
+  return new Promise((res, rej) => {
+    const id = nextId++;
+    proc.pending.set(id, m => (m.error ? rej(new Error(m.error)) : res(m)));
+    proc.send({ ...payload, id, hand: CFG.hand, maxPly: CFG.maxPly, time: CFG.time });
+  });
+}
+// 작업 배열을 워커들에 흘려보낸다 (빈 워커가 다음 작업을 집어간다)
+async function runAll(tasks) {
+  const out = new Array(tasks.length);
+  let next = 0;
+  await Promise.all(POOL.map(async proc => {
+    for (;;) {
+      const i = next++;
+      if (i >= tasks.length) return;
+      out[i] = await ask(proc, tasks[i]);
+    }
+  }));
+  return out;
+}
+
 // ---------- 대국 ----------
 // board/turn/hands는 engine.js의 어휘 스코프 let이라 밖에서 못 바꾼다.
 // (그래서 처음엔 모든 대국이 0수 만에 무승부로 끝났다.)
@@ -117,7 +158,7 @@ function playGame(whiteG, blackG) {
  * "H0: 향상 없음" 대 "H1: 이만큼 향상"의 우도비를 누적해, 확실해지는 순간
  * 멈춘다. 확실한 개선은 적은 판으로 통과하고, 애매한 것은 끝내 통과 못 한다.
  */
-function sprt(challenger, champion, opts = {}) {
+async function sprt(challenger, champion, opts = {}) {
   const alpha = opts.alpha ?? 0.05;   // 가짜를 통과시킬 확률
   const beta  = opts.beta  ?? 0.05;   // 진짜를 놓칠 확률
   const p0 = opts.p0 ?? 0.50;         // H0: 그냥 대등하다
@@ -125,19 +166,24 @@ function sprt(challenger, champion, opts = {}) {
   const maxGames = opts.maxGames ?? 200;
   const lower = Math.log(beta / (1 - alpha));
   const upper = Math.log((1 - beta) / alpha);
-
-  let llr = 0, played = 0, score = 0;
   const lw = Math.log(p1 / p0), ll = Math.log((1 - p1) / (1 - p0));
 
+  // 순차 검정이라 원래는 한 판씩 봐야 하지만, 그러면 코어 하나만 쓴다.
+  // 워커 수만큼 묶어 받고 순서대로 소비한다 — 판정은 같고 조기 종료만 조금 늦다.
+  const batch = POOL.length;
+  let llr = 0, played = 0, score = 0;
   while (played < maxGames) {
-    const asWhite = played % 2 === 0;   // 색 교대로 선공 이득 상쇄
-    const r = playGame(asWhite ? challenger : champion, asWhite ? champion : challenger);
-    const s = asWhite ? r : 1 - r;
-    played++; score += s;
-    // 무승부는 0.5승 0.5패로 나눠 넣는다
-    llr += s * lw + (1 - s) * ll;
-    if (llr >= upper) return { pass: true,  played, rate: score / played };
-    if (llr <= lower) return { pass: false, played, rate: score / played };
+    const n = Math.min(batch, maxGames - played);
+    const tasks = [];
+    for (let i = 0; i < n; i++) tasks.push({ type: 'games', a: challenger, b: champion, n: 1, offset: played + i });
+    const res = await runAll(tasks);
+    for (const r of res) {
+      const sc = r.results[0];
+      played++; score += sc;
+      llr += sc * lw + (1 - sc) * ll;
+      if (llr >= upper) return { pass: true,  played, rate: score / played };
+      if (llr <= lower) return { pass: false, played, rate: score / played };
+    }
   }
   return { pass: false, played, rate: score / played, inconclusive: true };
 }
@@ -176,7 +222,7 @@ function verify(games, timeMs) {
 }
 
 // ---------- 본 루프 ----------
-function run() {
+async function run() {
   let pop, champion, gen0 = 0, history = [], totalGames = 0;
   const prev = CFG.resume ? load() : null;
   if (prev) {
@@ -191,14 +237,15 @@ function run() {
   }
 
   E.__setThinkTime(CFG.time);
+  POOL = startPool(CFG.workers);
+  console.log(`워커 ${CFG.workers}개 (논리 코어 ${os.cpus().length})`);
   const t0 = Date.now();
 
   for (let gen = gen0; gen < CFG.gens; gen++) {
-    const scores = pop.map(ind => {
-      const s = matchVs(ind, champion, CFG.games);
-      totalGames += CFG.games;
-      return s;
-    });
+    // 적합도 평가 — 개체마다 독립이라 워커에 흩뿌린다
+    const res = await runAll(pop.map(ind => ({ type: 'match', a: ind, b: champion, games: CFG.games })));
+    const scores = res.map(r => r.score);
+    totalGames += CFG.games * pop.length;
 
     const order = pop.map((_, i) => i).sort((a, b) => scores[b] - scores[a]);
     const bestIdx = order[0], bestScore = scores[bestIdx];
@@ -206,7 +253,7 @@ function run() {
     // 챔피언 교체는 SPRT로만. 고정 판수 임계값은 노이즈를 못 걸러낸다.
     let replaced = false, sprtInfo = '';
     if (bestScore > 0.5) {
-      const t = sprt(pop[bestIdx], champion, { maxGames: CFG.sprtMax });
+      const t = await sprt(pop[bestIdx], champion, { maxGames: CFG.sprtMax });
       totalGames += t.played;
       sprtInfo = `  [SPRT ${t.played}판 ${(t.rate*100).toFixed(0)}% ${t.pass ? '통과' : t.inconclusive ? '미결' : '기각'}]`;
       if (t.pass) { champion = { ...pop[bestIdx] }; replaced = true; }
@@ -231,6 +278,5 @@ function run() {
   console.log(`\n다음: node tools/evolve.js --verify 40   (실전 사고시간에서 재측정)`);
 }
 
-if (CFG.verify) verify(+CFG.verify, 1200);
-else run();
-process.exit(0);
+if (CFG.verify) { verify(+CFG.verify, 1200); process.exit(0); }
+else run().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });
