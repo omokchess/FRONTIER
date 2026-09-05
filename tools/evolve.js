@@ -209,16 +209,26 @@ function load() {
 }
 
 // ---------- 검증 ----------
-function verify(games, timeMs) {
+async function verify(games, timeMs) {
   const st = load();
   if (!st || !st.champion) { console.error('저장된 챔피언이 없다.'); process.exit(1); }
-  E.__setThinkTime(timeMs);
-  const rate = matchVs(st.champion, E.DEFAULT_GENOME, games);
+  // 검증도 워커로 돌린다. 1200ms 대국은 판당 20초라 단일 프로세스로는
+  // 판수를 못 박고, 판수를 못 박으면 신뢰구간이 벌어져 아무것도 못 가린다.
+  // (지난번 40판은 39.6~70.4%로 나와 판단 불가였다.)
+  POOL = startPool(CFG.workers);
+  const saveTime = CFG.time; CFG.time = timeMs;
+  const res = await runAll(
+    Array.from({ length: games }, (_, i) =>
+      ({ type: 'games', a: st.champion, b: E.DEFAULT_GENOME, n: 1, offset: i })));
+  CFG.time = saveTime;
+  const rate = res.reduce((a, r) => a + r.results[0], 0) / games;
   const se = Math.sqrt(rate * (1 - rate) / games);
   const lo = rate - se * 1.96, hi = rate + se * 1.96;
-  console.log(`\n검증 — 사고시간 ${timeMs}ms, ${games}판 (진화는 ${st.cfg.time}ms에서 했다)`);
+  console.log(`
+검증 — 사고시간 ${timeMs}ms, ${games}판 (진화는 ${st.cfg.time}ms에서 했다)`);
   console.log(`  챔피언 득점률 ${(rate * 100).toFixed(1)}% (95% 구간 ${(lo * 100).toFixed(1)}~${(hi * 100).toFixed(1)}%)`);
   console.log(`  판정: ${lo > 0.5 ? '기본값보다 낫다' : hi < 0.5 ? '기본값보다 나쁘다' : '판단 불가 — 판수를 늘려라'}`);
+  POOL.forEach(p => p.kill());
 }
 
 // ---------- 본 루프 ----------
@@ -278,5 +288,5 @@ async function run() {
   console.log(`\n다음: node tools/evolve.js --verify 40   (실전 사고시간에서 재측정)`);
 }
 
-if (CFG.verify) { verify(+CFG.verify, 1200); process.exit(0); }
+if (CFG.verify) verify(+CFG.verify, arg('vtime', 1200)).then(() => process.exit(0));
 else run().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });
